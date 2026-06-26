@@ -1,0 +1,204 @@
+{
+  "skill": "deep-research-ultra",
+  "version": "3.2.0",
+  "description": "超级深度调研工具测试集（v3.2 架构，16 个引擎 + 中英文自动切换）",
+  "last_updated": "2026-06-25",
+  "architecture": {
+    "chinese_engines": ["baidu", "bing", "duckduckgo", "so", "sogou", "wechat", "sm"],
+    "english_engines": ["duckduckgo", "bing", "brave", "ecosia", "startpage", "yahoo", "qwant", "google", "wolfram"],
+    "enhanced_tier": ["tavily", "jina", "searxng"],
+    "project_search": ["github-cli", "npm", "pypi"]
+  },
+  "features": {
+    "cache": "搜索结果缓存（1小时 TTL，~/.cache/deep-research/）",
+    "scoring": "结果质量评分（0-100 分：标题相关性+内容丰富度+来源权威性+时效性）",
+    "iterative": "迭代搜索（结果不足时自动用变体关键词重搜）",
+    "report": "报告生成（--format report，含执行摘要、来源分析、质量分布）",
+    "csv": "CSV 导出（--format csv，Excel 可直接打开）",
+    "proxy": "代理支持（--proxy http://127.0.0.1:7890）",
+    "history": "搜索历史（--history，查看最近 N 天搜索记录）",
+    "feedback": "反馈系统（用户评分改进后续搜索）",
+    "retry": "重试机制（指数退避，3 次重试）",
+    "keyword_diversity": "关键词多样性（自动生成中英文变体）"
+  },
+  "known_limitations": {
+    "duckduckgo": "免费，国内可用，无需配置，使用中国区域 (cn-zh)",
+    "bing": "免费，国内可用，HTML 解析，无需配置",
+    "baidu": "免费，国内可用，HTML 解析，支持 gzip，结果数不稳定（已用 rn*3 缓解）",
+    "tavily": "需要设置 TAVILY_API_KEY，1000次/月免费",
+    "jina": "国内网络无法访问，需要 VPN",
+    "searxng": "需要自建实例，默认 localhost:8080"
+  },
+  "fixes": {
+    "v3.0.0": [
+      "新增搜索结果缓存（1小时 TTL）",
+      "新增结果质量评分（0-100 分）",
+      "新增迭代搜索（--iterative，结果不足自动重搜）",
+      "新增反馈系统（--feedback --rating）",
+      "优化百度 HTML 解析（修复重定向 URL 过滤，增大请求量）",
+      "更新默认数据源为 duckduckgo,bing,baidu"
+    ],
+    "v2.2.0": [
+      "集成 Bing 搜索引擎（免费，国内可用）",
+      "集成百度搜索引擎（免费，国内可用，支持 gzip）",
+      "更新架构图和数据源分层"
+    ],
+    "v2.1.0": [
+      "修复 DuckDuckGo 搜索超时问题，使用中国区域",
+      "禁用新闻搜索（国内访问 Yahoo News 超时）",
+      "优化去重算法，支持 URL 和标题双重去重"
+    ]
+  },
+  "evals": [
+    {
+      "id": "dr-001",
+      "name": "技术选型调研",
+      "input": "深度调研 2025 年最值得学习的 Python Web 框架",
+      "expected_behavior": [
+        "触发澄清问题（调研目标、深度、维度）",
+        "拆解为 3-5 个子问题",
+        "并行启动多个子 Agent",
+        "输出带引用的结构化报告"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "dr-002",
+      "name": "模糊主题澄清",
+      "input": "帮我研究一下 React",
+      "expected_behavior": [
+        "触发澄清问题",
+        "识别多种可能方向（框架本身/生态/性能/替代方案）",
+        "让用户选择具体方向"
+      ],
+      "category": "clarify"
+    },
+    {
+      "id": "dr-003",
+      "name": "明确主题跳过澄清",
+      "input": "深度调研 FastAPI vs Django REST Framework 的性能对比",
+      "expected_behavior": [
+        "跳过澄清或只问深度",
+        "直接拆解为：版本对比、性能基准、社区生态、实际案例",
+        "并行执行"
+      ],
+      "category": "clarify"
+    },
+    {
+      "id": "dr-004",
+      "name": "多源交叉验证",
+      "input": "深度调研 Kubernetes 的生产环境最佳实践",
+      "expected_behavior": [
+        "使用至少 2 种数据源（网页搜索 + 开源项目 + 社交讨论）",
+        "交叉验证关键结论",
+        "标注来源可信度"
+      ],
+      "category": "sources"
+    },
+    {
+      "id": "dr-005",
+      "name": "报告结构完整性",
+      "input": "深度调研 2025 年前端框架趋势",
+      "expected_behavior": [
+        "报告包含：执行摘要、多个子问题分析、结论建议、来源列表",
+        "每个关键结论有行内引用",
+        "来源列表包含 URL 和摘要"
+      ],
+      "category": "output"
+    },
+    {
+      "id": "dr-006",
+      "name": "矛盾点标注",
+      "input": "深度调研 TypeScript 和 JavaScript 哪个更适合大型项目",
+      "expected_behavior": [
+        "发现支持和反对 TypeScript 的观点",
+        "在报告中标注争议点",
+        "给出平衡的分析"
+      ],
+      "category": "analysis"
+    },
+    {
+      "id": "dr-007",
+      "name": "工具链集成",
+      "input": "深度调研 GitHub 上 stars 最多的 AI Agent 框架",
+      "expected_behavior": [
+        "使用 oss-finder 搜索 GitHub 项目",
+        "使用 crawl4ai 阅读项目文档",
+        "综合分析后输出报告"
+      ],
+      "category": "integration"
+    },
+    {
+      "id": "dr-008",
+      "name": "深度模式",
+      "input": "深度调研大语言模型的微调技术，选择深度模式",
+      "expected_behavior": [
+        "搜索 30+ 个来源",
+        "覆盖学术论文、技术博客、开源实现",
+        "报告长度 10000+ 字",
+        "执行时间 10-15 分钟"
+      ],
+      "category": "depth"
+    },
+    {
+      "id": "dr-009",
+      "name": "缓存命中",
+      "input": "连续两次搜索相同关键词",
+      "expected_behavior": [
+        "第二次搜索显示缓存命中",
+        "结果与第一次一致",
+        "响应时间显著缩短"
+      ],
+      "category": "cache",
+      "v3_feature": true
+    },
+    {
+      "id": "dr-010",
+      "name": "质量评分过滤",
+      "input": "搜索 React --min-score 50",
+      "expected_behavior": [
+        "所有返回结果质量分 >= 50",
+        "结果按质量分降序排列",
+        "显示平均质量分"
+      ],
+      "category": "scoring",
+      "v3_feature": true
+    },
+    {
+      "id": "dr-011",
+      "name": "迭代搜索",
+      "input": "搜索一个冷门话题 --iterative",
+      "expected_behavior": [
+        "结果不足时自动启动迭代搜索",
+        "生成关键词变体（中文→英文、添加年份）",
+        "变体搜索结果合并到最终结果"
+      ],
+      "category": "iterative",
+      "v3_feature": true
+    },
+    {
+      "id": "dr-012",
+      "name": "反馈系统",
+      "input": "搜索后提交 --feedback --rating 5",
+      "expected_behavior": [
+        "反馈成功保存",
+        "下次相似查询显示历史反馈",
+        "反馈文件存储在 ~/.cache/deep-research/feedback/"
+      ],
+      "category": "feedback",
+      "v3_feature": true
+    },
+    {
+      "id": "dr-013",
+      "name": "百度搜索增强",
+      "input": "使用百度搜索中文技术话题",
+      "expected_behavior": [
+        "返回 5+ 个结果",
+        "百度百科结果质量分更高",
+        "结果 URL 为百度重定向链接"
+      ],
+      "category": "baidu",
+      "v3_feature": true
+    }
+  ]
+}
