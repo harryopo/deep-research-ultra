@@ -2,9 +2,12 @@
 
 > **16 个搜索引擎 + Claude 智能选引擎 + 质量评分 + 迭代搜索 + 报告生成**
 
+🚀 **[点击查看教程网页](https://harryopo.github.io/deep-research-ultra/)**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-教程网页-green.svg)](https://harryopo.github.io/deep-research-ultra/)
 
 ---
 
