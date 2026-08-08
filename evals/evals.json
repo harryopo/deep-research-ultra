@@ -1,52 +1,70 @@
 {
   "skill": "deep-research-ultra",
-  "version": "3.2.0",
-  "description": "超级深度调研工具测试集（v3.2 架构，16 个引擎 + 中英文自动切换）",
-  "last_updated": "2026-06-25",
+  "version": "4.0.0",
+  "description": "超级深度调研工具测试集（v4.0 架构，Plan-Execute-Synthesize-Reflect 四阶段 + 四层数据源）",
+  "last_updated": "2026-07-30",
   "architecture": {
-    "chinese_engines": ["baidu", "bing", "duckduckgo", "so", "sogou", "wechat", "sm"],
-    "english_engines": ["duckduckgo", "bing", "brave", "ecosia", "startpage", "yahoo", "qwant", "google", "wolfram"],
-    "enhanced_tier": ["tavily", "jina", "searxng"],
-    "project_search": ["github-cli", "npm", "pypi"]
+    "phase_1_plan": "MECE 问题树 + 假设生成 + 数据源匹配",
+    "phase_2_execute": "并行子 Agent + 反思循环 + Drill-down",
+    "phase_3_synthesize": "CER 结构 + 矛盾标注 + Mermaid 时间线",
+    "phase_4_reflect": "质量自评 + 反馈收集 + super-memory 归档",
+    "layer_1_mcp": ["tavily", "firecrawl", "open-websearch", "arxiv", "paper-search", "semantic-scholar"],
+    "layer_2_skill": ["agent-reach", "oss-finder", "last30days", "sciverse", "defuddle", "context7", "agent-browser"],
+    "layer_3_builtin": ["WebSearch", "WebFetch", "Task"],
+    "layer_4_fallback": ["ddgs", "baidu-html", "bing-html", "searxng"]
   },
   "features": {
-    "cache": "搜索结果缓存（1小时 TTL，~/.cache/deep-research/）",
-    "scoring": "结果质量评分（0-100 分：标题相关性+内容丰富度+来源权威性+时效性）",
-    "iterative": "迭代搜索（结果不足时自动用变体关键词重搜）",
-    "report": "报告生成（--format report，含执行摘要、来源分析、质量分布）",
-    "csv": "CSV 导出（--format csv，Excel 可直接打开）",
-    "proxy": "代理支持（--proxy http://127.0.0.1:7890）",
-    "history": "搜索历史（--history，查看最近 N 天搜索记录）",
+    "plan": "MECE 问题树拆解（scripts/plan.py）",
+    "score": "CRAAP 五维评分 + LLM 语义评分（scripts/score.py）",
+    "verify": "交叉验证（≥2 独立来源，scripts/verify.py）",
+    "reflect": "反思循环 + Drill-down（scripts/reflect.py）",
+    "report_html": "HTML 报告 + Mermaid 图表（默认格式）",
+    "report_md": "Markdown 报告（--format markdown）",
+    "cache": "LRU 缓存（带 maxsize，1 小时 TTL）",
+    "mcp_config": "一键配置 MCP（scripts/setup-mcp.sh）",
     "feedback": "反馈系统（用户评分改进后续搜索）",
-    "retry": "重试机制（指数退避，3 次重试）",
-    "keyword_diversity": "关键词多样性（自动生成中英文变体）"
+    "history": "搜索历史（--history）",
+    "proxy": "代理支持（--proxy）",
+    "csv": "CSV 导出（--format csv）",
+    "llm_score": "LLM 语义评分（--llm-score，默认关闭）"
+  },
+  "deprecated": {
+    "v3_engines_removed": ["brave", "ecosia", "startpage", "so", "sm", "yahoo", "qwant", "google", "wolfram"],
+    "jina_reader": "弃用，改用 defuddle skill 或 Firecrawl MCP",
+    "html_regex_parsing": "弃用，改用 MCP 或 defuddle",
+    "promise_16_engines": "改为四层架构"
   },
   "known_limitations": {
-    "duckduckgo": "免费，国内可用，无需配置，使用中国区域 (cn-zh)",
-    "bing": "免费，国内可用，HTML 解析，无需配置",
-    "baidu": "免费，国内可用，HTML 解析，支持 gzip，结果数不稳定（已用 rn*3 缓解）",
-    "tavily": "需要设置 TAVILY_API_KEY，1000次/月免费",
-    "jina": "国内网络无法访问，需要 VPN",
-    "searxng": "需要自建实例，默认 localhost:8080"
+    "mcp_required": "v4.0 强烈推荐配置至少 1 个 MCP（运行 setup-mcp.sh --core）",
+    "tavily": "需要 TAVILY_API_KEY，1000 次/月免费",
+    "firecrawl": "需要 FIRECRAWL_API_KEY，500 credits/月免费",
+    "open-websearch": "完全免费，无需 Key，但需要 Node.js",
+    "arxiv": "完全免费，但需要 uvx（pip install uv）",
+    "paper-search": "完全免费，需要 Node.js",
+    "llm_score_cost": "LLM 语义评分消耗 token，默认关闭",
+    "fallback_html_parsing": "降级引擎（百度/Bing HTML 解析）仍可能因搜索引擎改版失效"
   },
   "fixes": {
-    "v3.0.0": [
-      "新增搜索结果缓存（1小时 TTL）",
-      "新增结果质量评分（0-100 分）",
-      "新增迭代搜索（--iterative，结果不足自动重搜）",
-      "新增反馈系统（--feedback --rating）",
-      "优化百度 HTML 解析（修复重定向 URL 过滤，增大请求量）",
-      "更新默认数据源为 duckduckgo,bing,baidu"
+    "v4.0.0": [
+      "重构为 Plan-Execute-Synthesize-Reflect 四阶段范式",
+      "引入四层数据源架构（MCP → Skill → 内置 → 降级）",
+      "新增 MECE 问题树拆解（scripts/plan.py）",
+      "新增 CRAAP 五维评分 + LLM 语义评分（scripts/score.py）",
+      "新增交叉验证（≥2 独立来源，scripts/verify.py）",
+      "新增反思循环 + Drill-down（scripts/reflect.py）",
+      "新增 HTML 报告格式（含 Mermaid 时间线，默认格式）",
+      "新增 MCP 一键配置脚本（scripts/setup-mcp.sh）",
+      "新增 LRU 缓存（带 maxsize，scripts/cache.py）",
+      "新增 SearchEngine 抽象基类（scripts/engines/base.py）",
+      "新增 MCP 引擎封装（scripts/engines/mcp_engines.py）",
+      "新增 Skill 引擎封装（scripts/engines/skill_engines.py）",
+      "弃用 Brave/Ecosia/Startpage/360/神马/Yahoo/Qwant/Google/Wolfram",
+      "弃用 Jina Reader，改用 defuddle / Firecrawl",
+      "弃用 HTML regex 解析，改用 MCP",
+      "修正 v3 文档与代码不一致问题（宣称 16 引擎实际 13 个）"
     ],
-    "v2.2.0": [
-      "集成 Bing 搜索引擎（免费，国内可用）",
-      "集成百度搜索引擎（免费，国内可用，支持 gzip）",
-      "更新架构图和数据源分层"
-    ],
-    "v2.1.0": [
-      "修复 DuckDuckGo 搜索超时问题，使用中国区域",
-      "禁用新闻搜索（国内访问 Yahoo News 超时）",
-      "优化去重算法，支持 URL 和标题双重去重"
+    "v3.2.0": [
+      "16 个搜索引擎 + 中英文自动切换（已被 v4.0 四层架构取代）"
     ]
   },
   "evals": [
@@ -55,12 +73,17 @@
       "name": "技术选型调研",
       "input": "深度调研 2025 年最值得学习的 Python Web 框架",
       "expected_behavior": [
-        "触发澄清问题（调研目标、深度、维度）",
-        "拆解为 3-5 个子问题",
-        "并行启动多个子 Agent",
-        "输出带引用的结构化报告"
+        "触发澄清问题（调研目标、深度、维度、时间范围）",
+        "MECE 拆解为 4-6 个子问题（如：性能/生态/学习曲线/生产案例/社区活跃度）",
+        "每个子问题附可验证假设",
+        "为每个子问题匹配数据源（MCP/skill）",
+        "并行启动子 Agent（搜索/学术/社区/开源）",
+        "每轮搜索后反思是否需要 Drill-down",
+        "输出 HTML 报告含执行摘要/CER 结构/CRAAP 评分表/时间线/来源列表",
+        "关键结论有 ≥2 独立来源支持（交叉验证）"
       ],
-      "category": "core"
+      "category": "core",
+      "v4_feature": true
     },
     {
       "id": "dr-002",
@@ -68,8 +91,9 @@
       "input": "帮我研究一下 React",
       "expected_behavior": [
         "触发澄清问题",
-        "识别多种可能方向（框架本身/生态/性能/替代方案）",
-        "让用户选择具体方向"
+        "识别多种可能方向（框架本身/生态/性能/替代方案/学习路径）",
+        "让用户选择具体方向和深度",
+        "MECE 拆解覆盖所选方向"
       ],
       "category": "clarify"
     },
@@ -79,7 +103,8 @@
       "input": "深度调研 FastAPI vs Django REST Framework 的性能对比",
       "expected_behavior": [
         "跳过澄清或只问深度",
-        "直接拆解为：版本对比、性能基准、社区生态、实际案例",
+        "直接 MECE 拆解为：性能基准/异步支持/生态成熟度/生产案例",
+        "应用 PICO 框架（Population=Web框架, Intervention=FastAPI, Comparison=DRF, Outcome=性能）",
         "并行执行"
       ],
       "category": "clarify"
@@ -89,22 +114,27 @@
       "name": "多源交叉验证",
       "input": "深度调研 Kubernetes 的生产环境最佳实践",
       "expected_behavior": [
-        "使用至少 2 种数据源（网页搜索 + 开源项目 + 社交讨论）",
-        "交叉验证关键结论",
-        "标注来源可信度"
+        "使用至少 3 种数据源（MCP 网页搜索 + 学术 + 社区 + 开源）",
+        "交叉验证关键结论（≥2 独立来源）",
+        "标注来源 CRAAP 可信度评分",
+        "矛盾点显式标注"
       ],
-      "category": "sources"
+      "category": "sources",
+      "v4_feature": true
     },
     {
       "id": "dr-005",
-      "name": "报告结构完整性",
+      "name": "报告结构完整性（v4 HTML 格式）",
       "input": "深度调研 2025 年前端框架趋势",
       "expected_behavior": [
-        "报告包含：执行摘要、多个子问题分析、结论建议、来源列表",
-        "每个关键结论有行内引用",
-        "来源列表包含 URL 和摘要"
+        "默认输出 HTML 格式（含 Mermaid 图表）",
+        "报告包含：执行摘要、MECE 问题树、CER 结构分析、矛盾点、时间线、结论、附录",
+        "每个关键结论有行内引用（带 CRAAP 评分）",
+        "来源列表包含 URL、标题、CRAAP 评分、可信度等级",
+        "附录含调研质量自评（覆盖率/交叉验证率/矛盾处理率）"
       ],
-      "category": "output"
+      "category": "output",
+      "v4_feature": true
     },
     {
       "id": "dr-006",
@@ -112,93 +142,359 @@
       "input": "深度调研 TypeScript 和 JavaScript 哪个更适合大型项目",
       "expected_behavior": [
         "发现支持和反对 TypeScript 的观点",
-        "在报告中标注争议点",
-        "给出平衡的分析"
+        "在报告中标注争议点（Disagreements 章节）",
+        "分析差异原因（如：项目规模/团队经验/类型系统偏好）",
+        "给出平衡的分析（不偏袒任何一方）"
       ],
       "category": "analysis"
     },
     {
       "id": "dr-007",
-      "name": "工具链集成",
+      "name": "MCP 工具集成",
       "input": "深度调研 GitHub 上 stars 最多的 AI Agent 框架",
       "expected_behavior": [
-        "使用 oss-finder 搜索 GitHub 项目",
-        "使用 crawl4ai 阅读项目文档",
+        "使用 oss-finder skill 搜索 GitHub 项目",
+        "使用 Tavily MCP 或 open-websearch MCP 搜索评测文章",
+        "使用 agent-reach 搜索 Reddit/HN 讨论",
+        "使用 defuddle 或 Firecrawl MCP 阅读项目文档",
         "综合分析后输出报告"
       ],
-      "category": "integration"
+      "category": "integration",
+      "v4_feature": true
     },
     {
       "id": "dr-008",
-      "name": "深度模式",
+      "name": "深度模式（多轮反思）",
       "input": "深度调研大语言模型的微调技术，选择深度模式",
       "expected_behavior": [
+        "MECE 拆解为 7-10 个子问题",
+        "使用 5-8 个数据源（含 arxiv/paper-search 学术源）",
+        "执行 2-3 轮反思循环（Drill-down）",
         "搜索 30+ 个来源",
         "覆盖学术论文、技术博客、开源实现",
-        "报告长度 10000+ 字",
-        "执行时间 10-15 分钟"
+        "报告长度 6000-15000 字",
+        "执行时间 10-20 分钟"
       ],
-      "category": "depth"
+      "category": "depth",
+      "v4_feature": true
     },
     {
       "id": "dr-009",
-      "name": "缓存命中",
+      "name": "缓存命中（LRU）",
       "input": "连续两次搜索相同关键词",
       "expected_behavior": [
         "第二次搜索显示缓存命中",
         "结果与第一次一致",
-        "响应时间显著缩短"
+        "响应时间显著缩短",
+        "缓存目录不超过 maxsize（默认 100MB）"
       ],
       "category": "cache",
-      "v3_feature": true
+      "v4_feature": true
     },
     {
       "id": "dr-010",
-      "name": "质量评分过滤",
-      "input": "搜索 React --min-score 50",
+      "name": "CRAAP 质量评分",
+      "input": "搜索 React --min-score 70",
       "expected_behavior": [
-        "所有返回结果质量分 >= 50",
-        "结果按质量分降序排列",
-        "显示平均质量分"
+        "所有返回结果 CRAAP 总分 >= 70",
+        "结果显示五维评分（Currency/Relevance/Authority/Accuracy/Purpose）",
+        "结果按 CRAAP 总分降序排列",
+        "显示平均 CRAAP 分和可信度等级"
       ],
       "category": "scoring",
-      "v3_feature": true
+      "v4_feature": true
     },
     {
       "id": "dr-011",
-      "name": "迭代搜索",
-      "input": "搜索一个冷门话题 --iterative",
+      "name": "LLM 语义评分",
+      "input": "搜索 'AI agent framework' --llm-score",
       "expected_behavior": [
-        "结果不足时自动启动迭代搜索",
-        "生成关键词变体（中文→英文、添加年份）",
-        "变体搜索结果合并到最终结果"
+        "启用 LLM 语义评分（Relevance 维度）",
+        "识别'标题党'或低质量内容并降分",
+        "评分更准确（相比纯关键词匹配）",
+        "显示 LLM 综合可信度（high/medium/low）"
       ],
-      "category": "iterative",
-      "v3_feature": true
+      "category": "scoring",
+      "v4_feature": true
     },
     {
       "id": "dr-012",
-      "name": "反馈系统",
-      "input": "搜索后提交 --feedback --rating 5",
+      "name": "MECE 问题树生成",
+      "input": "深度调研 RAG 系统的最佳实践",
       "expected_behavior": [
-        "反馈成功保存",
-        "下次相似查询显示历史反馈",
-        "反馈文件存储在 ~/.cache/deep-research/feedback/"
+        "生成 MECE 问题树（互斥穷尽）",
+        "每个子问题附可验证假设",
+        "为每个子问题匹配数据源",
+        "输出 research_plan.json",
+        "问题树深度 ≥ 2 层"
       ],
-      "category": "feedback",
-      "v3_feature": true
+      "category": "plan",
+      "v4_feature": true
     },
     {
       "id": "dr-013",
-      "name": "百度搜索增强",
-      "input": "使用百度搜索中文技术话题",
+      "name": "反思循环（Drill-down）",
+      "input": "深度调研边缘计算的安全挑战",
       "expected_behavior": [
-        "返回 5+ 个结果",
-        "百度百科结果质量分更高",
-        "结果 URL 为百度重定向链接"
+        "首轮搜索后评估覆盖率",
+        "如覆盖率不足，生成新子问题（Drill-down）",
+        "最多 3 轮反思（避免无限循环）",
+        "每轮反思记录覆盖空白（coverage_gaps）"
       ],
-      "category": "baidu",
-      "v3_feature": true
+      "category": "reflect",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-014",
+      "name": "交叉验证",
+      "input": "深度调研 2025 年最流行的数据库",
+      "expected_behavior": [
+        "同一结论需 ≥2 独立来源支持",
+        "单源结论标注为'待确认'",
+        "矛盾点显式标注",
+        "输出 verified_claims / single_source_claims / contradictions 三类"
+      ],
+      "category": "verify",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-015",
+      "name": "MCP 配置脚本",
+      "input": "运行 bash scripts/setup-mcp.sh --core",
+      "expected_behavior": [
+        "检查前置依赖（claude/npx/uvx）",
+        "配置 open-websearch MCP（免费）",
+        "配置 arxiv MCP（免费）",
+        "配置 paper-search MCP（免费）",
+        "输出配置验证结果"
+      ],
+      "category": "mcp",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-016",
+      "name": "降级策略",
+      "input": "在未配置任何 MCP 的情况下搜索关键词",
+      "expected_behavior": [
+        "自动降级到 Layer 3（Claude 内置 WebSearch）",
+        "或降级到 Layer 4（ddgs Python 库）",
+        "明确告知用户当前使用降级模式",
+        "推荐用户运行 setup-mcp.sh --core"
+      ],
+      "category": "fallback",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-017",
+      "name": "学术数据源",
+      "input": "深度调研 Transformer 架构的最新进展",
+      "expected_behavior": [
+        "使用 arxiv MCP 搜索 arXiv 论文",
+        "使用 paper-search MCP 搜索多学术平台",
+        "使用 sciverse skill 深度检索",
+        "报告含论文引用（含标题/作者/年份/arxiv ID）"
+      ],
+      "category": "academic",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-018",
+      "name": "社区数据源",
+      "input": "深度调研开发者对 Rust 的看法",
+      "expected_behavior": [
+        "使用 agent-reach skill 搜索 Reddit",
+        "使用 agent-reach skill 搜索 HackerNews",
+        "使用 agent-reach skill 搜索 X/Twitter",
+        "使用 agent-reach skill 搜索知乎",
+        "分析社区口碑和真实使用案例"
+      ],
+      "category": "community",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-019",
+      "name": "时间线生成",
+      "input": "深度调研 LLM 发展历程",
+      "expected_behavior": [
+        "报告中生成 Mermaid timeline 图表",
+        "时间线覆盖关键里程碑（如 GPT/BERT/LLaMA 等）",
+        "时间线按年份排序"
+      ],
+      "category": "output",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-020",
+      "name": "调研质量自评",
+      "input": "完成一次深度调研后",
+      "expected_behavior": [
+        "输出覆盖率（已覆盖子问题/总子问题）",
+        "输出交叉验证率（≥2 来源结论/总结论）",
+        "输出矛盾处理率（已处理矛盾/发现矛盾）",
+        "输出平均 CRAAP 分",
+        "提供待深挖方向建议"
+      ],
+      "category": "reflect",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-021",
+      "name": "v3 兼容性",
+      "input": "使用 v3 语法搜索：python search.py '关键词' --sources baidu,bing,duckduckgo --format markdown",
+      "expected_behavior": [
+        "v3 的 --sources 参数仍可用（降级到 Layer 4）",
+        "v3 的 --format markdown 仍可用",
+        "v3 的缓存目录 ~/.cache/deep-research/ 仍兼容",
+        "显示降级提示（建议配置 MCP）"
+      ],
+      "category": "compatibility",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-022",
+      "name": "防递归保护",
+      "input": "子 Agent 执行搜索任务",
+      "expected_behavior": [
+        "子 Agent prompt 不包含'深度调研'/'帮我研究'/'全面分析'等触发词",
+        "子 Agent 不重新调用 deep-research-ultra",
+        "子 Agent 只执行具体搜索命令",
+        "返回结构化 JSON 结果"
+      ],
+      "category": "safety"
+    },
+    {
+      "id": "dr-023",
+      "name": "MECE 验证（互斥穷尽）",
+      "input": "PlanGenerator 生成问题树后调用 validate_mece()",
+      "expected_behavior": [
+        "返回 is_mece/overlap_score/coverage_score 三个核心字段",
+        "子问题关键词重叠时 overlap_score < 1.0 并给出 issues 提示",
+        "子问题覆盖不全时 coverage_score < 1.0 并给出 suggestions",
+        "无假设的子问题被标记为 issues"
+      ],
+      "category": "plan",
+      "v4_feature": true,
+      "test_file": "scripts/tests/test_core.py::TestIssueTree::test_validate_mece"
+    },
+    {
+      "id": "dr-024",
+      "name": "缓存淘汰策略（TTL+LRU+maxsize）",
+      "input": "写入超过 maxsize 限制的缓存条目",
+      "expected_behavior": [
+        "TTL 过期条目被自动清理（evicted_ttl 计数 +1）",
+        "超过 max_entries 时最久未访问条目被 LRU 淘汰（evicted_lru 计数 +1）",
+        "超过 max_size_bytes 时按 LRU 顺序淘汰（evicted_size 计数 +1）",
+        "stats() 返回 hits/misses/evicted_ttl/evicted_lru/evicted_size 五个指标"
+      ],
+      "category": "cache",
+      "v4_feature": true,
+      "test_file": "scripts/tests/test_core.py::TestLRUCache"
+    },
+    {
+      "id": "dr-025",
+      "name": "EngineRegistry 降级链",
+      "input": "注册 Layer 1/2/3/4 四层引擎后调用 get_fallback_chain()",
+      "expected_behavior": [
+        "降级链按 (layer, priority) 升序排列",
+        "Layer 1（MCP）排在最前，Layer 4（降级）排在最后",
+        "同一 layer 内按 priority 数字小→大排序",
+        "不可用引擎（is_available()=False）被排除"
+      ],
+      "category": "engines",
+      "v4_feature": true,
+      "test_file": "scripts/tests/test_core.py::TestEngineRegistry::test_fallback_chain"
+    },
+    {
+      "id": "dr-026",
+      "name": "MCP 客户端可用性检测",
+      "input": "McpClient('tavily').is_available() 在未配置 TAVILY_API_KEY 时",
+      "expected_behavior": [
+        "未配置环境变量时返回 False",
+        "配置了环境变量但 npx 命令不存在时返回 False",
+        "配置完整时返回 True",
+        "不实际启动 MCP 子进程（只做静态检查）"
+      ],
+      "category": "mcp",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-027",
+      "name": "进度跟踪与 ETA 估算",
+      "input": "ProgressTracker 跟踪多轮调研",
+      "expected_behavior": [
+        "get_eta() 返回 elapsed_seconds/remaining_seconds/progress_percent",
+        "进度百分比 = 已完成子问题 / 总子问题",
+        "elapsed_formatted 格式为 'MM:SS' 或 'HH:MM:SS'",
+        "QualityAssessor.assess() 返回六维评分（coverage/verification/contradiction_resolution/source_diversity/result_quality/depth_sufficiency）"
+      ],
+      "category": "progress",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-028",
+      "name": "中英文查询检测（修复 v3 split() 失效）",
+      "input": "CraapScorer 对中文查询 'FastAPI性能' 评分",
+      "expected_behavior": [
+        "中文查询不依赖空格分词（v3 bug 已修复）",
+        "使用字符级 n-gram 提取关键词",
+        "relevance 评分 > 0（v3 因 split() 返回空列表导致评分为 0）",
+        "支持中英混合查询（如 'FastAPI 性能测试'）"
+      ],
+      "category": "scoring",
+      "v4_feature": true,
+      "test_file": "scripts/tests/test_core.py::TestCraapScorer::test_score_chinese_query"
+    },
+    {
+      "id": "dr-029",
+      "name": "矛盾检测（相反立场）",
+      "input": "两个来源对同一主题给出相反结论（如'FastAPI 好' vs 'FastAPI 坏'）",
+      "expected_behavior": [
+        "CrossVerifier._detect_contradictions 识别 opposite_pairs",
+        "矛盾对加入 contradictions 列表",
+        "矛盾原因标注（如'可能因好与坏的立场差异'）",
+        "报告中显式标注矛盾章节"
+      ],
+      "category": "verify",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-030",
+      "name": "Mermaid 图表生成",
+      "input": "ReportGenerator 生成 HTML 报告",
+      "expected_behavior": [
+        "MermaidGenerator.issue_tree 生成 graph TD 流程图",
+        "MermaidGenerator.timeline 生成 timeline 时间线",
+        "MermaidGenerator.source_distribution 生成 pie 饼图",
+        "图表代码嵌入 HTML 的 <pre class='mermaid'> 标签"
+      ],
+      "category": "output",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-031",
+      "name": "Skill 引擎调用模板",
+      "input": "AgentReachEngine.get_invocation_template(platform='reddit', query='AI')",
+      "expected_behavior": [
+        "返回 skill_name/trigger_keywords/instruction/expected_output/post_process 五字段",
+        "instruction 包含平台和查询关键词",
+        "trigger_keywords 包含 'research'/'搜索' 等触发词",
+        "post_process 指示将结果转为 SearchResult"
+      ],
+      "category": "engines",
+      "v4_feature": true
+    },
+    {
+      "id": "dr-032",
+      "name": "v3→v4 兼容性：--sources 参数",
+      "input": "python search.py 'AI' --sources baidu,bing,duckduckgo（v3 语法）",
+      "expected_behavior": [
+        "v3 引擎名（baidu/bing/duckduckgo）自动映射到 Layer 4 降级引擎",
+        "显示降级提示：'当前使用降级模式，建议运行 setup-mcp.sh --core'",
+        "结果仍可正常返回（HTML 解析）",
+        "缓存键与 v4 一致（向后兼容）"
+      ],
+      "category": "compatibility",
+      "v4_feature": true
     }
   ]
 }

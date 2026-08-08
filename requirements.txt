@@ -1,8 +1,36 @@
-# Core dependencies
-ddgs>=6.0.0
-requests>=2.28.0
-beautifulsoup4>=4.12.0
+# Deep Research Ultra v5.0 — Python 依赖
+# 核心模块仅使用 Python 标准库（urllib/json/subprocess），无需第三方依赖即可运行
 
-# Optional: Enhanced search
-# tavily-python>=0.3.0  # Tavily AI search (requires API key)
-# jinaai>=0.2.0        # Jina Reader (requires VPN)
+# Layer 4 降级引擎依赖（必需，用于 DuckDuckGo 搜索）
+ddgs>=6.0.0
+
+# ============================================================
+# v5.0 新增依赖（推荐安装）
+# ============================================================
+
+# curl_cffi — TLS 指纹伪装（反爬虫升级，替代 urllib）
+# 一行代码绕过 TLS/JA3 检测：requests.get(url, impersonate="chrome124")
+# 未安装时自动降级到 urllib，不影响基本功能
+curl_cffi>=0.7.0
+
+# ============================================================
+# 以下为可选依赖（按需安装）
+# ============================================================
+
+# MCP 服务器（通过 npx/uvx 启动，无需 Python 安装）
+# 如需独立调用 MCP（不通过 Claude），可安装 mcp 库：
+# mcp>=1.0.0
+
+# 中文分词（可选，提升中文查询的相关性评分）
+# jieba>=0.42.1
+
+# 语义路由（可选，v5.0 智能路由的 L2 语义层）
+# 未安装时路由降级为规则+LLM 两级
+# sentence-transformers>=2.7.0
+
+# SearXNG 自建实例（可选，通过 Docker 部署，无需 Python 安装）
+# 参考: https://github.com/searxng/searxng
+
+# Crawl4AI（可选，强反爬场景的 JS 渲染爬虫）
+# 通过 Docker 部署：docker pull unclecode/crawl4ai:latest
+# 参考: https://github.com/unclecode/crawl4ai
