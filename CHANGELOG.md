@@ -5,6 +5,59 @@
 
 ---
 
+## v6.9.0（2026-09-19）— MCP 纳入环境闸门：真连一次，不再看配置文件放行（D15）
+
+### 触发事实
+v6.8 闸门只管直连引擎，5 个 MCP 源（tavily/firecrawl/open-websearch/arxiv/paper-search）
+压根没进探针——用户 5 个 MCP 一个没连，`--list` 全绿、闸门照放。要求"环境不足先配好"要覆盖
+MCP，就只有两条路：静态查配置（便宜但假绿）或**真去连一下**。选了后者（质量优先）。
+
+### 为什么以前连不上：两处硬伤（实测）
+1. **一次 RPC 一个新进程**：`initialize` 握手在第 1 个进程，`tools/call` 打到第 3 个从未握手的
+   进程，按规范实现的 server 直接回 `-32002 Server not initialized` → **环境全配好也探不出结果**。
+2. **超时不可中断**：`timeout` 只在 `readline()` 前判一次，读本身卡住就再也判不到（给 2 秒实测
+   14.9 秒不返回）；`stderr=PIPE` 从不读取，server 日志一多就写阻塞；`kill()` 只杀 npx，
+   node 孙进程泄漏成孤儿。
+
+### 新增 `McpSession`（scripts/engines/mcp_client.py）
+一个会话＝一个进程：spawn → `initialize` → `notifications/initialized`（通知不等响应）→
+`tools/call` 全走同一条 stdio。读答案放线程 + `queue.Queue`，预算是**整场会话的墙钟上限**
+（握手吃掉的时间算在内，不再逐次叠加）；stderr 由线程持续抽干并留作 `last_error`；
+超时用 `taskkill /F /T`（Windows）/ `killpg`（POSIX）收掉整棵进程树。
+`McpClient.spawn_count` 让测试能钉住"一次调用只起一个进程"。
+
+### 闸门侧
+- `PROBE_QUERIES` 登记这 5 个 MCP 源；`MCP_PROBE_BUDGET = 25`，且 `mcp_timeout` **只**传给
+  `engine_kind()=='mcp'` 的引擎，直连引擎不受影响。
+- 明确不登记 skill 封装类（last30days/oss-finder/agent-reach/sciverse/context7/defuddle）与
+  内置类（websearch/webfetch）：它们的 `search()` 在脚本层恒返回 `None`（数据只有 Lead 真调
+  skill/内置工具才拿得到），探它们＝往闸门里灌假失败。
+- 超时的指引单列一支：首次 `npx`/`uvx` 要下包，让你先 `setup-mcp.sh --core` 预热再重跑，
+  而不是含糊的"服务未就绪"。
+
+### 顺手抓出的两处假绿
+- **MCP 失败被吞成"0 结果"**：`call_tool` 超时返回 `None`，`search()` 却把它变成 `[]`，
+  探针于是报 `⚠️ 可调通但 0 结果`——用户看到的是"这源活着只是查不到"，永远不会去预热。
+  现在 5 个引擎一律 `return None`，note 带上 `client.last_error` 的真实原因。
+  **一处测试自我更正**：原先测"超时→预热指引"用的替身自己 `raise`，而真引擎其实 `return None`，
+  那条指引分支在实跑里根本走不到；新测试改走真实路径。
+- **`--mcp-check` 名不副实**：它按 `get_by_layer(1)` 列引擎，把 openalex/pubmed 这些直连引擎
+  也冠在"MCP 健康检查"下，且只看配置文件在不在。现在只列真 MCP 引擎，并真握手一次，
+  打印工具数；连不上就 `❌ 连不上 + 原因`。
+
+### 验证
+258 个测试全绿（新增 10 个：`test_mcp_client.py` 9 个 + 端到端 `test_gate_sees_a_configured_mcp_source`，
+用按规范实现的 stdio stub server 验"配好的 MCP 必须被闸门看见"，另 6 个覆盖上述两处假绿）。
+实跑：`--probe` 20 个引擎 62 秒，MCP 行首次出现在自检表里并按通道给指引；
+`--mcp-check` 明确报 `0/5 真连得通` + 逐条原因（本机确实一个都没配）。
+
+### 已知边界（未做，记录）
+探针预算固定 25 秒：首次下包超过这个数会判超时，靠预热指引解决，没加 `--probe-timeout`
+（没有实测需求前先不加旋钮）。闸门判定会受端点当日状态影响（openalex 偶发限流、arXiv 406），
+"429/406 重试一次"仍只是候选项。
+
+---
+
 ## v6.8.0（2026-09-19）— Phase 0 环境闸门：不足即硬停并引导配置（D14）
 
 ### 触发这次改动的事实

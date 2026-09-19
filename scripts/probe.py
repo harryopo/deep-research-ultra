@@ -19,12 +19,24 @@ STATUS_SKIPPED = 'skipped'    # 非搜索类引擎（lookup/详情）
 
 # 探针查询：按引擎定制（学术/医学引擎用通用词会假阴性），同时充当"可探针注册表"
 # —— 不在此表里的引擎（MCP/全局 skill 封装）由各自的 is_available() 负责。
+#
+# 登记范围＝"脚本层真能拿到结果"的引擎。MCP 类（下表末尾 5 个）自 v6.9 起也纳入：
+# 它们不探就等于闸门看不见，实测有用户 5 个 MCP 一个没连还照样开跑。
+# 但 skill 封装类（last30days/oss-finder/agent-reach/sciverse/context7/defuddle）
+# 与内置类（websearch/webfetch）**不能登记**：它们的 search() 在脚本层恒返回 None
+# （数据只有 Lead 调 Skill/内置工具才拿得到），探它们＝往闸门里灌假失败。
 PROBE_QUERIES: Dict[str, str] = {
     # Layer 1 学术直连
     'openalex': 'retrieval augmented generation',
     'semantic-scholar': 'retrieval augmented generation',
     'pubmed': 'diabetes',
     'arxiv-fulltext': 'cat:cs.CL',   # 宽查询（如 transformer）实测被 arXiv 判 406，探针用分类查询
+    # Layer 1 MCP（要连 server；单次预算见 MCP_PROBE_BUDGET）
+    'tavily': 'retrieval augmented generation production',
+    'firecrawl': 'python web scraping framework',
+    'open-websearch': 'python packaging',
+    'arxiv': 'retrieval augmented generation survey',
+    'paper-search': 'graph neural network',
     # Layer 2 平台 / GitHub / 国内源
     'gitee': 'vector database',
     'github-deep-search': 'rag',
@@ -40,6 +52,9 @@ PROBE_QUERIES: Dict[str, str] = {
     'searxng': 'python',
 }
 
+# MCP 引擎走 npx/uvx 冷启动，不给预算就能把整轮自检拖死（实测旧实现单次调用 60s 起）
+MCP_PROBE_BUDGET = 25
+
 DEFAULT_PROBE_QUERY = 'python'
 
 
@@ -50,7 +65,7 @@ def resolve_probe_query(engine) -> str:
 
 
 def probeable_engines(engines: List[Any]) -> List[Any]:
-    """默认探针范围：登记过的直连引擎（避免把 npx/MCP 拉起来拖慢自检）。"""
+    """默认探针范围＝PROBE_QUERIES 登记过的引擎（脚本层真能出数据的那批）。"""
     return [e for e in engines if e.get_name() in PROBE_QUERIES]
 
 
@@ -84,8 +99,12 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
                 **_meta_fields(engine)}
 
     q = query or resolve_probe_query(engine)
+    kwargs: Dict[str, Any] = {}
+    if engine_kind(engine) == 'mcp':
+        # MCP 走 npx/uvx 冷启动，不给预算就能把整轮自检拖死
+        kwargs['mcp_timeout'] = MCP_PROBE_BUDGET
     try:
-        results = engine.search(q, max_results=max_results)
+        results = engine.search(q, max_results=max_results, **kwargs)
     except Exception as exc:          # 引擎异常不得当成"可用"
         return {'engine': name, 'status': STATUS_FAILED, 'count': 0,
                 'note': f'探针异常: {exc}', 'query': q, **_meta_fields(engine)}
@@ -97,9 +116,16 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
     elif status == STATUS_EMPTY:
         note = '可调通但 0 结果（查询词无命中，或端点契约变更/需授权）'
     else:
-        note = f'引擎返回 None（{_last_http_error()}）'
+        note = f'引擎返回 None（{_failure_reason(engine)}）'
     return {'engine': name, 'status': status, 'count': len(results or []),
             'note': note, 'query': q, **_meta_fields(engine)}
+
+
+def _failure_reason(engine) -> str:
+    """失败要报得出"为什么"：MCP 的原因在 client 手里（握手/超时/起不来），
+    直连 HTTP 的原因在 fallback 里——拿错边就会把超时说成服务未就绪。"""
+    return (str(getattr(getattr(engine, '_client', None), 'last_error', '') or '')
+            or _last_http_error())
 
 
 def _last_http_error() -> str:
@@ -173,6 +199,10 @@ def _advice_for(rep: Dict[str, Any]) -> List[str]:
     # note 里的具体原因上面那张表已经逐行打过，这里只说"该怎么办"，才能按动作合并同源
     if rep.get('status') == STATUS_EMPTY:
         lines.append('可调通但 0 结果：查询词无命中或端点契约变更/需授权 —— 不得当可用源用')
+    elif '超时' in note:
+        lines.append(f'MCP server 在 {MCP_PROBE_BUDGET}s 预算内没答完：npx/uvx 首次要下载包，'
+                     '先手动预热（`bash scripts/setup-mcp.sh --core` 后直接跑一次该 MCP 的工具），'
+                     '或干脆改用已连上的 MCP 工具 / 直连引擎')
     elif any(k in note for k in MCP_NOTE_KEYS) or rep.get('kind') == 'mcp':
         lines.append('需在当前会话连上对应 MCP server（`research.py --mcp-check` 看连接态，'
                      '缺的用 `scripts/setup-mcp.sh --core` 配），没连上就等于没有这个源')

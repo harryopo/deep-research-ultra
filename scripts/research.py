@@ -122,13 +122,16 @@ def build_registry():
 # ============================================================
 
 def cmd_mcp_check(registry):
-    """MCP 健康检查"""
+    """MCP 健康检查：静态配置之外，真起进程握一次手，数得出工具才算连上。"""
+    from probe import MCP_PROBE_BUDGET, engine_kind
+
     print("=" * 60)
     print(f"Deep Research Ultra v{skill_version()} — MCP 健康检查")
     print("=" * 60)
     print()
 
-    mcp_engines = registry.get_by_layer(1, only_available=False)
+    mcp_engines = [e for e in registry.get_by_layer(1, only_available=False)
+                   if engine_kind(e) == 'mcp']
     if not mcp_engines:
         print("⚠️ 未注册任何 MCP 引擎")
         return
@@ -136,30 +139,29 @@ def cmd_mcp_check(registry):
     available_count = 0
     for engine in mcp_engines:
         m = engine.metadata
-        status = "✅ 可用" if engine.is_available() else "❌ 不可用"
-        reason = ""
         if not engine.is_available():
-            if m.requires_config:
-                missing = [k for k in m.config_keys if not os.environ.get(k)]
-                if missing:
-                    reason = f"（缺少环境变量: {', '.join(missing)}）"
-                else:
-                    reason = "（命令不可执行）"
-            else:
-                reason = "（未配置）"
-        print(f"  {status}  {m.name:<20} {m.description}")
-        if reason:
-            print(f"           {reason}")
-        if engine.is_available():
+            missing = [k for k in m.config_keys if not os.environ.get(k)]
+            reason = f"缺少环境变量: {', '.join(missing)}" if missing \
+                else "配置文件里没有这个 server，或 command 不可执行"
+            print(f"  ❌ 未配置    {m.name:<20} {reason}")
+            continue
+        client = getattr(engine, '_client', None)
+        tools = client.list_tools(timeout=MCP_PROBE_BUDGET) if client else []
+        if tools:
             available_count += 1
+            print(f"  ✅ 已连接    {m.name:<20} {len(tools)} 个工具")
+        else:
+            reason = str(getattr(client, 'last_error', '') or '握手无响应')
+            print(f"  ❌ 连不上    {m.name:<20} {reason}")
 
     print()
-    print(f"总计: {available_count}/{len(mcp_engines)} 个 MCP 可用")
+    print(f"总计: {available_count}/{len(mcp_engines)} 个 MCP 真连得通")
 
     if available_count == 0:
         print()
         print("💡 建议运行一键配置脚本（免费 MCP）：")
         print("   bash scripts/setup-mcp.sh --core")
+        print("   首次跑要下载包，配好后先 --mcp-check 预热再 --probe")
     elif available_count < len(mcp_engines):
         print()
         print("💡 如需解锁全部 MCP，运行：")
@@ -343,7 +345,8 @@ def cmd_probe(registry, args):
     环境不足时退出码非 0（3）——Lead 看到 0 就会直接进 Phase 1 开跑。
     """
     from probe import (STATUS_EMPTY, STATUS_FAILED, STATUS_OK, STATUS_SKIPPED,
-                       probe_engine, probeable_engines, source_gate, summarize)
+                       engine_kind, probe_engine, probeable_engines, source_gate,
+                       summarize)
 
     scoped = bool(args.sources)
     if scoped:
@@ -352,8 +355,11 @@ def cmd_probe(registry, args):
     else:
         engines = probeable_engines(registry.get_all())
 
+    mcp_n = sum(1 for e in engines if engine_kind(e) == 'mcp')
+    scope = f"{len(engines)} 个引擎 · 含 {mcp_n} 个 MCP（真连一次）" if mcp_n \
+        else f"{len(engines)} 个引擎"
     print("=" * 72)
-    print(f"Deep Research Ultra v{skill_version()} — 引擎功能自检（{len(engines)} 个直连引擎）")
+    print(f"Deep Research Ultra v{skill_version()} — 引擎功能自检（{scope}）")
     print("=" * 72)
 
     marks = {STATUS_OK: '✅', STATUS_EMPTY: '⚠️', STATUS_FAILED: '❌', STATUS_SKIPPED: '⏭ '}

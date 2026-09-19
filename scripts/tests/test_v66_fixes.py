@@ -872,3 +872,190 @@ class TestProbeCommandHardStops:
                                 results=None)},
             monkeypatch, capsys)
         assert code == 1
+
+
+# ============================================================
+# D15 环境闸门纳管 MCP（真连一次，带预算）
+# ============================================================
+class TestMcpIsReallyProbed:
+    """MCP 引擎必须进探针，否则"5 个 MCP 一个没连"这种致命缺口闸门根本看不见。
+
+    但 skill/内置封装类引擎不能进：它们的 search() 在脚本层恒返回 None
+    （数据只有 Lead 调 skill 才拿得到），探了就是往闸门里灌假失败。
+    """
+
+    MCP_NAMES = ('tavily', 'firecrawl', 'open-websearch', 'arxiv', 'paper-search')
+
+    def test_mcp_engines_are_in_the_default_probe_scope(self):
+        from probe import PROBE_QUERIES
+        for name in self.MCP_NAMES:
+            assert name in PROBE_QUERIES, f'{name} 没登记探针查询，闸门永远看不到它'
+
+    def test_script_blind_engines_stay_out_of_the_probe(self):
+        from probe import PROBE_QUERIES
+        for name in ('websearch', 'webfetch', 'last30days', 'oss-finder',
+                     'agent-reach', 'sciverse', 'context7', 'defuddle'):
+            assert name not in PROBE_QUERIES, f'{name} 的 search() 脚本层拿不到数据，探它=假失败'
+
+    def _mcp_engine(self, name, results=None, raises=None, module='engines.mcp_engines'):
+        """kind 由实现模块名判，所以替身要挂到 mcp_engines 模块下。"""
+
+        class _E:
+            pass
+        _E.__module__ = module
+        _E.__name__ = name
+        eng = _E()
+        eng.metadata = SimpleNamespace(name=name, layer=1, config_keys=[],
+                                       capabilities=['search'], probe_query='')
+        eng.calls = {}
+
+        def search(query, max_results=10, **kwargs):
+            eng.calls = dict(query=query, max_results=max_results, **kwargs)
+            if raises:
+                raise raises
+            return results
+
+        eng.search = search
+        eng.get_name = lambda: name
+        eng.has_capability = lambda cap: cap in eng.metadata.capabilities
+        eng.is_available = lambda: True
+        return eng
+
+    def test_mcp_probe_runs_within_budget_and_passes_it_down(self):
+        import probe
+        eng = self._mcp_engine('tavily', results=[_OK_ITEM])
+        rep = probe.probe_engine(eng, max_results=3)
+        assert eng.calls.get('mcp_timeout') == probe.MCP_PROBE_BUDGET, \
+            '不传预算＝一次 npx 冷启动就能把整轮自检拖死'
+        assert rep['status'] == probe.STATUS_OK and rep['kind'] == 'mcp'
+
+    def test_direct_engines_get_no_mcp_budget_kwarg(self):
+        import probe
+        eng = self._mcp_engine('openalex', results=[_OK_ITEM],
+                               module='engines.academic_engines')
+        probe.probe_engine(eng, max_results=3)
+        assert 'mcp_timeout' not in eng.calls
+
+    def test_mcp_timeout_is_reported_as_failure_with_warmup_advice(self):
+        """超时不能说成"服务未就绪"——首次 npx 要下载包，用户需要的是"预热"。"""
+        import probe
+        eng = self._mcp_engine('firecrawl',
+                               raises=TimeoutError('超时：整场会话 25s 预算内没等到 tools/call 的响应'))
+        rep = probe.probe_engine(eng, max_results=3)
+        assert rep['status'] == probe.STATUS_FAILED
+        g = probe.source_gate([_rep('openalex', 'ok', 1, caps=['search', 'academic']),
+                               _rep('pubmed', 'ok', 1, caps=['search', 'academic']),
+                               _rep('github-code-search', 'ok', 2,
+                                   caps=['search', 'code_search']), rep])
+        advice = next(u['advice'] for u in g['unavailable'] if u['engine'] == 'firecrawl')
+        assert 'setup-mcp.sh' in advice and '预热' in advice, advice
+        assert g['ok'] is True     # 超时是"这一个源没了"，不该误判成整体不足
+
+
+# ============================================================
+# D15b：MCP 会话失败不能被说成"查询词没命中"
+# ============================================================
+
+class TestMcpFailureIsNotReportedAsEmpty:
+    """`call_tool` 超时/连不上时返回 None，而 search() 把它变成 []，
+    探针于是报 STATUS_EMPTY（"可调通但 0 结果"）—— 用户看到的就是
+    "这个源活着只是查不到"，于是永远不会去预热、也不会换源。
+    真路径与替身路径在这里是分歧的：替身自己 raise，真引擎其实 return None。"""
+
+    CLASSES = ('TavilyMcpEngine', 'FirecrawlMcpEngine', 'OpenWebsearchMcpEngine',
+               'ArxivMcpEngine', 'PaperSearchMcpEngine')
+
+    def _engine_with_dead_session(self, cls_name):
+        from engines import mcp_engines
+
+        eng = getattr(mcp_engines, cls_name)()
+        eng._client = SimpleNamespace(
+            is_available=lambda: True,
+            call_tool=lambda *a, **k: None,
+            last_error=f"{cls_name}: 超时：整场会话 25s 预算内没等到响应")
+        return eng
+
+    def test_every_mcp_engine_maps_session_failure_to_none(self):
+        for cls_name in self.CLASSES:
+            eng = self._engine_with_dead_session(cls_name)
+            assert eng.search('probe query', max_results=2) is None, \
+                f'{cls_name} 把会话失败吞成了 0 结果'
+
+    def test_probe_reports_the_session_error_not_empty(self):
+        import probe
+        eng = self._engine_with_dead_session('TavilyMcpEngine')
+        rep = probe.probe_engine(eng, max_results=2)
+        assert rep['status'] == probe.STATUS_FAILED
+        assert '超时' in rep['note'], f"note 丢了失败原因：{rep['note']}"
+
+    def test_gate_prints_warmup_advice_on_real_timeout(self):
+        import probe
+        rep = probe.probe_engine(self._engine_with_dead_session('ArxivMcpEngine'),
+                                 max_results=2)
+        g = probe.source_gate([_rep('openalex', 'ok', 1, caps=['search', 'academic']),
+                               _rep('pubmed', 'ok', 1, caps=['search', 'academic']),
+                               _rep('gitee', 'ok', 1, caps=['search', 'opensource']), rep])
+        advice = next(u['advice'] for u in g['unavailable'] if u['engine'] == 'arxiv')
+        assert '预热' in advice and 'setup-mcp.sh' in advice, advice
+
+
+# ============================================================
+# D15c：--mcp-check 要真连一次，不能只查配置文件
+# ============================================================
+
+class TestMcpCheckReallyConnects:
+    """静态 is_available() 只看"配置在不在、命令在不在 PATH"，
+    server 起不来 / 工具名对不上时它照样全绿——这就是假绿。"""
+
+    def _mcp(self, name, available=True, tools=None, error=''):
+        client = SimpleNamespace(list_tools=lambda timeout=None: tools or [],
+                                 calls=[], last_error=error)
+
+        def _list(timeout=None):
+            client.calls.append(timeout)
+            return tools or []
+        client.list_tools = _list
+
+        class _E:
+            def __init__(self):
+                from engines.base import EngineMetadata
+                self.metadata = EngineMetadata(
+                    name=name, layer=1, description=f'{name} desc',
+                    capabilities=['search'])
+                self._client = client
+
+            def get_name(self):
+                return name
+
+            def is_available(self):
+                return available
+        eng = _E()
+        eng.__class__.__module__ = 'engines.mcp_engines'
+        return eng, client
+
+    def _run(self, engines, capsys):
+        import research
+        registry = type('R', (), {'get_by_layer': lambda self, n, only_available=True:
+                                  engines})()
+        research.cmd_mcp_check(registry)
+        return capsys.readouterr().out
+
+    def test_direct_layer1_engines_are_not_mislabelled_as_mcp(self, capsys):
+        import engines.academic_engines as ae
+        direct = ae.OpenAlexEngine()
+        mcp, _ = self._mcp('tavily')
+        out = self._run([direct, mcp], capsys)
+        assert 'openalex' not in out
+        assert 'tavily' in out
+
+    def test_configured_engine_gets_a_real_handshake(self, capsys):
+        mcp, client = self._mcp('tavily', tools=[{'name': 'a'}, {'name': 'b'}])
+        out = self._run([mcp], capsys)
+        assert client.calls == [25], '没连过就报"可用"是假绿'
+        assert '2 个工具' in out
+
+    def test_handshake_failure_shows_the_reason(self, capsys):
+        mcp, _ = self._mcp('firecrawl', tools=[], error='firecrawl: 超时（25s）')
+        out = self._run([mcp], capsys)
+        assert '✅' not in out, '连不上的 server 不能报"可用"'
+        assert '超时' in out and '0/1' in out

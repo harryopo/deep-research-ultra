@@ -20,8 +20,11 @@ Deep Research Ultra v4.0 — MCP 客户端封装
 
 import json
 import os
+import queue
+import signal
 import subprocess
 import sys
+import threading
 import time
 import shutil
 from pathlib import Path
@@ -79,6 +82,225 @@ def load_mcp_config() -> Dict[str, Dict]:
 
 
 # ============================================================
+# stdio 会话
+# ============================================================
+
+_EOF = object()
+
+
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """杀掉整棵进程树。
+
+    `npx -y tavily-mcp` 起的是 npx → node 两层，只 `proc.kill()` 会留下一个还在
+    占端口/占内存的 server 进程；Windows 用 taskkill /T，POSIX 杀进程组。
+    """
+    if os.name == 'nt':
+        try:
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)],
+                           capture_output=True)
+            return
+        except OSError:
+            pass
+    else:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            return
+        except OSError:
+            pass
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+
+class McpSession:
+    """一个进程里跑完「握手 → initialized 通知 → 若干请求」。
+
+    两条实测出来的硬要求，缺一条 MCP 就探不出真实结果：
+
+    1. **同一进程**：旧实现每发一条 JSON-RPC 就新起一个进程，`initialize` 落在第 1 个、
+       `tools/call` 落在第 3 个从没握过手的进程，按规范实现的 server 直接回
+       `-32002 Server not initialized`——环境全配好也恒拿 0 结果。
+    2. **可中断的超时**：旧实现只在 `readline()` 之前判一次时间，读本身卡住就再也判不到，
+       2 秒预算实测 14.9 秒不返回。这里把读放进后台线程，主线程从队列取，到点就走。
+       `stderr` 同样有线程排空，否则 server 刷日志撑满管道缓冲会把 stdout 一起拖死。
+    """
+
+    def __init__(self, command: List[str], env: Dict[str, str], budget: float,
+                 handshake_budget: Optional[float] = None, on_spawn=None):
+        self.command, self.env = command, env
+        self.budget = budget
+        self.handshake_budget = handshake_budget if handshake_budget is not None else budget
+        self._on_spawn = on_spawn
+        self._id = 0
+        self._proc: Optional[subprocess.Popen] = None
+        self._lines: Optional[queue.Queue] = None
+        self._deadline = time.time() + budget
+        self.stderr_tail = ''
+        self.error = ''
+        self._last_method = ''
+
+    # ------------------------------------------------------------
+    # 生命周期
+    # ------------------------------------------------------------
+
+    def __enter__(self) -> 'McpSession':
+        return self
+
+    def __exit__(self, *exc_info) -> bool:
+        self.close()
+        return False
+
+    def _spawn(self) -> subprocess.Popen:
+        kwargs = dict(stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                      stderr=subprocess.PIPE, env=self.env, text=True,
+                      encoding='utf-8', bufsize=1)
+        if os.name == 'nt':
+            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            kwargs['start_new_session'] = True      # 自成进程组，才能整组端掉
+        return subprocess.Popen(self.command, **kwargs)
+
+    def open(self) -> bool:
+        """起进程并完成 initialize 握手；握手不过就整体判失败（不留下半死的会话）。"""
+        try:
+            self._proc = self._spawn()
+        except OSError as exc:
+            self.error = f'进程起不来：{exc}'
+            return False
+        if self._on_spawn:
+            self._on_spawn()
+        self._lines = queue.Queue()
+        threading.Thread(target=self._pump_out, args=(self._proc.stdout,),
+                         daemon=True).start()
+        threading.Thread(target=self._pump_err, args=(self._proc.stderr,),
+                         daemon=True).start()
+
+        saved = self._deadline
+        self._deadline = min(saved, time.time() + self.handshake_budget)
+        self._last_method = 'initialize'
+        resp = self.request('initialize', {
+            'protocolVersion': '2024-11-05',
+            'capabilities': {},
+            'clientInfo': {'name': 'deep-research-ultra', 'version': '4.0.0'},
+        })
+        self._deadline = saved
+        if not resp or 'result' not in resp:
+            self.error = self.error or '握手失败：initialize 没有返回 result'
+            return False
+        # initialized 是通知，按规范不该有响应——旧实现在这里等了一整个 CALL_TIMEOUT
+        self.notify('notifications/initialized')
+        return True
+
+    def close(self) -> None:
+        proc, self._proc = self._proc, None
+        if not proc:
+            return
+        if proc.poll() is None:
+            _kill_tree(proc)
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                if stream:
+                    stream.close()
+            except OSError:
+                pass
+
+    # ------------------------------------------------------------
+    # JSON-RPC
+    # ------------------------------------------------------------
+
+    def _pump_out(self, stream) -> None:
+        try:
+            for line in iter(stream.readline, ''):
+                self._lines.put(line)
+        except (OSError, ValueError):
+            pass
+        finally:
+            self._lines.put(_EOF)
+
+    def _pump_err(self, stream) -> None:
+        tail = ''
+        try:
+            for line in iter(stream.readline, ''):
+                tail = (tail + line)[-4000:]
+        except (OSError, ValueError):
+            pass
+        finally:
+            self.stderr_tail = tail[-1500:]
+
+    def _remaining(self) -> float:
+        return max(0.0, self._deadline - time.time())
+
+    def _write(self, payload: Dict) -> bool:
+        if not self._proc or not self._proc.stdin:
+            self.error = '会话已关闭'
+            return False
+        try:
+            self._proc.stdin.write(json.dumps(payload, ensure_ascii=False) + '\n')
+            self._proc.stdin.flush()
+            return True
+        except (OSError, ValueError) as exc:
+            self.error = f'写入失败：{exc}'
+            return False
+
+    def notify(self, method: str, params: Optional[Dict] = None) -> bool:
+        payload: Dict[str, Any] = {'jsonrpc': '2.0', 'method': method}
+        if params is not None:
+            payload['params'] = params
+        return self._write(payload)
+
+    def request(self, method: str, params: Optional[Dict] = None) -> Optional[Dict]:
+        """发一条请求，在剩余预算内等它自己的响应；等不到就返回 None（绝不阻塞）。"""
+        if self._proc is None or self._lines is None:
+            self.error = '会话未打开'
+            return None
+        self._last_method = method
+        self._id += 1
+        rid = self._id
+        payload: Dict[str, Any] = {'jsonrpc': '2.0', 'id': rid, 'method': method}
+        if params is not None:
+            payload['params'] = params
+        if not self._write(payload):
+            return None
+        while True:
+            left = self._remaining()
+            if left <= 0:
+                self.error = (f'超时：整场会话 {self.budget:g}s 预算内没等到 '
+                              f'{method} 的响应')
+                return None
+            try:
+                line = self._lines.get(timeout=min(left, 0.5))
+            except queue.Empty:
+                if self._proc.poll() is not None:
+                    self.error = (f'server 进程已退出（code={self._proc.returncode}）'
+                                  + (f'；stderr: {self.stderr_tail.strip()[-300:]}'
+                                     if self.stderr_tail.strip() else ''))
+                    return None
+                continue
+            if line is _EOF:
+                self.error = 'server 关闭了输出（可能启动即失败）' \
+                    + (f'；stderr: {self.stderr_tail.strip()[-300:]}'
+                       if self.stderr_tail.strip() else '')
+                return None
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                resp = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if resp.get('id') == rid:
+                if 'error' in resp:
+                    err = resp['error']
+                    self.error = f"server 报错：{err.get('message', err)}"
+                return resp
+
+
+# ============================================================
 # MCP 客户端
 # ============================================================
 
@@ -108,6 +330,29 @@ class McpClient:
         self._config = config
         self._cached_tools: Optional[List[Dict]] = None
         self._process: Optional[subprocess.Popen] = None
+        self.spawn_count = 0        # 本次进程内拉起过多少个 server 进程（探针据此判"会话没分裂"）
+        self.last_error = ''        # 最近一次失败的具体原因，供 --probe 说得出"为什么不可用"
+
+    def _count_spawn(self) -> None:
+        self.spawn_count += 1
+
+    def open_session(self, budget: Optional[float] = None) -> Optional['McpSession']:
+        """起一个已完成握手的会话；调用方负责 close()（用 `with` 即可）。"""
+        command = self.get_command()
+        if not command:
+            self.last_error = (f"未配置 MCP server '{self.server_name}'"
+                               '（配置文件里没有，或缺 command）')
+            return None
+        session = McpSession(command, self.get_env(),
+                             budget or self.CALL_TIMEOUT,
+                             handshake_budget=min(self.INIT_TIMEOUT, budget or self.CALL_TIMEOUT),
+                             on_spawn=self._count_spawn)
+        if not session.open():
+            self.last_error = f"{self.server_name}: {session.error}"
+            session.close()
+            return None
+        self.last_error = ''
+        return session
 
     # ------------------------------------------------------------
     # 配置检测
@@ -182,112 +427,11 @@ class McpClient:
         return True
 
     # ------------------------------------------------------------
-    # JSON-RPC 调用
-    # ------------------------------------------------------------
-
-    def _send_rpc(self, method: str, params: Optional[Dict] = None,
-                  timeout: Optional[int] = None) -> Optional[Dict]:
-        """
-        发送 JSON-RPC 请求（通过 stdio）
-
-        Args:
-            method: RPC 方法名（如 'initialize', 'tools/list', 'tools/call'）
-            params: 参数
-            timeout: 超时（秒）
-
-        Returns:
-            响应结果，失败返回 None
-        """
-        command_list = self.get_command()
-        if not command_list:
-            return None
-        env = self.get_env()
-        timeout = timeout or self.CALL_TIMEOUT
-
-        # 构建 JSON-RPC 请求
-        request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": method,
-        }
-        if params:
-            request["params"] = params
-
-        try:
-            # 启动 MCP 服务器进程
-            process = subprocess.Popen(
-                command_list,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-                text=True,
-                encoding='utf-8',
-                bufsize=1,
-            )
-            self._process = process
-
-            # 发送请求
-            request_str = json.dumps(request) + "\n"
-            process.stdin.write(request_str)
-            process.stdin.flush()
-
-            # 读取响应（带超时）
-            start_time = time.time()
-            while True:
-                if time.time() - start_time > timeout:
-                    process.kill()
-                    return None
-                line = process.stdout.readline()
-                if not line:
-                    if process.poll() is not None:
-                        return None
-                    continue
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    response = json.loads(line)
-                    if response.get("id") == request["id"]:
-                        return response
-                except json.JSONDecodeError:
-                    continue
-        except (subprocess.SubprocessError, OSError):
-            return None
-        finally:
-            if self._process and self._process.poll() is None:
-                self._process.terminate()
-                try:
-                    self._process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self._process.kill()
-            self._process = None
-
-    def _initialize(self) -> bool:
-        """执行 MCP 初始化握手"""
-        response = self._send_rpc(
-            "initialize",
-            {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {
-                    "name": "deep-research-ultra",
-                    "version": "4.0.0",
-                },
-            },
-            timeout=self.INIT_TIMEOUT,
-        )
-        if not response or "result" not in response:
-            return False
-        # 发送 initialized 通知
-        self._send_rpc("notifications/initialized", {})
-        return True
-
-    # ------------------------------------------------------------
     # 工具调用接口
     # ------------------------------------------------------------
 
-    def list_tools(self, refresh: bool = False) -> List[Dict]:
+    def list_tools(self, refresh: bool = False,
+                   timeout: Optional[float] = None) -> List[Dict]:
         """
         列出 MCP 服务器提供的工具
 
@@ -300,45 +444,55 @@ class McpClient:
         if self._cached_tools is not None and not refresh:
             return self._cached_tools
 
-        if not self._initialize():
+        session = self.open_session(timeout)
+        if session is None:
             return []
-
-        response = self._send_rpc("tools/list", {})
-        if not response or "result" not in response:
+        try:
+            response = session.request('tools/list', {})
+        finally:
+            session.close()
+        if not response or 'result' not in response:
+            self.last_error = f"{self.server_name}: tools/list 无结果" \
+                f"（{session.error}）"
             return []
-        tools = response["result"].get("tools", [])
+        tools = response['result'].get('tools', [])
         self._cached_tools = tools
         return tools
 
     def call_tool(self, tool_name: str, arguments: Optional[Dict] = None,
-                  timeout: Optional[int] = None) -> Optional[Dict]:
+                  timeout: Optional[float] = None) -> Optional[Dict]:
         """
         调用 MCP 工具
+
+        握手与工具调用走同一个会话进程，整体受 `timeout` 的墙钟预算约束。
 
         Args:
             tool_name: 工具名称
             arguments: 工具参数
-            timeout: 超时（秒）
+            timeout: 整场会话预算（秒）
 
         Returns:
             工具调用结果，失败返回 None
         """
-        if not self._initialize():
+        session = self.open_session(timeout)
+        if session is None:
             return None
-
-        response = self._send_rpc(
-            "tools/call",
-            {
-                "name": tool_name,
-                "arguments": arguments or {},
-            },
-            timeout=timeout or self.CALL_TIMEOUT,
-        )
+        try:
+            response = session.request('tools/call', {
+                'name': tool_name,
+                'arguments': arguments or {},
+            })
+            error = session.error
+        finally:
+            session.close()
         if not response:
+            self.last_error = f"{self.server_name}: {error or 'tools/call 无响应'}"
             return None
-        if "error" in response:
-            return {"error": response["error"]}
-        return response.get("result")
+        if 'error' in response:
+            self.last_error = f"{self.server_name}: {error}"
+            return {'error': response['error']}
+        self.last_error = ''
+        return response.get('result')
 
     # ------------------------------------------------------------
     # 便捷方法

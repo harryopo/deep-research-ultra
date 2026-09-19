@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.8
+# Deep Research Ultra — 超级深度调研工具 v6.9
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.8.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.9.0-brightgreen.svg)]()
 
 
 ---
@@ -27,6 +27,7 @@
 | 🎚️ **effort 分级 + breadth 旋钮（v6.0）** | quick/standard/deep/exhaustive + 并行子主题数 |
 | 🔬 **引擎功能自检 `--probe`（v6.5）** | 探针查询实测每个引擎今天出不出得来数据，区分「0 结果 / 401 缺配置 / 406 限流」，杜绝 `--list` 假绿 |
 | 🛑 **Phase 0 环境闸门（v6.8）** | 环境不足即硬停：出数据引擎 <3、覆盖 <2 层、或没有一手制品通道（论文库/代码仓库）→ 退出码 3 并逐条打印「去哪申请 + 解锁什么 + 怎么设」，配足才开跑；`--allow-degraded` 才允许带缺口降级 |
+| 🔌 **MCP 真连接（v6.9）** | 5 个 MCP 源纳入闸门：一个会话一个进程真握手、25 秒整场预算、超时不留孤儿进程；连不上就报「❌ 连不上 + 原因」，配置齐全不再等于可用 |
 | 📦 **文件化交付契约（v6.5）** | 报告一律落盘 `.research/<session>/report.md`，返回值只给 ≤25 行短摘要（长正文塞返回值会被截断） |
 | 🖥️ **Windows 控制台自适应（v6.5）** | CLI 强制 UTF-8 输出，GBK 代码页不再 UnicodeEncodeError |
 | 🧪 **两档 verified 判据（v6.6/6.7）** | 跨域三角验证（档 A）与「一手来源 + Lead 反查」（档 B）分开，归属型 claim 不再被卡在 pending；`verify-primary` 拒绝跨域伪反查；发布门 2b 对带反查记录的档 B 豁免"≥2 独立来源" |
@@ -400,7 +401,7 @@ deep-research-ultra/
 ## 🧪 测试
 
 ```bash
-# 运行单元测试（237 个用例）
+# 运行单元测试（258 个用例）
 cd scripts && python -m pytest tests/ -v
 
 # 端到端测试（dry-run）
@@ -519,4 +520,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-*v6.8 · 2026-09-19 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查）+ 发布门按引用-证据对齐判定；更新历史见 CHANGELOG.md*
+*v6.9 · 2026-09-19 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查）+ 发布门按引用-证据对齐判定；更新历史见 CHANGELOG.md*

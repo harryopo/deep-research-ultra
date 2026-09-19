@@ -104,9 +104,11 @@ def test_explicit_metadata_query_wins_and_unknown_engine_falls_back():
     assert resolve_probe_query(_FakeEngine(name='not-registered')) == 'python'
 
 
-def test_probeable_engines_limited_to_registered_direct_engines():
-    engines = [_FakeEngine(name='openalex'), _FakeEngine(name='tavily')]
-    assert [e.get_name() for e in probeable_engines(engines)] == ['openalex']
+def test_probeable_engines_limited_to_registered_engines():
+    """登记过的都探（v6.9 起含 MCP）；未登记的 skill/内置封装类交给 Lead 自查。"""
+    engines = [_FakeEngine(name='openalex'), _FakeEngine(name='tavily'),
+               _FakeEngine(name='websearch')]
+    assert [e.get_name() for e in probeable_engines(engines)] == ['openalex', 'tavily']
 
 
 def test_summarize_counts_by_status():
