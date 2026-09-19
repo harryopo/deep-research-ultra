@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+project_memory.md
+.env
+.research/

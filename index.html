@@ -3,41 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Research Ultra — 智能深度调研工具</title>
-    <meta name="description" content="13 个搜索引擎，Claude 智能选择引擎，质量评分排序，缓存加速，深度阅读。">
+    <title>Deep Research Ultra — 超级深度调研工具 v5.2</title>
+    <meta name="description" content="30 个搜索引擎，智能路由 + 四层架构，GitHub 深度搜索，国内内容源，推荐度评分系统。">
     <meta name="theme-color" content="#0a0f1c">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Design Token System */
         :root {
-            /* 配色方向：冷峻科技，使用深蓝而非蓝紫渐变 */
             --color-background: #0a0f1c;
             --color-surface: #111827;
             --color-surface-elevated: #1a2332;
             --color-border: #1e293b;
             --color-border-subtle: #0f172a;
-
             --color-primary: #3b82f6;
             --color-primary-hover: #2563eb;
             --color-accent: #06b6d4;
             --color-accent-hover: #0891b2;
-
             --color-text-primary: #f1f5f9;
             --color-text-secondary: #94a3b8;
             --color-text-muted: #64748b;
-
             --color-success: #10b981;
             --color-warning: #f59e0b;
             --color-error: #ef4444;
-
-            /* 排版：等宽技术感 + 清晰可读 */
             --font-heading: 'JetBrains Mono', 'Noto Sans SC', 'Fira Code', monospace;
             --font-body: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
             --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-
-            /* 字号层级 */
             --text-xs: 0.75rem;
             --text-sm: 0.875rem;
             --text-base: 1rem;
@@ -48,933 +39,183 @@
             --text-4xl: 2.25rem;
             --text-5xl: 3rem;
             --text-6xl: 3.75rem;
-            --text-7xl: 4.5rem;
-
-            /* 间距系统（8dp 增量） */
             --space-1: 0.25rem;
             --space-2: 0.5rem;
             --space-3: 0.75rem;
             --space-4: 1rem;
-            --space-5: 1.25rem;
             --space-6: 1.5rem;
             --space-8: 2rem;
-            --space-10: 2.5rem;
             --space-12: 3rem;
             --space-16: 4rem;
-            --space-20: 5rem;
-            --space-24: 6rem;
-            --space-32: 8rem;
-
-            /* 圆角 */
-            --radius-sm: 0.375rem;
             --radius-md: 0.5rem;
             --radius-lg: 0.75rem;
-            --radius-xl: 1rem;
-            --radius-full: 9999px;
-
-            /* 阴影 */
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
             --shadow-glow: 0 0 20px rgb(59 130 246 / 0.3);
-
-            /* 动效 */
-            --duration-fast: 150ms;
-            --duration-normal: 300ms;
-            --duration-slow: 500ms;
-            --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
-            --ease-out: cubic-bezier(0, 0, 0.2, 1);
         }
-
-        /* Reset */
-        *, *::before, *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        /* Base Styles */
-        html {
-            scroll-behavior: smooth;
-            color-scheme: dark;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; color-scheme: dark; }
         body {
             font-family: var(--font-body);
             font-size: var(--text-base);
             line-height: 1.6;
             color: var(--color-text-primary);
-            background-color: var(--color-background);
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            overflow-x: hidden;
+            background: var(--color-background);
         }
-
-        /* Typography */
-        h1, h2, h3, h4, h5, h6 {
-            font-family: var(--font-heading);
-            font-weight: 600;
-            line-height: 1.2;
-            letter-spacing: -0.02em;
-        }
-
+        h1, h2, h3 { font-family: var(--font-heading); font-weight: 600; line-height: 1.2; }
         h1 { font-size: var(--text-5xl); }
         h2 { font-size: var(--text-3xl); }
-        h3 { font-size: var(--text-2xl); }
-        h4 { font-size: var(--text-xl); }
+        p { color: var(--color-text-secondary); }
+        a { color: var(--color-primary); text-decoration: none; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 var(--space-6); }
 
-        p {
-            color: var(--color-text-secondary);
-            max-width: 65ch;
-        }
-
-        a {
-            color: var(--color-primary);
-            text-decoration: none;
-            transition: color var(--duration-fast) var(--ease-default);
-        }
-
-        a:hover {
-            color: var(--color-primary-hover);
-        }
-
-        code {
-            font-family: var(--font-mono);
-            font-size: 0.9em;
-            background: var(--color-surface);
-            padding: 0.2em 0.4em;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--color-border);
-        }
-
-        /* Layout */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 var(--space-6);
-        }
-
-        /* Navigation */
         nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-            background: rgba(10, 15, 28, 0.8);
-            backdrop-filter: blur(12px);
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            background: rgba(10, 15, 28, 0.9); backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--color-border-subtle);
         }
-
-        nav .container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 64px;
-        }
-
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            font-family: var(--font-heading);
-            font-weight: 700;
-            font-size: var(--text-lg);
-            color: var(--color-text-primary);
-        }
-
-        .nav-brand svg {
-            width: 28px;
-            height: 28px;
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: var(--space-8);
-            list-style: none;
-        }
-
-        .nav-links a {
-            font-size: var(--text-sm);
-            font-weight: 500;
-            color: var(--color-text-secondary);
-            transition: color var(--duration-fast) var(--ease-default);
-        }
-
-        .nav-links a:hover {
-            color: var(--color-text-primary);
-        }
-
+        nav .container { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+        .nav-brand { font-family: var(--font-heading); font-weight: 700; font-size: var(--text-lg); color: var(--color-text-primary); display: flex; align-items: center; gap: var(--space-3); }
+        .nav-links { display: flex; gap: var(--space-8); list-style: none; }
+        .nav-links a { font-size: var(--text-sm); color: var(--color-text-secondary); transition: color 0.2s; }
+        .nav-links a:hover { color: var(--color-text-primary); }
         .nav-cta {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-2) var(--space-4);
-            background: var(--color-primary);
-            color: white !important;
-            font-weight: 500;
-            border-radius: var(--radius-md);
-            transition: all var(--duration-fast) var(--ease-default);
+            display: inline-flex; align-items: center; gap: var(--space-2);
+            padding: var(--space-2) var(--space-4); background: var(--color-primary);
+            color: white !important; font-weight: 500; border-radius: var(--radius-md);
         }
+        .nav-cta:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-glow); }
 
-        .nav-cta:hover {
-            background: var(--color-primary-hover);
-            box-shadow: var(--shadow-glow);
-        }
-
-        /* Hero Section - 非对称布局，打破居中模板 */
-        .hero {
-            position: relative;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            padding-top: 64px;
-            overflow: hidden;
-        }
-
+        .hero { position: relative; min-height: 100vh; display: flex; align-items: center; padding-top: 64px; overflow: hidden; }
         .hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background:
-                radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.1) 0%, transparent 40%);
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.1) 0%, transparent 40%);
             pointer-events: none;
         }
-
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-16);
-            align-items: center;
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 1;
-        }
-
+        .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); align-items: center; position: relative; z-index: 1; }
         .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-1) var(--space-3);
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-full);
-            font-family: var(--font-mono);
-            font-size: var(--text-xs);
-            color: var(--color-accent);
-            margin-bottom: var(--space-6);
+            display: inline-flex; align-items: center; gap: var(--space-2);
+            padding: var(--space-1) var(--space-3); background: var(--color-surface);
+            border: 1px solid var(--color-border); border-radius: 9999px;
+            font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-accent); margin-bottom: var(--space-6);
         }
-
-        .hero-badge::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: var(--color-accent);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
+        .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--color-accent); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .hero h1 {
-            font-size: var(--text-6xl);
-            font-weight: 700;
-            line-height: 1.1;
-            margin-bottom: var(--space-6);
+            font-size: var(--text-6xl); font-weight: 700; line-height: 1.1; margin-bottom: var(--space-6);
             background: linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-text-secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
-
-        .hero-description {
-            font-size: var(--text-lg);
-            line-height: 1.7;
-            color: var(--color-text-secondary);
-            margin-bottom: var(--space-8);
-            max-width: 50ch;
+        .hero-description { font-size: var(--text-lg); line-height: 1.7; color: var(--color-text-secondary); margin-bottom: var(--space-8); max-width: 50ch; }
+        .hero-actions { display: flex; gap: var(--space-4); margin-bottom: var(--space-12); }
+        .btn {
+            display: inline-flex; align-items: center; gap: var(--space-2);
+            padding: var(--space-3) var(--space-6); font-family: var(--font-heading);
+            font-weight: 600; font-size: var(--text-sm); border: none; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;
         }
+        .btn-primary { background: var(--color-primary); color: white; }
+        .btn-primary:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-glow); transform: translateY(-1px); }
+        .btn-secondary { background: transparent; color: var(--color-text-primary); border: 1px solid var(--color-border); }
+        .btn-secondary:hover { background: var(--color-surface); border-color: var(--color-text-muted); }
+        .stats-bar { display: flex; gap: var(--space-8); padding-top: var(--space-8); border-top: 1px solid var(--color-border); }
+        .stat { display: flex; flex-direction: column; }
+        .stat-value { font-family: var(--font-heading); font-size: var(--text-3xl); font-weight: 700; color: var(--color-text-primary); line-height: 1; }
+        .stat-label { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
 
-        .hero-actions {
-            display: flex;
-            gap: var(--space-4);
-            margin-bottom: var(--space-12);
-        }
-
-        .btn-primary {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-3) var(--space-6);
-            background: var(--color-primary);
-            color: white;
-            font-family: var(--font-heading);
-            font-weight: 600;
-            font-size: var(--text-sm);
-            border: none;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all var(--duration-fast) var(--ease-default);
-        }
-
-        .btn-primary:hover {
-            background: var(--color-primary-hover);
-            box-shadow: var(--shadow-glow);
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-3) var(--space-6);
-            background: transparent;
-            color: var(--color-text-primary);
-            font-family: var(--font-heading);
-            font-weight: 600;
-            font-size: var(--text-sm);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all var(--duration-fast) var(--ease-default);
-        }
-
-        .btn-secondary:hover {
-            background: var(--color-surface);
-            border-color: var(--color-text-muted);
-        }
-
-        /* Hero 视觉 - 终端风格代码展示 */
-        .hero-visual {
-            position: relative;
-            z-index: 1;
-        }
-
-        .terminal {
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-            box-shadow: var(--shadow-lg);
-        }
-
-        .terminal-header {
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-3) var(--space-4);
-            background: var(--color-surface-elevated);
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .terminal-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
+        .terminal { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
+        .terminal-header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); background: var(--color-surface-elevated); border-bottom: 1px solid var(--color-border); }
+        .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
         .terminal-dot:nth-child(1) { background: #ef4444; }
         .terminal-dot:nth-child(2) { background: #f59e0b; }
         .terminal-dot:nth-child(3) { background: #10b981; }
+        .terminal-title { flex: 1; text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
+        .terminal-body { padding: var(--space-6); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.8; }
+        .terminal-line { display: flex; gap: var(--space-3); margin-bottom: var(--space-2); }
+        .terminal-prompt { color: var(--color-accent); }
+        .terminal-command { color: var(--color-text-primary); }
+        .terminal-output { color: var(--color-text-secondary); padding-left: var(--space-6); }
+        .terminal-highlight { color: var(--color-primary); }
+        .terminal-success { color: var(--color-success); }
+
+        section { padding: var(--space-32) 0; }
+        .section-header { text-align: left; margin-bottom: var(--space-16); max-width: 600px; }
+        .section-label { display: inline-block; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 500; color: var(--color-accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--space-4); }
+        .section-header h2 { margin-bottom: var(--space-4); }
+        .section-header p { font-size: var(--text-lg); }
+
+        .features { background: var(--color-surface); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-8); }
+        .feature-card { padding: var(--space-8); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-lg); transition: all 0.3s; }
+        .feature-card:hover { border-color: var(--color-primary); transform: translateY(-2px); }
+        .feature-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-md); margin-bottom: var(--space-6); color: var(--color-primary); }
+        .feature-card h3 { font-size: var(--text-lg); margin-bottom: var(--space-3); }
+        .feature-card p { font-size: var(--text-sm); line-height: 1.6; }
+
+        .engines-section { position: relative; }
+        .engines-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); margin-top: var(--space-12); }
+        .engine-group { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-6); }
+        .engine-group-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border); }
+        .engine-group-title { font-family: var(--font-heading); font-size: var(--text-sm); font-weight: 600; }
+        .engine-count { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-accent); background: rgba(6, 182, 212, 0.1); padding: var(--space-1) var(--space-2); border-radius: 4px; }
+        .engine-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+        .engine-item { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--color-text-secondary); }
+        .engine-item::before { content: ''; width: 6px; height: 6px; background: var(--color-primary); border-radius: 50%; flex-shrink: 0; }
+
+        .v52-features { background: var(--color-surface); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+        .v52-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8); margin-top: var(--space-12); }
+        .v52-card { padding: var(--space-8); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+        .v52-card h3 { font-size: var(--text-xl); margin-bottom: var(--space-4); color: var(--color-accent); }
+        .v52-card p { font-size: var(--text-sm); line-height: 1.7; margin-bottom: var(--space-4); }
+        .v52-card ul { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+        .v52-card li { font-size: var(--text-sm); color: var(--color-text-secondary); padding-left: var(--space-4); position: relative; }
+        .v52-card li::before { content: '→'; position: absolute; left: 0; color: var(--color-primary); }
+
+        .workflow-section { position: relative; }
+        .workflow-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); margin-top: var(--space-12); }
+        .workflow-step { position: relative; padding: var(--space-6); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(59, 130, 246, 0.1); border-radius: 50%; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; color: var(--color-primary); margin-bottom: var(--space-4); }
+        .workflow-step h4 { font-size: var(--text-base); margin-bottom: var(--space-2); }
+        .workflow-step p { font-size: var(--text-sm); line-height: 1.5; }
+
+        .cta-section { text-align: center; padding: var(--space-32) 0; }
+        .cta-content { max-width: 600px; margin: 0 auto; }
+        .cta-content h2 { margin-bottom: var(--space-4); }
+        .cta-content p { font-size: var(--text-lg); margin-bottom: var(--space-8); }
+        .cta-actions { display: flex; justify-content: center; gap: var(--space-4); }
+
+        footer { background: var(--color-surface); border-top: 1px solid var(--color-border); padding: var(--space-12) 0; }
+        .footer-content { display: flex; justify-content: space-between; align-items: center; }
+        .footer-brand { display: flex; align-items: center; gap: var(--space-3); font-family: var(--font-heading); font-weight: 600; }
+        .footer-links { display: flex; gap: var(--space-8); list-style: none; }
+        .footer-links a { font-size: var(--text-sm); color: var(--color-text-muted); }
+        .footer-links a:hover { color: var(--color-text-primary); }
+        .footer-copy { font-size: var(--text-sm); color: var(--color-text-muted); }
 
-        .terminal-title {
-            flex: 1;
-            text-align: center;
-            font-family: var(--font-mono);
-            font-size: var(--text-xs);
-            color: var(--color-text-muted);
-        }
-
-        .terminal-body {
-            padding: var(--space-6);
-            font-family: var(--font-mono);
-            font-size: var(--text-sm);
-            line-height: 1.8;
-        }
-
-        .terminal-line {
-            display: flex;
-            gap: var(--space-3);
-            margin-bottom: var(--space-2);
-        }
-
-        .terminal-prompt {
-            color: var(--color-accent);
-            user-select: none;
-        }
-
-        .terminal-command {
-            color: var(--color-text-primary);
-        }
-
-        .terminal-output {
-            color: var(--color-text-secondary);
-            padding-left: var(--space-6);
-        }
-
-        .terminal-highlight {
-            color: var(--color-primary);
-        }
-
-        .terminal-success {
-            color: var(--color-success);
-        }
-
-        /* Stats Bar - 紧凑数据展示 */
-        .stats-bar {
-            display: flex;
-            gap: var(--space-8);
-            padding-top: var(--space-8);
-            border-top: 1px solid var(--color-border);
-        }
-
-        .stat {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .stat-value {
-            font-family: var(--font-heading);
-            font-size: var(--text-3xl);
-            font-weight: 700;
-            color: var(--color-text-primary);
-            line-height: 1;
-        }
-
-        .stat-label {
-            font-size: var(--text-sm);
-            color: var(--color-text-muted);
-            margin-top: var(--space-1);
-        }
-
-        /* Section Styles */
-        section {
-            padding: var(--space-32) 0;
-        }
-
-        .section-header {
-            text-align: left;
-            margin-bottom: var(--space-16);
-            max-width: 600px;
-        }
-
-        .section-label {
-            display: inline-block;
-            font-family: var(--font-mono);
-            font-size: var(--text-xs);
-            font-weight: 500;
-            color: var(--color-accent);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: var(--space-4);
-        }
-
-        .section-header h2 {
-            margin-bottom: var(--space-4);
-        }
-
-        .section-header p {
-            font-size: var(--text-lg);
-        }
-
-        /* Features Section - 非对称网格 */
-        .features {
-            background: var(--color-surface);
-            border-top: 1px solid var(--color-border);
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: var(--space-8);
-        }
-
-        .feature-card {
-            padding: var(--space-8);
-            background: var(--color-background);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            transition: all var(--duration-normal) var(--ease-default);
-        }
-
-        .feature-card:hover {
-            border-color: var(--color-primary);
-            transform: translateY(-2px);
-        }
-
-        .feature-icon {
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(59, 130, 246, 0.1);
-            border-radius: var(--radius-md);
-            margin-bottom: var(--space-6);
-            color: var(--color-primary);
-        }
-
-        .feature-card h3 {
-            font-size: var(--text-lg);
-            margin-bottom: var(--space-3);
-        }
-
-        .feature-card p {
-            font-size: var(--text-sm);
-            line-height: 1.6;
-        }
-
-        /* Search Engines Section - 可视化架构 */
-        .engines-section {
-            position: relative;
-        }
-
-        .engines-architecture {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: var(--space-6);
-            margin-top: var(--space-12);
-        }
-
-        .engine-group {
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            padding: var(--space-6);
-        }
-
-        .engine-group-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: var(--space-4);
-            padding-bottom: var(--space-4);
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .engine-group-title {
-            font-family: var(--font-heading);
-            font-size: var(--text-sm);
-            font-weight: 600;
-            color: var(--color-text-primary);
-        }
-
-        .engine-count {
-            font-family: var(--font-mono);
-            font-size: var(--text-xs);
-            color: var(--color-accent);
-            background: rgba(6, 182, 212, 0.1);
-            padding: var(--space-1) var(--space-2);
-            border-radius: var(--radius-sm);
-        }
-
-        .engine-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-3);
-        }
-
-        .engine-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            font-size: var(--text-sm);
-            color: var(--color-text-secondary);
-        }
-
-        .engine-item::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: var(--color-primary);
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        /* Workflow Section */
-        .workflow-section {
-            background: var(--color-surface);
-            border-top: 1px solid var(--color-border);
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .workflow-steps {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: var(--space-6);
-            margin-top: var(--space-12);
-        }
-
-        .workflow-step {
-            position: relative;
-            padding: var(--space-6);
-            background: var(--color-background);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-        }
-
-        .workflow-step:not(:last-child)::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            right: calc(var(--space-6) * -1);
-            width: var(--space-6);
-            height: 2px;
-            background: var(--color-border);
-            transform: translateY(-50%);
-        }
-
-        .step-number {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            background: rgba(59, 130, 246, 0.1);
-            border-radius: var(--radius-full);
-            font-family: var(--font-mono);
-            font-size: var(--text-sm);
-            font-weight: 600;
-            color: var(--color-primary);
-            margin-bottom: var(--space-4);
-        }
-
-        .workflow-step h4 {
-            font-size: var(--text-base);
-            margin-bottom: var(--space-2);
-        }
-
-        .workflow-step p {
-            font-size: var(--text-sm);
-            line-height: 1.5;
-        }
-
-        /* Code Example Section */
-        .code-section {
-            position: relative;
-        }
-
-        .code-blocks {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-8);
-            margin-top: var(--space-12);
-        }
-
-        .code-block {
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-        }
-
-        .code-block-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: var(--space-3) var(--space-4);
-            background: var(--color-surface-elevated);
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .code-block-title {
-            font-family: var(--font-mono);
-            font-size: var(--text-xs);
-            color: var(--color-text-muted);
-        }
-
-        .code-block-body {
-            padding: var(--space-4);
-            font-family: var(--font-mono);
-            font-size: var(--text-sm);
-            line-height: 1.8;
-            overflow-x: auto;
-        }
-
-        .code-block-body pre {
-            margin: 0;
-        }
-
-        .code-comment {
-            color: var(--color-text-muted);
-        }
-
-        .code-command {
-            color: var(--color-accent);
-        }
-
-        .code-flag {
-            color: var(--color-primary);
-        }
-
-        .code-string {
-            color: var(--color-success);
-        }
-
-        /* Use Cases Section */
-        .usecases-section {
-            background: var(--color-surface);
-            border-top: 1px solid var(--color-border);
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .usecases-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: var(--space-8);
-            margin-top: var(--space-12);
-        }
-
-        .usecase-card {
-            display: flex;
-            gap: var(--space-6);
-            padding: var(--space-8);
-            background: var(--color-background);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            transition: all var(--duration-normal) var(--ease-default);
-        }
-
-        .usecase-card:hover {
-            border-color: var(--color-accent);
-        }
-
-        .usecase-icon {
-            width: 56px;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(6, 182, 212, 0.1);
-            border-radius: var(--radius-md);
-            flex-shrink: 0;
-            color: var(--color-accent);
-        }
-
-        .usecase-content h3 {
-            font-size: var(--text-lg);
-            margin-bottom: var(--space-2);
-        }
-
-        .usecase-content p {
-            font-size: var(--text-sm);
-            line-height: 1.6;
-        }
-
-        /* CTA Section */
-        .cta-section {
-            text-align: center;
-            padding: var(--space-32) 0;
-        }
-
-        .cta-content {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .cta-content h2 {
-            margin-bottom: var(--space-4);
-        }
-
-        .cta-content p {
-            font-size: var(--text-lg);
-            margin-bottom: var(--space-8);
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .cta-actions {
-            display: flex;
-            justify-content: center;
-            gap: var(--space-4);
-        }
-
-        /* Footer */
-        footer {
-            background: var(--color-surface);
-            border-top: 1px solid var(--color-border);
-            padding: var(--space-12) 0;
-        }
-
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .footer-brand {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            font-family: var(--font-heading);
-            font-weight: 600;
-            color: var(--color-text-primary);
-        }
-
-        .footer-links {
-            display: flex;
-            gap: var(--space-8);
-            list-style: none;
-        }
-
-        .footer-links a {
-            font-size: var(--text-sm);
-            color: var(--color-text-muted);
-        }
-
-        .footer-links a:hover {
-            color: var(--color-text-primary);
-        }
-
-        .footer-copy {
-            font-size: var(--text-sm);
-            color: var(--color-text-muted);
-        }
-
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .animate-in {
-            animation: fadeInUp var(--duration-slow) var(--ease-out) forwards;
-            opacity: 0;
-        }
-
-        .animate-in:nth-child(1) { animation-delay: 0ms; }
-        .animate-in:nth-child(2) { animation-delay: 100ms; }
-        .animate-in:nth-child(3) { animation-delay: 200ms; }
-        .animate-in:nth-child(4) { animation-delay: 300ms; }
-
-        /* Responsive */
         @media (max-width: 1024px) {
-            .hero-grid {
-                grid-template-columns: 1fr;
-                gap: var(--space-12);
-            }
-
-            .hero h1 {
-                font-size: var(--text-4xl);
-            }
-
-            .features-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .engines-architecture {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .workflow-steps {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .workflow-step:not(:last-child)::after {
-                display: none;
-            }
-
-            .code-blocks {
-                grid-template-columns: 1fr;
-            }
+            .hero-grid { grid-template-columns: 1fr; gap: var(--space-12); }
+            .hero h1 { font-size: var(--text-4xl); }
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .engines-grid { grid-template-columns: repeat(2, 1fr); }
+            .v52-grid { grid-template-columns: 1fr; }
+            .workflow-steps { grid-template-columns: repeat(2, 1fr); }
         }
-
         @media (max-width: 768px) {
-            .hero h1 {
-                font-size: var(--text-3xl);
-            }
-
-            .hero-description {
-                font-size: var(--text-base);
-            }
-
-            .hero-actions {
-                flex-direction: column;
-            }
-
-            .stats-bar {
-                flex-wrap: wrap;
-                gap: var(--space-6);
-            }
-
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .engines-architecture {
-                grid-template-columns: 1fr;
-            }
-
-            .workflow-steps {
-                grid-template-columns: 1fr;
-            }
-
-            .usecases-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .usecase-card {
-                flex-direction: column;
-            }
-
-            .footer-content {
-                flex-direction: column;
-                gap: var(--space-8);
-                text-align: center;
-            }
-
-            .footer-links {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-
-            .cta-actions {
-                flex-direction: column;
-            }
-
-            .nav-links {
-                display: none;
-            }
-        }
-
-        /* Reduced Motion */
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-
-            html {
-                scroll-behavior: auto;
-            }
+            .hero h1 { font-size: var(--text-3xl); }
+            .features-grid { grid-template-columns: 1fr; }
+            .engines-grid { grid-template-columns: 1fr; }
+            .workflow-steps { grid-template-columns: 1fr; }
+            .nav-links { display: none; }
+            .footer-content { flex-direction: column; gap: var(--space-8); text-align: center; }
+            .footer-links { flex-wrap: wrap; justify-content: center; }
+            .cta-actions { flex-direction: column; }
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
     <nav>
         <div class="container">
             <a href="#" class="nav-brand">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
                     <path d="m21 21-4.3-4.3"></path>
                     <path d="M11 8v6"></path>
@@ -983,91 +224,76 @@
                 Deep Research Ultra
             </a>
             <ul class="nav-links">
-                <li><a href="#features">特性</a></li>
-                <li><a href="#engines">搜索引擎</a></li>
+                <li><a href="#features">核心特性</a></li>
+                <li><a href="#v52">v5.2 新特性</a></li>
+                <li><a href="#engines">30 引擎</a></li>
                 <li><a href="#workflow">工作流</a></li>
-                <li><a href="#examples">示例</a></li>
-                <li><a href="#usecases">场景</a></li>
             </ul>
-            <a href="#get-started" class="nav-cta">
-                开始使用
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12h14"></path>
-                    <path d="m12 5 7 7-7 7"></path>
-                </svg>
-            </a>
+            <a href="https://github.com/harryopo/deep-research-ultra" class="nav-cta" target="_blank">GitHub</a>
         </div>
     </nav>
 
-    <!-- Hero Section -->
     <section class="hero">
         <div class="container">
             <div class="hero-grid">
-                <div class="hero-content animate-in">
-                    <div class="hero-badge">v3.2 现已发布</div>
-                    <h1>智能深度调研，一个命令搞定</h1>
+                <div class="hero-content">
+                    <div class="hero-badge">v5.2 现已发布</div>
+                    <h1>超级深度调研工具</h1>
                     <p class="hero-description">
-                        16 个搜索引擎，Claude 智能选择引擎，质量评分排序，缓存加速。
-                        从技术选型到竞品分析，从学术文献到行业趋势，让 AI 帮你完成深度调研。
+                        30 个引擎四层架构，智能路由 + GitHub 深度搜索 + 国内内容源 + 推荐度评分。
+                        从技术选型到学术论文，从开源项目到行业趋势，让 AI 帮你完成深度调研。
                     </p>
                     <div class="hero-actions">
-                        <button class="btn-primary" onclick="scrollToSection('get-started')">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="m5 12 7-7 7 7"></path>
-                                <path d="M12 19V5"></path>
-                            </svg>
+                        <button class="btn btn-primary" onclick="document.getElementById('workflow').scrollIntoView({behavior:'smooth'})">
                             快速开始
-                        </button>
-                        <button class="btn-secondary" onclick="scrollToSection('features')">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7"></path>
                             </svg>
+                        </button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
                             了解更多
                         </button>
                     </div>
                     <div class="stats-bar">
                         <div class="stat">
-                            <span class="stat-value">13</span>
+                            <span class="stat-value">30</span>
                             <span class="stat-label">搜索引擎</span>
                         </div>
                         <div class="stat">
                             <span class="stat-value">4</span>
-                            <span class="stat-label">评分维度</span>
+                            <span class="stat-label">引擎架构</span>
                         </div>
                         <div class="stat">
-                            <span class="stat-value">1h</span>
-                            <span class="stat-label">缓存 TTL</span>
+                            <span class="stat-value">9</span>
+                            <span class="stat-label">查询意图</span>
                         </div>
                         <div class="stat">
-                            <span class="stat-value">∞</span>
-                            <span class="stat-label">迭代搜索</span>
+                            <span class="stat-value">96</span>
+                            <span class="stat-label">测试通过</span>
                         </div>
                     </div>
                 </div>
-                <div class="hero-visual animate-in">
+                <div class="hero-visual">
                     <div class="terminal">
                         <div class="terminal-header">
                             <span class="terminal-dot"></span>
                             <span class="terminal-dot"></span>
                             <span class="terminal-dot"></span>
-                            <span class="terminal-title">Terminal — deep-research-ultra</span>
+                            <span class="terminal-title">Terminal — deep-research-ultra v5.2</span>
                         </div>
                         <div class="terminal-body">
                             <div class="terminal-line">
                                 <span class="terminal-prompt">$</span>
-                                <span class="terminal-command">python search.py <span class="terminal-string">"2025年最新Python Web框架对比"</span></span>
+                                <span class="terminal-command">python search.py <span class="terminal-string">"2025年LLM智能体框架对比"</span></span>
                             </div>
                             <div class="terminal-output">
-                                <span class="terminal-highlight">[INFO]</span> Claude 分析查询：中文技术对比<br>
-                                <span class="terminal-highlight">[INFO]</span> 选择引擎：百度 + Bing + DuckDuckGo + 微信<br>
-                                <span class="terminal-highlight">[INFO]</span> 并发搜索 4 个引擎...<br>
-                                <span class="terminal-success">[SUCCESS]</span> 百度: 找到 45 条结果<br>
-                                <span class="terminal-success">[SUCCESS]</span> 必应: 找到 38 条结果<br>
-                                <span class="terminal-success">[SUCCESS]</span> DuckDuckGo: 找到 52 条结果<br>
-                                <span class="terminal-highlight">[INFO]</span> 质量评分排序完成<br>
-                                <span class="terminal-highlight">[INFO]</span> 生成迭代关键词，继续深度搜索...<br>
-                                <span class="terminal-success">[SUCCESS]</span> 报告已生成: report_20250115_143052.md
+                                <span class="terminal-highlight">[ROUTER]</span> 智能路由 → 学术+开源+社区<br>
+                                <span class="terminal-highlight">[LAYER1]</span> MCP: Tavily + Semantic Scholar<br>
+                                <span class="terminal-highlight">[LAYER2]</span> GitHub 深度搜索（分桶+低星挖掘）<br>
+                                <span class="terminal-highlight">[LAYER2]</span> 国内源: 百度 + 搜狗知乎<br>
+                                <span class="terminal-success">[SUCCESS]</span> 找到 47 个相关项目，9 篇论文<br>
+                                <span class="terminal-success">[SUCCESS]</span> 推荐度评分完成，雷达图生成<br>
+                                <span class="terminal-success">[SUCCESS]</span> 报告已生成: report_v5.2.md
                             </div>
                         </div>
                     </div>
@@ -1076,392 +302,327 @@
         </div>
     </section>
 
-    <!-- Features Section -->
     <section id="features" class="features">
         <div class="container">
             <div class="section-header">
                 <span class="section-label">核心特性</span>
                 <h2>为什么选择 Deep Research Ultra</h2>
-                <p>不只是搜索，而是智能分析。从关键词生成到报告输出，每一步都经过优化。</p>
+                <p>不只是搜索，而是智能调研编排层。Plan-Execute-Synthesize-Reflect 四阶段范式。</p>
             </div>
             <div class="features-grid">
-                <div class="feature-card animate-in">
+                <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"></path>
                         </svg>
                     </div>
-                    <h3>13 引擎并发搜索</h3>
-                    <p>中文 7 个 + 国际 5 个 + 增强 3 个，覆盖百度、必应、DuckDuckGo、Tavily、Jina 等主流搜索引擎，确保信息全面。</p>
+                    <h3>智能路由</h3>
+                    <p>三级级联 Rule→Semantic→LLM，自动识别 9 类查询意图，动态生成引擎链。CircuitBreaker 断路器自动降级。</p>
                 </div>
-                <div class="feature-card animate-in">
+                <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2H2v10h10V2z"></path>
-                            <path d="M12 12H2v10h10V12z"></path>
-                            <path d="M22 2h-6v6h6V2z"></path>
-                            <path d="M22 12h-6v10h6V12z"></path>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
                         </svg>
                     </div>
-                    <h3>智能评分排序</h3>
-                    <p>标题相关 40 + 内容丰富 30 + 权威性 20 + 时效性 10，自动过滤低质量结果。</p>
+                    <h3>30 引擎四层架构</h3>
+                    <p>MCP 服务器 + 学术直连 + Skill 层 + 国内内容源 + 降级引擎。curl_cffi TLS 指纹伪装，Crawl4AI 浏览器自动化。</p>
                 </div>
-                <div class="feature-card animate-in">
+                <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="m22 2-7 20-4-9-9-4 20-7z"></path>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
                         </svg>
                     </div>
-                    <h3>Claude 智能选引擎</h3>
-                    <p>Claude Agent 根据查询语言和主题，动态选择最佳引擎组合。不是硬编码规则，而是真正理解你的需求。</p>
+                    <h3>GitHub 深度搜索</h3>
+                    <p>分桶搜索（旗舰≥1k/主流100-1k/小众10-99/微星<10）+ 低星挖掘 + 依赖图反向挖掘 + awesome 列表挖掘，确保不漏项目。</p>
                 </div>
-                <div class="feature-card animate-in">
+                <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                         </svg>
                     </div>
-                    <h3>智能缓存系统</h3>
-                    <p>MD5 密钥 + 1 小时 TTL，相同查询直接返回缓存结果。避免重复搜索，节省时间和资源。</p>
+                    <h3>国内内容源</h3>
+                    <p>百度 SERP + 搜狗微信 + 搜狗知乎 + 百度学术。国内调研最适配，覆盖微信公众号、知乎、百度学术等本土平台。</p>
                 </div>
-                <div class="feature-card animate-in">
+                <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-                        </svg>
-                    </div>
-                    <h3>深度阅读能力</h3>
-                    <p>提取网页全文内容，Jina Reader 优先。支持 --read 参数，深入阅读目标页面，获取完整信息。</p>
-                </div>
-                <div class="feature-card animate-in">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                            <polyline points="14,2 14,8 20,8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10,9 9,9 8,9"></polyline>
-                        </svg>
-                    </div>
-                    <h3>多格式输出</h3>
-                    <p>Markdown、JSON、报告、CSV 四种输出格式。满足不同场景需求，从快速查看到数据分析。</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Search Engines Section -->
-    <section id="engines" class="engines-section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">搜索引擎架构</span>
-                <h2>13 个引擎，Claude 智能选择</h2>
-                <p>中文 7 个 + 国际 5 个 + 增强 3 个，Claude 根据查询语言和主题动态选择最佳组合。</p>
-            </div>
-            <div class="engines-architecture">
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">中文搜索</span>
-                        <span class="engine-count">7 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">百度</li>
-                        <li class="engine-item">必应</li>
-                        <li class="engine-item">DuckDuckGo</li>
-                        <li class="engine-item">360</li>
-                        <li class="engine-item">搜狗</li>
-                        <li class="engine-item">微信</li>
-                        <li class="engine-item">神马</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">国际搜索</span>
-                        <span class="engine-count">5 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">DuckDuckGo</li>
-                        <li class="engine-item">Brave</li>
-                        <li class="engine-item">Ecosia</li>
-                        <li class="engine-item">Startpage</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">增强搜索</span>
-                        <span class="engine-count">3 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">Tavily</li>
-                        <li class="engine-item">Jina</li>
-                        <li class="engine-item">SearXNG</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Workflow Section -->
-    <section id="workflow" class="workflow-section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">工作流程</span>
-                <h2>从查询到报告，全自动完成</h2>
-                <p>7 个步骤，自动化调研流程，让你专注于结果而非过程。</p>
-            </div>
-            <div class="workflow-steps">
-                <div class="workflow-step animate-in">
-                    <span class="step-number">01</span>
-                    <h4>Claude 分析</h4>
-                    <p>理解查询语义，判断语言和主题，选择最佳引擎组合。</p>
-                </div>
-                <div class="workflow-step animate-in">
-                    <span class="step-number">02</span>
-                    <h4>生成关键词</h4>
-                    <p>自动生成中英文关键词变体，扩大搜索覆盖。</p>
-                </div>
-                <div class="workflow-step animate-in">
-                    <span class="step-number">03</span>
-                    <h4>并发搜索</h4>
-                    <p>指定引擎同时搜索，结合缓存系统，快速获取结果。</p>
-                </div>
-                <div class="workflow-step animate-in">
-                    <span class="step-number">04</span>
-                    <h4>质量评分</h4>
-                    <p>标题相关 40 + 内容丰富 30 + 权威性 20 + 时效性 10。</p>
-                </div>
-                <div class="workflow-step animate-in">
-                    <span class="step-number">05</span>
-                    <h4>去重排序</h4>
-                    <p>URL 去重，按质量分排序，过滤低质量结果。</p>
-                </div>
-                <div class="workflow-step animate-in">
-                    <span class="step-number">06</span>
-                    <h4>迭代搜索</h4>
-                    <p>基于结果生成新关键词，继续深度挖掘。</p>
-                </div>
-                <div class="workflow-step animate-in">
-                    <span class="step-number">07</span>
-                    <h4>输出结果</h4>
-                    <p>支持 Markdown、JSON、报告、CSV 四种格式。</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Code Examples Section -->
-    <section id="examples" class="code-section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">使用示例</span>
-                <h2>简单命令，强大功能</h2>
-                <p>从技术选型到竞品分析，一个命令搞定深度调研。</p>
-            </div>
-            <div class="code-blocks">
-                <div class="code-block">
-                    <div class="code-block-header">
-                        <span class="code-block-title">基础搜索</span>
-                    </div>
-                    <div class="code-block-body">
-                        <pre><span class="code-comment"># 搜索技术问题</span>
-<span class="code-command">python search.py</span> <span class="code-string">"2025年最新Python Web框架对比"</span>
-
-<span class="code-comment"># 深度阅读网页</span>
-<span class="code-command">python search.py</span> <span class="code-string">"FastAPI 最佳实践"</span> <span class="code-flag">--read</span>
-
-<span class="code-comment"># 指定搜索引擎</span>
-<span class="code-command">python search.py</span> <span class="code-string">"React vs Vue"</span> <span class="code-flag">--sources</span> github,bing
-
-<span class="code-comment"># 输出格式</span>
-<span class="code-command">python search.py</span> <span class="code-string">"AI 技术趋势"</span> <span class="code-flag">--output</span> report</pre>
-                    </div>
-                </div>
-                <div class="code-block">
-                    <div class="code-block-header">
-                        <span class="code-block-title">输出示例</span>
-                    </div>
-                    <div class="code-block-body">
-                        <pre><span class="code-comment"># Markdown 格式输出</span>
-<span class="code-string"># 2025年最新Python Web框架对比</span>
-
-<span class="code-highlight">## 摘要</span>
-基于 16 个搜索引擎的深度调研结果...
-
-<span class="code-highlight">## 主要发现</span>
-1. FastAPI 性能最优，适合 API 开发
-2. Django 生态最完整，适合全栈开发
-3. Flask 最灵活，适合微服务架构
-
-<span class="code-highlight">## 详细分析</span>
-...</pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Use Cases Section -->
-    <section id="usecases" class="usecases-section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">适用场景</span>
-                <h2>为深度调研而生</h2>
-                <p>无论你是开发者、研究人员还是决策者，Deep Research Ultra 都能帮你快速获取深度信息。</p>
-            </div>
-            <div class="usecases-grid">
-                <div class="usecase-card animate-in">
-                    <div class="usecase-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="m18 16 4-4-4-4"></path>
-                            <path d="m6 8-4 4 4 4"></path>
-                            <path d="m14.5 4-5 16"></path>
-                        </svg>
-                    </div>
-                    <div class="usecase-content">
-                        <h3>技术选型调研</h3>
-                        <p>对比不同框架、库、工具的优缺点，从性能、生态、社区活跃度等多个维度进行深度分析，帮助你做出明智的技术决策。</p>
-                    </div>
-                </div>
-                <div class="usecase-card animate-in">
-                    <div class="usecase-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-                        </svg>
-                    </div>
-                    <div class="usecase-content">
-                        <h3>学术文献收集</h3>
-                        <p>快速收集特定领域的学术论文、研究报告，自动提取关键信息，生成文献综述，节省大量阅读时间。</p>
-                    </div>
-                </div>
-                <div class="usecase-card animate-in">
-                    <div class="usecase-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 20V10"></path>
                             <path d="M18 20V4"></path>
                             <path d="M6 20v-4"></path>
                         </svg>
                     </div>
-                    <div class="usecase-content">
-                        <h3>竞品分析</h3>
-                        <p>深入分析竞争对手的产品特性、市场策略、用户评价，从多个信息源获取全面数据，支持商业决策。</p>
-                    </div>
+                    <h3>推荐度评分</h3>
+                    <p>GitHub 8 维评分 + 论文 5 维评分 + 分组排序 + 雷达图可视化。Adopt/Trial/Assess/Hold 推荐等级。</p>
                 </div>
-                <div class="usecase-card animate-in">
-                    <div class="usecase-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-                            <path d="M2 12h20"></path>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                            <polyline points="14,2 14,8 20,8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
                         </svg>
                     </div>
-                    <div class="usecase-content">
-                        <h3>行业趋势追踪</h3>
-                        <p>追踪特定行业的最新动态、技术趋势、市场变化，从海量信息中提取有价值的洞察，保持信息领先。</p>
-                    </div>
+                    <h3>学术全文检索</h3>
+                    <p>arXiv PDF/LaTeX 下载 + Unpaywall OA 解析 + Semantic Scholar 引用图谱。474M+ 作品，200M+ 论文。</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- CTA Section -->
-    <section id="get-started" class="cta-section">
+    <section id="v52" class="v52-features">
         <div class="container">
-            <div class="cta-content animate-in">
+            <div class="section-header">
+                <span class="section-label">v5.2 新特性</span>
+                <h2>深度调研能力全面升级</h2>
+                <p>从 13 引擎到 30 引擎，从平铺搜索到智能编排，从结果列表到推荐度评分。</p>
+            </div>
+            <div class="v52-grid">
+                <div class="v52-card">
+                    <h3>🔍 GitHub 深度搜索</h3>
+                    <p>解决"调研开源项目漏掉低星项目"问题。</p>
+                    <ul>
+                        <li>分桶搜索：4 档 star 范围独立搜索</li>
+                        <li>低星挖掘：确保 <10 star 项目不被遗漏</li>
+                        <li>依赖图反向挖掘：找到依赖种子项目的项目</li>
+                        <li>awesome 列表挖掘：从 curated 列表提取项目</li>
+                    </ul>
+                </div>
+                <div class="v52-card">
+                    <h3>🇨🇳 国内内容源</h3>
+                    <p>国内调研最适配，覆盖本土平台。</p>
+                    <ul>
+                        <li>百度 SERP：国内搜索主力，含知乎/CSDN/掘金</li>
+                        <li>搜狗微信：微信公众号文章搜索</li>
+                        <li>搜狗知乎：知乎问答内容检索</li>
+                        <li>百度学术：国内学术论文搜索</li>
+                    </ul>
+                </div>
+                <div class="v52-card">
+                    <h3>📊 推荐度评分系统</h3>
+                    <p>多维度评分 + 分组排序 + 雷达图可视化。</p>
+                    <ul>
+                        <li>GitHub 8 维：人气/活跃/维护/社区/文档/依赖/相关/生态</li>
+                        <li>论文 5 维：引用/时效/权威/h-index/相关</li>
+                        <li>分组排序：旗舰/主流/小众三组独立排序</li>
+                        <li>推荐等级：Adopt/Trial/Assess/Hold 四环模型</li>
+                    </ul>
+                </div>
+                <div class="v52-card">
+                    <h3>📝 报告增强</h3>
+                    <p>调研结果更结构化、可视化。</p>
+                    <ul>
+                        <li>SVG 雷达图：多维度评分对比可视化</li>
+                        <li>推荐度章节：分组对比表 + 推荐理由</li>
+                        <li>意图识别权重调整：novel_approach 提升相关性权重</li>
+                        <li>九类查询矩阵：学术/开源/社区等精准匹配</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="engines" class="engines-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">引擎架构</span>
+                <h2>30 个引擎，四层架构</h2>
+                <p>MCP 服务器 + 学术直连 + Skill 层 + 国内内容源 + 降级引擎，分层降级，确保可用。</p>
+            </div>
+            <div class="engines-grid">
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">Layer 1: MCP 服务器</span>
+                        <span class="engine-count">5 个</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">Tavily (AI 优先)</li>
+                        <li class="engine-item">Firecrawl (网页抓取)</li>
+                        <li class="engine-item">OpenWebsearch (自托管)</li>
+                        <li class="engine-item">arxiv-mcp-server</li>
+                        <li class="engine-item">paper-search-mcp</li>
+                    </ul>
+                </div>
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">Layer 1: 学术直连</span>
+                        <span class="engine-count">6 个</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">OpenAlex (474M+ 作品)</li>
+                        <li class="engine-item">Semantic Scholar (200M+ 论文)</li>
+                        <li class="engine-item">PubMed (36M+ 医学)</li>
+                        <li class="engine-item">arXiv 全文 (PDF/LaTeX)</li>
+                        <li class="engine-item">Unpaywall (OA 解析)</li>
+                        <li class="engine-item">S2 引用图谱</li>
+                    </ul>
+                </div>
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">Layer 2: Skill 层</span>
+                        <span class="engine-count">8 个</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">agent-reach (13 平台)</li>
+                        <li class="engine-item">oss-finder (开源搜索)</li>
+                        <li class="engine-item">last30days (近期内容)</li>
+                        <li class="engine-item">sciverse (学术论文)</li>
+                        <li class="engine-item">defuddle (内容提取)</li>
+                        <li class="engine-item">Context7 (文档)</li>
+                        <li class="engine-item">GitHub 深度搜索 ★v5.2</li>
+                        <li class="engine-item">GitHub Code Search</li>
+                    </ul>
+                </div>
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">Layer 2: 国内源 ★v5.2</span>
+                        <span class="engine-count">4 个</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">百度 SERP</li>
+                        <li class="engine-item">搜狗微信</li>
+                        <li class="engine-item">搜狗知乎</li>
+                        <li class="engine-item">百度学术</li>
+                    </ul>
+                </div>
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">Layer 3: 内置工具</span>
+                        <span class="engine-count">3 个</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">WebSearch</li>
+                        <li class="engine-item">WebFetch</li>
+                        <li class="engine-item">Crawl4AI (浏览器自动化)</li>
+                    </ul>
+                </div>
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">Layer 4: 降级引擎</span>
+                        <span class="engine-count">4 个</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">DuckDuckGo (ddgs)</li>
+                        <li class="engine-item">Baidu HTML (最后手段)</li>
+                        <li class="engine-item">Bing HTML (最后手段)</li>
+                        <li class="engine-item">SearXNG (自建)</li>
+                    </ul>
+                </div>
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">反爬虫升级</span>
+                        <span class="engine-count">curl_cffi</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">TLS/JA3 指纹伪装</li>
+                        <li class="engine-item">impersonate="chrome124"</li>
+                        <li class="engine-item">自动降级到 urllib</li>
+                        <li class="engine-item">重试 + 退避策略</li>
+                    </ul>
+                </div>
+                <div class="engine-group">
+                    <div class="engine-group-header">
+                        <span class="engine-group-title">方法论增强</span>
+                        <span class="engine-count">v5.1+</span>
+                    </div>
+                    <ul class="engine-list">
+                        <li class="engine-item">MECE 问题树 (6状态)</li>
+                        <li class="engine-item">CRAAP 评分法</li>
+                        <li class="engine-item">交叉验证</li>
+                        <li class="engine-item">多信号反思循环</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="workflow" class="workflow-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">工作流程</span>
+                <h2>Plan → Execute → Synthesize → Reflect</h2>
+                <p>四阶段深度调研范式，每一步都经过优化。</p>
+            </div>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <span class="step-number">01</span>
+                    <h4>Plan 规划</h4>
+                    <p>MECE 问题树分解，6 状态子问题机制作业。识别查询意图，选择最佳引擎链。</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="step-number">02</span>
+                    <h4>Execute 执行</h4>
+                    <p>智能路由三级级联，并发搜索多个引擎，curl_cffi TLS 伪装，Crawl4AI 浏览器自动化。</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="step-number">03</span>
+                    <h4>Synthesize 综合</h4>
+                    <p>CER 结构组织，CRAAP 评分验证，推荐度评分排序，SVG 雷达图可视化。</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="step-number">04</span>
+                    <h4>Reflect 反思</h4>
+                    <p>多信号停止：边际收益递减检测，无高优先级空白自动收敛，交叉验证补充。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <div class="cta-content">
                 <h2>开始你的深度调研</h2>
                 <p>只需一个命令，让 AI 帮你完成从搜索到分析的全流程。</p>
                 <div class="cta-actions">
-                    <button class="btn-primary" onclick="copyInstallCommand()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <button class="btn btn-primary" onclick="navigator.clipboard.writeText('python search.py \'你的调研主题\'')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
                             <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
                         </svg>
                         复制安装命令
                     </button>
-                    <button class="btn-secondary" onclick="window.open('https://github.com', '_blank')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <a href="https://github.com/harryopo/deep-research-ultra" class="btn btn-secondary" target="_blank">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
                             <path d="M9 18c-4.51 2-5-2-7-2"></path>
                         </svg>
                         查看源码
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
     <footer>
         <div class="container">
             <div class="footer-content">
                 <div class="footer-brand">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8"></circle>
                         <path d="m21 21-4.3-4.3"></path>
                         <path d="M11 8v6"></path>
                         <path d="M8 11h6"></path>
                     </svg>
-                    Deep Research Ultra
+                    Deep Research Ultra v5.2
                 </div>
                 <ul class="footer-links">
-                    <li><a href="#features">特性</a></li>
-                    <li><a href="#engines">搜索引擎</a></li>
+                    <li><a href="#features">核心特性</a></li>
+                    <li><a href="#v52">v5.2 新特性</a></li>
+                    <li><a href="#engines">30 引擎</a></li>
                     <li><a href="#workflow">工作流</a></li>
-                    <li><a href="#examples">示例</a></li>
-                    <li><a href="#usecases">场景</a></li>
                 </ul>
-                <span class="footer-copy">© 2025 Deep Research Ultra. All rights reserved.</span>
+                <span class="footer-copy">© 2026 Deep Research Ultra. MIT License.</span>
             </div>
         </div>
     </footer>
-
-    <script>
-        // 滚动到指定区块
-        function scrollToSection(id) {
-            const element = document.getElementById(id);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth' });
-            }
-        }
-
-        // 复制安装命令
-        function copyInstallCommand() {
-            const command = 'pip install deep-research-ultra';
-            navigator.clipboard.writeText(command).then(() => {
-                alert('安装命令已复制到剪贴板');
-            }).catch(() => {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = command;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                alert('安装命令已复制到剪贴板');
-            });
-        }
-
-        // 滚动动画
-        const observerOptions = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 0.1
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('animate-in');
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, observerOptions);
-
-        // 观察所有需要动画的元素
-        document.querySelectorAll('.feature-card, .workflow-step, .usecase-card').forEach(el => {
-            observer.observe(el);
-        });
-    </script>
 </body>
 </html>
