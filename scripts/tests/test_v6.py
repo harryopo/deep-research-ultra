@@ -757,8 +757,9 @@ class TestTruthV63:
                            'url': 'https://x.example/d', 'content': 'c',
                            'craap_score': {}})(),
         ]
-        n = rz._write_ledger(L, results, self._verify_stub(), '主题')
-        assert n == 4
+        # v6.10：默认不再自动建 claim，这里显式要 auto-claim，测的仍是分流逻辑
+        n = rz._write_ledger(L, results, self._verify_stub(), '主题', auto_claim=True)
+        assert n['claims'] == 4
         statuses = {c['text']: c['status'] for c in L.claims()}
         assert statuses['Transformer 是主流架构'] == 'verified'
         assert statuses['唯一单源结论'] == 'pending'

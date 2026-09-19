@@ -74,6 +74,11 @@ def _artifact_key(url: str) -> str:
     return f'{host}:{path.rstrip("/")}'
 
 
+def _is_traceable(url: str) -> bool:
+    """能不能点回原文：站内相对链接（/link?url=…）与 javascript: 之类一律不算来源。"""
+    return bool(re.match(r'^https?://[^\s/]+', str(url or '').strip()))
+
+
 def _now() -> str:
     return datetime.now().isoformat(timespec='seconds')
 
@@ -110,14 +115,18 @@ class ResearchLedger:
     """证据账本。session_dir 即 ledger 根目录。"""
 
     ENTRIES = 'ledger.jsonl'
+    EVIDENCE = 'evidence.jsonl'
     CLAIMS_DIR = 'claims'
     SOURCES_DIR = 'sources'
 
     def __init__(self, session_dir: str):
         self.root = Path(session_dir)
         self.entries_path = self.root / self.ENTRIES
+        self.evidence_path = self.root / self.EVIDENCE
         self.claims_dir = self.root / self.CLAIMS_DIR
         self.sources_dir = self.root / self.SOURCES_DIR
+        # merge 的诊断计数（CLI 用）：新增/去重/拒收，让噪声进不了账本也看得见
+        self.last_merge = {'claims': 0, 'sources': 0, 'deduped': 0, 'rejected': 0}
 
     # ------------------------------------------------------------------
     # 初始化
@@ -183,6 +192,32 @@ class ResearchLedger:
             'created_at': _now(),
         }
         _atomic_append(self.entries_path, json.dumps(entry, ensure_ascii=False))
+        return entry
+
+    def add_evidence(self, url: str, title: str = '', query: str = '',
+                     engine: str = '', tier: Optional[int] = None,
+                     craap_score: Optional[float] = None) -> Optional[Dict[str, Any]]:
+        """登记一条检索命中的原始证据（它不是 claim）。
+
+        引擎给回的标题是别人页面的标题，不是本调研的论断；把它写成 claim 会让
+        5 星空仓库和培训班广告进入覆盖率与引用统计（实测 391 条 merge 后变 602 条）。
+        证据只进 evidence.jsonl，Lead 读过内容后再用 add-claim 显式立论。
+        """
+        url = str(url).strip()
+        if not _is_traceable(url):
+            return None
+        seen = {str(e.get('url') or '') for e in _iter_entries(self.evidence_path)}
+        if url in seen:
+            return None
+        t = int(tier) if tier is not None else (domain_tier(url) if domain_tier else 3)
+        entry = {
+            'type': 'evidence', 'id': f'e-{uuid.uuid4().hex[:10]}', 'url': url,
+            'title': str(title).strip(), 'query': str(query).strip(),
+            'engine': engine, 'tier': min(max(t, 1), 4),
+            'craap_score': float(craap_score) if craap_score is not None else None,
+            'created_at': _now(),
+        }
+        _atomic_append(self.evidence_path, json.dumps(entry, ensure_ascii=False))
         return entry
 
     # ------------------------------------------------------------------
@@ -287,41 +322,60 @@ class ResearchLedger:
     def merge(self, src_dir: str) -> Tuple[int, int]:
         """合并 src_dir 下的全部子产物（.jsonl / .json），按 id 去重。
 
-        返回 (新增 claim 数, 新增 source 数)。
+        返回 (新增 claim 数, 新增 source 数)；去重/拒收计数记在 self.last_merge，
+        让"有多少噪声被挡在门外"看得见，而不是静默变少。
         """
         src = Path(src_dir)
-        added_c = added_s = 0
+        stats = {'claims': 0, 'sources': 0, 'deduped': 0, 'rejected': 0}
+        self.last_merge = stats
         if not src.exists():
-            return added_c, added_s
+            return 0, 0
         existing = self._ids()
+        existing_src = existing_sources(self.root)
         for f in sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json')):
+            if f.name == self.EVIDENCE:
+                continue                       # 证据不是结论，永不进 claim/source 表
             for item in self._read_any(f):
                 if not isinstance(item, dict):
+                    stats['rejected'] += 1
                     continue
-                typ = item.get('type') or ('claim' if item.get('text') is not None else 'source')
-                if typ == 'claim':
+                typ = item.get('type')
+                if typ == 'evidence':
+                    continue
+                elif typ == 'claim':
                     if item.get('id') in existing:
+                        stats['deduped'] += 1
                         continue
+                    if not str(item.get('text') or '').strip():
+                        stats['rejected'] += 1
+                        continue
+                    # 缺 status 一律 pending：合并动作不能自己批准结论
                     self.add_claim(
                         claim=item.get('text', ''), topic=item.get('topic', 'general'),
-                        status=item.get('status', 'verified'),
+                        status=item.get('status') or 'pending',
                         perspective=item.get('perspective', 'general'),
                         confidence=item.get('confidence', 0.5),
                         claim_id=item.get('id'), note=item.get('note', ''),
                     )
-                    added_c += 1
-                else:
+                    existing.add(item.get('id'))    # 同一份产物里重复 id 也算去重
+                    stats['claims'] += 1
+                elif typ == 'source':
                     cid = str(item.get('claim_id', ''))
                     url = str(item.get('url', ''))
-                    if not cid or not url:
+                    if not cid or not _is_traceable(url):
+                        stats['rejected'] += 1     # 点不回原文的"来源"是假溯源
                         continue
                     key = (cid, url)
-                    if key in existing_sources(self.root):
+                    if key in existing_src:
+                        stats['deduped'] += 1
                         continue
                     self.add_source(cid, url, item.get('title', ''),
                                     item.get('tier'), item.get('craap_score'))
-                    added_s += 1
-        return added_c, added_s
+                    existing_src.add(key)
+                    stats['sources'] += 1
+                else:
+                    stats['rejected'] += 1         # 认不出的类型不猜，交给人看
+        return stats['claims'], stats['sources']
 
     def append_file(self, path: str) -> Tuple[int, int]:
         """合并单个产物文件。"""
@@ -617,7 +671,10 @@ def _main(argv: Optional[List[str]] = None) -> int:
             print('缺少 --dir <src_dir>', file=sys.stderr)
             return 2
         c, s = ledger.merge(src)
-        print(f'合并完成：新增 claim {c} 条，source {s} 条')
+        st = ledger.last_merge
+        print(f'合并完成：新增 claim {c} 条，source {s} 条，'
+              f'去重 {st["deduped"]} 条，拒收 {st["rejected"]} 条'
+              '（拒收＝点不回原文或缺类型的记录，不会进账本）')
         return 0
 
     if cmd == 'export':

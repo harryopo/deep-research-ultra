@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.9.0
+version: 6.10.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -328,6 +328,8 @@ Lead（主 Agent）
 
 任务:
 1) 用 python "{SKILL_DIR}/scripts/research.py" "{subtopic}" --no-cache 检索（若指定引擎则加 --sources {engines}）
+   （v6.10：`--ledger` 只登记证据到 evidence.jsonl，不再把搜索结果的标题写成 claim——
+   标题是别人页面的标题，不是你的论断；混进来会让覆盖率与引用统计虚高，实测 391 条 merge 后变 602 条）
 2) 用 python "{SKILL_DIR}/scripts/ledger.py" add-claim --session {ledger_dir} --text "<claim>" --topic "{subtopic}" --status pending --perspective "{perspective}" --confidence <0-1>
    再用 add-source 为该 claim 关联 ≥1 个来源 URL（--tier 自动判定）
 3) 每条 claim 必须：只记录事实与来源，不做总结断言；发现矛盾标 --status conflict
@@ -1232,6 +1234,7 @@ scripts/
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
 - ❌ **禁止越过 Phase 0 环境闸门**（v6.8）— `--probe` 退出码 3 时不许开跑，也不许自行加 `--allow-degraded`；停下来把配置指引给用户，等他配好或明确授权降级
+- ❌ **禁止把搜索结果当结论**（v6.10）— `--ledger` 只登记证据；claim 必须用 `add-claim` 显式立论并挂来源。要沿用旧行为得自己加 `--auto-claim` 并说明理由
 - ❌ **禁止把 MCP 的"配置就绪"当"连上了"**（v6.9）— 只有 `--probe`/`--mcp-check` 真握手拿到结果才算这个源存在；握手超时要先预热（首次 npx/uvx 下包），别静默丢掉这个源
 - ❌ **禁止探索性空转** — 不 `ls` skill 目录、不读脚本源码、不跑 `--help`；文档即接口
 - ❌ **禁止只跑不落地** — 每个阶段都要落盘（账本/大纲/报告），中断必须留得下可续用的产物

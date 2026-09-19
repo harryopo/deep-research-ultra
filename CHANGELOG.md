@@ -5,6 +5,43 @@
 
 ---
 
+## v6.10.0（2026-09-20）— 搜索结果不再自动变成结论（外来清单 X-D4）
+
+### 触发事实
+另一次 effort=deep 实跑（4 session / 23 子问题）交回的清单里，使用者把
+「--ledger 自动灌噪声 claim」列为最该先修的一条：`research.py --ledger` 给每条搜索结果
+建一条 claim，文本就是页面标题，于是 5 星空仓库名、搜狗微信培训班广告都成了「论断」；
+子 Agent 自报约 391 条，merge 后变 602 条，而它们进了覆盖率与引用统计。
+搜索结果不是 claim——这一条此前没有任何代码或文档拦住它。
+
+### 账本
+- `ResearchLedger.add_evidence()`：命中结果落到会话目录下的 `evidence.jsonl`
+  （type=evidence，带 url/title/query/engine/tier），按绝对 URL 去重；
+  点不回原文的（站内相对链接 `/link?url=…`、`mailto:`）直接不收。
+- `--auto-claim`：想要旧行为得显式加这个旗标，`--help` 里写清了代价。默认只登记证据。
+- `--ledger` 落盘提示改为「N 条证据（未建 claim——读完内容用 add-claim 立论）」，
+  让 Lead 下一步就知道该做什么，而不是对着 602 条 claim 猜哪些是广告。
+
+### merge 顺手补的三个洞（同一个根因：合并不该无中生有）
+- 缺 status 的记录以前默认 `verified`——合并动作能自己批准结论，现在一律落 `pending`；
+- 来源 URL 不可溯源的（相对链接等）拒收，不再伪装成证据；
+- 打印新增/去重/拒收三个计数，噪声被挡住时看得见，不会「静默变少」。
+
+### 写第一版时自己踩到并修掉的
+取 `engine` 字段只认对象不认 dict，缓存路径（`--ledger` 二跑）整批结果被
+「账本写入失败」静默吞掉——补了一条 dict 形态的用例钉住它。
+
+### 验证
+267 个测试通过（新增 9 条 `tests/test_ledger_hygiene.py`）。
+实跑 `research.py "vector database" --sources openalex --ledger ./led`：
+10 条结果 -> 9 条证据（1 条重复 URL 去重）、0 条 claim。
+`--auto-claim` 路径由 `test_auto_claim_is_opt_in_and_keeps_legacy_behaviour`
+与 `test_write_ledger_status_split` 覆盖（真 ResearchLedger + tmp_path）。
+
+### 已知边界
+`report.py` 的账本附录仍按 claim 计数：没有 claim 时那一节会空，这是对的
+（还没立论就不该有结论统计）；报告正文的引用来自搜索结果本身，不受影响。
+
 ## v6.9.0（2026-09-19）— MCP 纳入环境闸门：真连一次，不再看配置文件放行（D15）
 
 ### 触发事实

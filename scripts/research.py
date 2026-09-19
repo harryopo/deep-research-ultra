@@ -550,16 +550,31 @@ def _extract_claim_texts(obj_list, attr='statement'):
     return out
 
 
-def _write_ledger(ledger, results, verification, query):
-    """搜索结果落盘证据账本（v6.3：按交叉验证结果分流 status，不再一律 verified）。
+def _ledger_summary(written) -> str:
+    n_drop = written.get('dropped', 0)
+    tail = f"，{n_drop} 条命中点不回原文已丢弃" if n_drop else ''
+    if not written['claims']:
+        return (f"{written['evidence']} 条证据（未建 claim——读完内容用 add-claim 立论；"
+                f"沿用旧行为加 --auto-claim）{tail}")
+    return (f"{written['evidence']} 条证据 + {written['claims']} 条 auto-claim"
+            f"（按交叉验证分流 status）{tail}")
 
-    分流规则：
-    - 命中 verified_claims（≥2 独立来源）→ status='verified'
-    - 命中 contradictions → status='conflict'
-    - 命中 single_source_claims 或未命中 → status='pending'（未验证）
+
+def _write_ledger(ledger, results, verification, query, auto_claim: bool = False):
+    """搜索结果落盘（v6.10：默认只登记证据，不再自动生成 claim）。
+
+    引擎给回的标题是别人页面的标题，不是本调研的论断。实测把 `--ledger` 打开跑
+    4 个 session，子 Agent 自报约 391 条 claim，merge 后变 602 条——多出来的几乎
+    全是 5 星空仓库名与培训班广告，它们却进了覆盖率与引用统计。
+    claim 现在必须由 Lead/子 Agent 读完内容后 add-claim 显式立论。
+
+    auto_claim=True 保留旧行为（按交叉验证结果分流 status）：
+    - 命中 verified_claims（≥2 独立来源）→ 'verified'
+    - 命中 contradictions → 'conflict'
+    - 命中 single_source_claims 或未命中 → 'pending'
     """
     if ledger is None:
-        return 0
+        return {'claims': 0, 'evidence': 0, 'dropped': 0}
     ver = verification if verification is not None else None
     if isinstance(ver, dict):
         verified_texts = _extract_claim_texts(ver.get('verified_claims'))
@@ -586,7 +601,7 @@ def _write_ledger(ledger, results, verification, query):
                 return True
         return False
 
-    written = 0
+    written = {'claims': 0, 'evidence': 0, 'dropped': 0}
     for r in results:
         try:
             title = r.title if hasattr(r, 'title') else r.get('title', '')
@@ -599,6 +614,17 @@ def _write_ledger(ledger, results, verification, query):
                 content = (r.content if hasattr(r, 'content')
                            else (r.get('content', '') if isinstance(r, dict) else ''))
                 text = str(content)[:80] or '(无标题)'
+            engine = (getattr(r, 'engine', '')
+                      or (r.get('engine', '') if isinstance(r, dict) else '')) or ''
+            ev = ledger.add_evidence(url=url, title=title, query=query, engine=engine,
+                                     tier=craap.get('tier'),
+                                     craap_score=craap.get('total'))
+            if ev is not None:
+                written['evidence'] += 1
+            elif not auto_claim:
+                written['dropped'] += 1     # 点不回原文的命中不入账，只记个数
+            if not auto_claim:
+                continue
             if _match(text, conflict_texts):
                 status = 'conflict'
                 conf = 0.3
@@ -620,7 +646,7 @@ def _write_ledger(ledger, results, verification, query):
                     claim['id'], str(url), str(title),
                     tier=craap.get('tier') if craap else None,
                     craap_score=craap.get('total') if craap else None)
-            written += 1
+            written['claims'] += 1
         except Exception as e:
             print(f"⚠️ 账本写入失败: {e}", file=sys.stderr)
     return written
@@ -662,8 +688,9 @@ def cmd_search(args, registry):
                 from ledger import ResearchLedger
                 ledger = ResearchLedger(args.ledger).init()
                 n = _write_ledger(ledger, cached.get('results', []),
-                                  cached.get('verification'), args.query)
-                print(f"📒 已写入证据账本 {n} 条 claim（缓存结果）", file=sys.stderr)
+                                  cached.get('verification'), args.query,
+                                  auto_claim=args.auto_claim)
+                print(f"📒 落盘（缓存结果）：{_ledger_summary(n)}", file=sys.stderr)
             _output_results(cached, args)
             return
 
@@ -884,9 +911,9 @@ def cmd_search(args, registry):
     # 6.5 落盘证据账本（v6.3：前移到反思循环之前——
     #     此前落盘在反思之后导致 evidence_sufficient/marginal 恒读空账本）
     if ledger:
-        written = _write_ledger(ledger, all_results, verification, args.query)
-        print(f"📒 已写入证据账本 {written} 条 claim（按交叉验证分流 status）",
-              file=sys.stderr)
+        written = _write_ledger(ledger, all_results, verification, args.query,
+                                auto_claim=args.auto_claim)
+        print(f"📒 落盘：{_ledger_summary(written)}", file=sys.stderr)
 
     # 7. 反思循环（如果 --reflect-rounds > 0；账本已就绪，证据充分性停止生效）
     reflections = []
@@ -1139,6 +1166,10 @@ v3 兼容（自动降级到 Layer 4）:
                         help='v6.0 努力程度（quick=1轮检索跳过专家团 ... exhaustive=red-team对抗评审）')
     parser.add_argument('--breadth', type=int, default=0,
                         help='v6.0 并行子主题数（0=随 effort 自动；供主 Agent 并行派发参考）')
+    parser.add_argument('--auto-claim', action='store_true',
+                        help='把每条搜索结果的标题自动写成一条 claim（默认关闭：标题是'
+                             '别人页面的标题而不是本调研的论断，会灌进 5 星空仓库与广告'
+                             '噪声并虚高覆盖率；只在复现 v6.9 及以前行为时用）')
     parser.add_argument('--ledger', default=None,
                         help='v6.0 证据账本目录（.research/session/ledger），搜索结果落盘并用于反思/报告')
     parser.add_argument('--perspectives', default=None,
