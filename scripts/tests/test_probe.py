@@ -18,6 +18,8 @@ from probe import (PROBE_QUERIES, STATUS_EMPTY, STATUS_FAILED, STATUS_OK,
 class _Meta:
     config_keys: List[str] = field(default_factory=list)
     probe_query: str = ''
+    layer: int = 2
+    capabilities: List[str] = field(default_factory=lambda: ['search'])
 
 
 class _FakeEngine:

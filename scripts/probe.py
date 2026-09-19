@@ -61,6 +61,13 @@ def classify_probe(results: Optional[list]) -> str:
     return STATUS_OK if results else STATUS_EMPTY
 
 
+def _meta_fields(engine) -> Dict[str, Any]:
+    """闸门要按层与能力判独立性、按通道说指引，报告里必须带上元数据。"""
+    meta = engine.metadata
+    return {'layer': meta.layer, 'config_keys': list(meta.config_keys),
+            'caps': list(meta.capabilities), 'kind': engine_kind(engine)}
+
+
 def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any]:
     """对单个引擎做功能探针。"""
     name = engine.get_name()
@@ -68,19 +75,20 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
 
     if not engine.has_capability('search'):
         return {'engine': name, 'status': STATUS_SKIPPED, 'count': 0,
-                'note': '非搜索类引擎（lookup/详情）'}
+                'note': '非搜索类引擎（lookup/详情）', **_meta_fields(engine)}
 
     if not engine.is_available():
         missing = [k for k in meta.config_keys if not os.environ.get(k)]
         note = f'缺少配置: {", ".join(missing)}' if missing else '依赖/服务未就绪'
-        return {'engine': name, 'status': STATUS_FAILED, 'count': 0, 'note': note}
+        return {'engine': name, 'status': STATUS_FAILED, 'count': 0, 'note': note,
+                **_meta_fields(engine)}
 
     q = query or resolve_probe_query(engine)
     try:
         results = engine.search(q, max_results=max_results)
     except Exception as exc:          # 引擎异常不得当成"可用"
         return {'engine': name, 'status': STATUS_FAILED, 'count': 0,
-                'note': f'探针异常: {exc}', 'query': q}
+                'note': f'探针异常: {exc}', 'query': q, **_meta_fields(engine)}
 
     status = classify_probe(results)
     if status == STATUS_OK:
@@ -91,7 +99,7 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
     else:
         note = f'引擎返回 None（{_last_http_error()}）'
     return {'engine': name, 'status': status, 'count': len(results or []),
-            'note': note, 'query': q}
+            'note': note, 'query': q, **_meta_fields(engine)}
 
 
 def _last_http_error() -> str:
@@ -108,3 +116,111 @@ def summarize(reports: List[Dict[str, Any]]) -> Dict[str, int]:
     for r in reports:
         out[r['status']] = out.get(r['status'], 0) + 1
     return out
+
+
+# ---------------------------------------------------------------------------
+# 启动前环境闸门（Phase 0 硬门）
+# ---------------------------------------------------------------------------
+
+# 缺配置时要给出「去哪拿 + 解锁什么 + 怎么设」，否则用户只能瞎猜或直接降级开跑
+CONFIG_GUIDE: Dict[str, str] = {
+    'S2_API_KEY': 'https://www.semanticscholar.org/product/api 申请'
+                  '（解锁引用图谱与批量元数据检索；匿名常被限流）',
+    'GITHUB_TOKEN': 'https://github.com/settings/tokens 生成 fine-grained 只读 token'
+                    '（解锁 github-code-search，并把 github-deep-search 从 60 次/小时提上来）',
+    'GITEE_TOKEN': 'https://gitee.com/profile/personal_access_tokens 生成'
+                   '（v5 搜索端点匿名请求静默返回 []，不配等于没有这个源）',
+    'NCBI_API_KEY': 'https://www.ncbi.nlm.nih.gov/account/settings/ 申请'
+                    '（匿名可用但限 3 次/秒，多子 Agent 并发会掉结果）',
+    'UNPAYWALL_EMAIL': '填任意常用邮箱即可（解锁 OA 全文定位）',
+    'OPENALEX_MAILTO': '填邮箱进 polite pool；不配也能查，但并发时极易 429',
+    'TAVILY_API_KEY': 'https://app.tavily.com 申请（1000 次/月免费）',
+    'FIRECRAWL_API_KEY': 'https://www.firecrawl.dev 申请（500 credits/月）',
+    'CRAWL4AI_URL': '本地起服务后设为 http://localhost:11235',
+    'SEARXNG_URL': '自建 SearXNG 实例地址（如 http://localhost:8888）；没有实例就排除该源',
+}
+
+# 不可用原因 → 该怎么办。指引必须跟着"这个引擎靠什么通道出数据"走：实测把
+# duckduckgo/sogou-zhihu 这类直连 HTTP 源说成"去连 MCP server"是误导。
+MCP_NOTE_KEYS = ('MCP', '未连接')
+NETWORK_NOTE_KEYS = ('服务未就绪', '探针异常', 'HTTP', 'None', 'URLError')
+HTTP_DENY_CODES = ('HTTP 406', 'HTTP 403', 'HTTP 429', 'HTTP 401')
+SUBSTITUTE_ADVICE = ('改用同层替代源：arXiv 全文 → arxiv.org/abs 页；国内学术 → '
+                     'openalex/pubmed；HTML 降级搜索 → MCP/直连层，别把降级链当兜底')
+
+# 能读到原始制品（论文原文 / 仓库代码）的能力标签：只有二手网页时归属型 claim 无法溯源
+PRIMARY_CAPS = {'academic', 'fulltext', 'oa', 'opensource', 'code_search',
+                'citation_graph', 'latex'}
+
+
+def engine_kind(engine) -> str:
+    """mcp＝要连 server 才有数据，其余是直连 HTTP。按实现模块判，不靠猜。"""
+    return 'mcp' if 'mcp' in type(engine).__module__ else 'direct'
+
+
+def _advice_for(rep: Dict[str, Any]) -> List[str]:
+    """单条不可用报告 → 可执行动作（可能多条：既缺 key 又要连服务时会同时给）。"""
+    note = str(rep.get('note') or '')
+    lines: List[str] = []
+    for key in rep.get('config_keys') or []:
+        if os.environ.get(key):
+            continue
+        guide = CONFIG_GUIDE.get(key)
+        lines.append(f'缺 {key}：{guide} → export {key}="<值>" 后重跑 --probe'
+                     if guide else f'缺 {key}：export {key}="<值>" 后重跑 --probe')
+    if '缺少配置' in note and lines:
+        return lines
+    # note 里的具体原因上面那张表已经逐行打过，这里只说"该怎么办"，才能按动作合并同源
+    if rep.get('status') == STATUS_EMPTY:
+        lines.append('可调通但 0 结果：查询词无命中或端点契约变更/需授权 —— 不得当可用源用')
+    elif any(k in note for k in MCP_NOTE_KEYS) or rep.get('kind') == 'mcp':
+        lines.append('需在当前会话连上对应 MCP server（`research.py --mcp-check` 看连接态，'
+                     '缺的用 `scripts/setup-mcp.sh --core` 配），没连上就等于没有这个源')
+    elif any(k in note for k in NETWORK_NOTE_KEYS):
+        lines.append('直连端点今天出不来数据（网络被拦/反爬/契约变更）：'
+                     '可加 --proxy、换同层替代源，或在规划里排除它')
+    if any(code in note for code in HTTP_DENY_CODES):
+        lines.append(SUBSTITUTE_ADVICE)
+    return lines or [f'未通过功能自检（{note or "原因未知"}）—— 规划时排除该源']
+
+
+def source_gate(reports: List[Dict[str, Any]], min_sources: int = 3,
+                min_layers: int = 2) -> Dict[str, Any]:
+    """探针报告 → 环境够不够开工。不够就 blockers，够但有缺口就 guidance。
+
+    判据只认"真的返回了结果"的引擎：实测一次调研 5 个源可用却全挤在同一层、
+    且代码/全文通道全缺（GITEE_TOKEN、arXiv 被 406、MCP 没连）——数量够，
+    独立性和一手溯源都不够，最后 110 条归属型 claim 全卡在 pending。
+    """
+    ok = [r for r in reports if r.get('status') == STATUS_OK]
+    layers = {r.get('layer') for r in ok if r.get('layer') is not None}
+    primary = sorted({r['engine'] for r in ok
+                      if set(r.get('caps') or []) & PRIMARY_CAPS})
+
+    blockers: List[str] = []
+    if len(ok) < min_sources:
+        blockers.append(f'真出数据的引擎只有 {len(ok)} 个（< {min_sources}），'
+                        f'证据链无法交叉验证')
+    if len(layers) < min_layers:
+        blockers.append(f'可用引擎只覆盖 {len(layers)} 层（< {min_layers} 层），'
+                        f'多个源很可能只是同一批网页的不同入口')
+    if not primary:
+        blockers.append('可用源里没有任何一手制品通道（论文库/代码仓库），'
+                        '"某仓库/某论文原文说 X"这类归属型 claim 将无法验证')
+
+    unavailable = []
+    for r in reports:
+        if r.get('status') in (STATUS_OK, STATUS_SKIPPED):
+            continue
+        unavailable.append({'engine': r['engine'], 'status': r['status'],
+                            'note': r.get('note', ''),
+                            'advice': '；'.join(_advice_for(r))})
+    # 同一条动作常被多个源共用（如都缺 GITHUB_TOKEN），并成一行才不会刷屏
+    grouped: Dict[str, List[str]] = {}
+    for u in unavailable:
+        grouped.setdefault(u['advice'], []).append(u['engine'])
+    guidance = [f"{', '.join(names)}: {advice}" for advice, names in grouped.items()]
+
+    return {'ok': not blockers, 'blockers': blockers, 'guidance': guidance,
+            'unavailable': unavailable, 'available': [r['engine'] for r in ok],
+            'layers': sorted(layers), 'primary_channels': primary}

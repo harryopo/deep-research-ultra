@@ -337,14 +337,16 @@ def filter_by_relevance(results, min_relevance: float, target_count: int):
 
 
 def cmd_probe(registry, args):
-    """引擎功能自检：真实发一次探针查询，按"拿没拿到结果"分级。
+    """引擎功能自检 + 环境充分性硬门（Phase 0）。
 
     --list 的 ✅ 只代表配置就绪；本命令才代表"这个引擎今天真的能用"。
+    环境不足时退出码非 0（3）——Lead 看到 0 就会直接进 Phase 1 开跑。
     """
     from probe import (STATUS_EMPTY, STATUS_FAILED, STATUS_OK, STATUS_SKIPPED,
-                       probe_engine, probeable_engines, summarize)
+                       probe_engine, probeable_engines, source_gate, summarize)
 
-    if args.sources:
+    scoped = bool(args.sources)
+    if scoped:
         wanted = {s.strip() for s in args.sources.split(',') if s.strip()}
         engines = [e for e in registry.get_all() if e.get_name() in wanted]
     else:
@@ -370,9 +372,43 @@ def cmd_probe(registry, args):
     if not counts.get(STATUS_OK):
         print("❌ 没有任何引擎通过功能自检 —— 不要开始调研，先按上面的缺项修环境", file=sys.stderr)
         sys.exit(1)
-    unusable = [r['engine'] for r in reports if r['status'] in (STATUS_EMPTY, STATUS_FAILED)]
-    if unusable:
-        print(f"⚠️ 以下引擎未通过，规划时避开或补配置: {', '.join(unusable)}")
+
+    gate = source_gate(reports)
+    if scoped:
+        print("ℹ️  局部自检（--sources 指定了引擎范围）：只验证这几个引擎出不出数据，"
+              "不判定全局环境充分性")
+        for line in gate['guidance']:
+            print(f"  · {line}")
+        return
+
+    print("-" * 72)
+    print(f"🚦 环境闸门：真出数据 {len(gate['available'])} 个"
+          f" ｜ 覆盖层 {gate['layers']}"
+          f" ｜ 一手通道 {gate['primary_channels'] or '无'}")
+    if gate['ok']:
+        print("✅ 环境可开工")
+        if gate['guidance']:
+            print(f"⚠️ 有 {len(gate['guidance'])} 个源没配好。先与用户确认"
+                  f"「现在配 / 就这样开跑」，不要默认降级：")
+            for line in gate['guidance']:
+                print(f"  · {line}")
+        return
+
+    if getattr(args, 'allow_degraded', False):
+        print(f"⚠️ 环境不足 —— 已按 --allow-degraded 放行：{'；'.join(gate['blockers'])}")
+        print("   报告里必须写明数据源受限，未验证的结论不得当作定论")
+        return
+
+    print("⛔ 环境不足 —— 停下，先配置再调研：")
+    for b in gate['blockers']:
+        print(f"   · {b}")
+    if gate['guidance']:
+        print("📋 怎么配（配好后重跑 --probe，直到闸门放行）：")
+        for line in gate['guidance']:
+            print(f"   - {line}")
+    print("→ 把这些缺项转述给用户，等他配好环境再开跑（退出码 3）；"
+          "确需带缺口调研时由用户显式加 --allow-degraded")
+    sys.exit(3)
 
 
 # ============================================================
@@ -1149,6 +1185,8 @@ v3 兼容（自动降级到 Layer 4）:
                         help='引擎功能自检：真实发探针查询，验证引擎今天是否出得来数据')
     parser.add_argument('--probe-query', default=None,
                         help='覆盖探针查询词（默认按引擎定制，见 probe.py 的 PROBE_QUERIES）')
+    parser.add_argument('--allow-degraded', action='store_true',
+                        help='--probe 环境闸门不足时仍放行（默认退出码 3 停住，先配环境再调研）')
     # v6.1: 环境分级门控
     parser.add_argument('--env-check', action='store_true',
                         help='环境分级验证（minimal/opensource/academic/full）')

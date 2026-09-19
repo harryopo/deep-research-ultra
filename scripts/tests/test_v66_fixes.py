@@ -16,6 +16,7 @@ Deep Research Ultra v6.6 — 实测缺陷回归测试
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -622,3 +623,252 @@ class TestEnvCheckOpenAlexMailto:
         monkeypatch.setenv('OPENALEX_MAILTO', 'me@example.org')
         ok, detail = env_check._check_env('OPENALEX_MAILTO')
         assert ok is True and 'me@example' in detail
+
+
+# ============================================================
+# D14 环境不足须硬停 + 引导配置
+# ============================================================
+def _rep(name, status, layer, config_keys=(), note='', caps=(), kind='direct'):
+    return {'engine': name, 'status': status, 'count': 3 if status == 'ok' else 0,
+            'note': note, 'layer': layer, 'config_keys': list(config_keys),
+            'caps': list(caps), 'kind': kind}
+
+
+_OK_ITEM = SimpleNamespace(title='NL2Bash: A Dataset and Semantic Parsing Models',
+                           url='https://arxiv.org/abs/1802.08979')
+
+
+class TestSourceGateSufficiency:
+    """判据是"真的出得来数据"的源数 + 层数 + 一手制品通道，不是 --list 的 ✅ 数。
+
+    实测一次调研：5 个源可用却全集中在检索层，arXiv 全文 406、GitHub code/Gitee
+    缺 key、MCP 全没连——数量看着够，独立性和一手溯源都不够。
+    """
+
+    def test_enough_sources_in_one_layer_still_blocks(self):
+        from probe import source_gate
+        g = source_gate([
+            _rep('baidu-serp', 'ok', 2, caps=['search', 'cn_source']),
+            _rep('sogou-weixin', 'ok', 2, caps=['search', 'cn_source']),
+            _rep('sogou-zhihu', 'ok', 2, caps=['search', 'cn_source']),
+        ])
+        assert g['ok'] is False
+        assert any('层' in b for b in g['blockers']), g['blockers']
+
+    def test_without_primary_artifact_channel_blocks(self):
+        """没有论文库/代码仓库通道时，归属型 claim 一条都验证不了。"""
+        from probe import source_gate
+        g = source_gate([
+            _rep('baidu-serp', 'ok', 2, caps=['search', 'cn_source']),
+            _rep('sogou-weixin', 'ok', 2, caps=['search', 'cn_source']),
+            _rep('duckduckgo', 'ok', 4, caps=['search']),
+        ])
+        assert any('一手' in b for b in g['blockers']), g['blockers']
+
+    def test_too_few_working_engines_blocks(self):
+        from probe import source_gate
+        g = source_gate([
+            _rep('openalex', 'ok', 1, caps=['search', 'academic']),
+            _rep('pubmed', 'failed', 1, note='引擎返回 None（HTTP 429）',
+                 caps=['search', 'academic']),
+        ])
+        assert g['ok'] is False
+        assert any('< 3' in b for b in g['blockers']), g['blockers']
+
+    def test_real_run_table_passes_and_still_lists_fixable_gaps(self, monkeypatch):
+        """用户实测那一份表：5 源/2 层/有学术+代码通道 → 可开工，但缺 key 要列出来。"""
+        from probe import source_gate
+        for k in ('S2_API_KEY', 'GITEE_TOKEN', 'GITHUB_TOKEN'):
+            monkeypatch.delenv(k, raising=False)
+        g = source_gate([
+            _rep('openalex', 'ok', 1, caps=['search', 'academic']),
+            _rep('pubmed', 'ok', 1, caps=['search', 'academic']),
+            _rep('github-deep-search', 'ok', 2, caps=['search', 'opensource']),
+            _rep('baidu-serp', 'ok', 2, caps=['search', 'cn_source']),
+            _rep('sogou-weixin', 'ok', 2, caps=['search', 'cn_source']),
+            _rep('semantic-scholar', 'failed', 1, note='缺少配置: S2_API_KEY',
+                 config_keys=['S2_API_KEY'], caps=['search', 'academic']),
+            _rep('arxiv-fulltext', 'failed', 1, note='引擎返回 None（HTTP 406）',
+                 caps=['search', 'academic', 'fulltext']),
+            _rep('gitee', 'failed', 2, note='缺少配置: GITEE_TOKEN',
+                 config_keys=['GITEE_TOKEN'], caps=['search', 'opensource']),
+        ])
+        assert g['ok'] is True, g['blockers']
+        assert g['available'] == ['openalex', 'pubmed', 'github-deep-search',
+                                  'baidu-serp', 'sogou-weixin']
+        assert any('S2_API_KEY' in x and 'semanticscholar.org' in x for x in g['guidance'])
+        assert any('GITEE_TOKEN' in x for x in g['guidance'])
+
+    def test_service_gap_advice_follows_the_actual_reason(self, monkeypatch):
+        """指引按 note 说的原因给，不按层号猜：同层既有 MCP 源也有直连 HTTP 源。"""
+        from probe import source_gate
+        g = source_gate([
+            _rep('open-websearch', 'failed', 1, note='依赖/服务未就绪',
+                 caps=['search'], kind='mcp'),
+            _rep('tavily', 'failed', 1, note='MCP 未连接',
+                 config_keys=['TAVILY_API_KEY'], caps=['search'], kind='mcp'),
+            _rep('duckduckgo', 'failed', 4, note='引擎返回 None（HTTP 403）',
+                 caps=['search']),
+        ])
+        advice = {r['engine']: r['advice'] for r in g['unavailable']}
+        assert 'MCP server' in advice['open-websearch'], advice
+        assert 'export TAVILY_API_KEY' in advice['tavily'], advice
+        assert 'MCP server' in advice['tavily'], '既缺 key 又要连 server，两条都不能丢'
+        assert '替代源' in advice['duckduckgo'], advice
+        assert 'MCP server' not in advice['duckduckgo'], '反爬被拒不等于服务没连'
+
+    def test_same_action_on_several_engines_prints_once(self, monkeypatch):
+        """两个源缺同一个 key 只该说一次，否则 10 个缺口能刷满半屏。"""
+        from probe import source_gate
+        monkeypatch.delenv('GITHUB_TOKEN', raising=False)
+        g = source_gate([
+            _rep('github-deep-search', 'failed', 2, note='缺少配置: GITHUB_TOKEN',
+                 config_keys=['GITHUB_TOKEN'], caps=['search', 'opensource']),
+            _rep('github-code-search', 'failed', 2, note='缺少配置: GITHUB_TOKEN',
+                 config_keys=['GITHUB_TOKEN'], caps=['search', 'code_search']),
+        ])
+        hits = [line for line in g['guidance'] if 'GITHUB_TOKEN' in line]
+        assert len(hits) == 1, g['guidance']
+        assert hits[0].startswith('github-deep-search, github-code-search:'), hits[0]
+
+    def test_empty_result_engine_is_not_counted_as_available(self):
+        from probe import source_gate
+        g = source_gate([
+            _rep('openalex', 'ok', 1, caps=['search', 'academic']),
+            _rep('pubmed', 'empty', 1, note='可调通但 0 结果', caps=['search', 'academic']),
+        ])
+        assert g['available'] == ['openalex']
+        assert not any('一手' in b for b in g['blockers']), g['blockers']
+        assert any('0 结果' in r['advice'] or '替代' in r['advice']
+                   for r in g['unavailable'] if r['engine'] == 'pubmed')
+
+
+class TestProbeCommandHardStops:
+    """--probe 的退出码就是 Phase 0 的门：不足 → 非 0 停住，绝不让 Lead 带着残缺源开跑。"""
+
+    def _eng(self, name, layer, caps, config_keys=(), available=True,
+             results=None, raises=None):
+        """替身必须带上真实 EngineMetadata 的 layer/capabilities，
+        否则测的是 fake 而不是 probe_engine 读的元数据。"""
+        from engines.base import EngineMetadata
+
+        class _E:
+            def __init__(self):
+                self.metadata = EngineMetadata(
+                    name=name, layer=layer, description=name,
+                    requires_config=bool(config_keys),
+                    config_keys=list(config_keys),
+                    capabilities=list(caps) or ['search'])
+
+            def get_name(self):
+                return name
+
+            def has_capability(self, cap):
+                return cap in self.metadata.capabilities
+
+            def is_available(self):
+                return available
+
+            def search(self, query, max_results=10, **kw):
+                if raises:
+                    raise raises
+                return results
+
+        return _E()
+
+    def _run(self, specs, monkeypatch, capsys, sources=None, allow_degraded=False):
+        import argparse
+        import research
+
+        engines = {name: self._eng(name, **kw) for name, kw in specs.items()}
+        registry = type('R', (), {'get_all': lambda self: list(engines.values())})()
+        args = argparse.Namespace(sources=sources, probe_query='', limit=10,
+                                  allow_degraded=allow_degraded)
+        code = 0
+        try:
+            research.cmd_probe(registry, args)
+        except SystemExit as exc:
+            code = exc.code
+        return code, capsys.readouterr()
+
+    def _weak_env(self):
+        """2 源同层 + 代码通道缺 key：够不上三角验证，必须停。"""
+        return {
+            'baidu-serp': dict(layer=2, caps=['search', 'cn_source'],
+                               results=[_OK_ITEM]),
+            'sogou-weixin': dict(layer=2, caps=['search', 'cn_source'],
+                                 results=[_OK_ITEM]),
+            'gitee': dict(layer=2, caps=['search', 'opensource'],
+                          config_keys=['GITEE_TOKEN'], available=False),
+        }
+
+    def _good_env(self):
+        return {
+            'openalex': dict(layer=1, caps=['search', 'academic'],
+                             results=[_OK_ITEM]),
+            'pubmed': dict(layer=1, caps=['search', 'academic'],
+                           results=[_OK_ITEM]),
+            'github-deep-search': dict(layer=2, caps=['search', 'opensource'],
+                                       results=[_OK_ITEM]),
+            'baidu-serp': dict(layer=2, caps=['search', 'cn_source'],
+                               results=[_OK_ITEM]),
+            'gitee': dict(layer=2, caps=['search', 'opensource'],
+                          config_keys=['GITEE_TOKEN'], available=False),
+        }
+
+    def test_real_engine_reports_carry_layer_and_caps(self):
+        """探针报告必须带 layer/capabilities/kind，否则闸门只能看到名字。"""
+        import probe
+        rep = probe.probe_engine(self._eng('openalex', 1, ['search', 'academic'],
+                                           results=[_OK_ITEM]))
+        assert rep['layer'] == 1
+        assert rep['caps'] == ['search', 'academic']
+        assert rep['kind'] == 'direct'
+        assert probe.engine_kind(
+            type('X', (), {'__module__': 'engines.mcp_engines'})()) == 'mcp'
+
+    def test_insufficient_env_exits_3_with_config_guidance(self, monkeypatch, capsys):
+        monkeypatch.delenv('GITEE_TOKEN', raising=False)
+        code, out = self._run(self._weak_env(), monkeypatch, capsys)
+        assert code == 3
+        assert '环境不足' in out.out, out.out
+        assert 'GITEE_TOKEN' in out.out
+        assert '--allow-degraded' in out.out, '必须告诉用户显式放行的出口'
+
+    def test_allow_degraded_proceeds_but_says_so(self, monkeypatch, capsys):
+        monkeypatch.delenv('GITEE_TOKEN', raising=False)
+        code, out = self._run(self._weak_env(), monkeypatch, capsys,
+                              allow_degraded=True)
+        assert code == 0
+        assert '放行' in out.out and '--allow-degraded' in out.out, out.out
+        assert '数据源受限' in out.out, '放行必须留下降级声明，不能悄悄跑'
+
+    def test_sufficient_env_with_gaps_exits_0_and_offers_to_configure(
+            self, monkeypatch, capsys):
+        for k in ('GITEE_TOKEN', 'S2_API_KEY'):
+            monkeypatch.delenv(k, raising=False)
+        code, out = self._run(self._good_env(), monkeypatch, capsys)
+        assert code == 0
+        assert '环境可开工' in out.out, out.out
+        assert 'GITEE_TOKEN' in out.out
+        assert '先与用户确认' in out.out, '引导配置不能只是打印过就算完'
+
+    def test_scoped_probe_does_not_fake_a_global_verdict(self, monkeypatch, capsys):
+        """--probe --sources openalex 只测一个引擎，按全局判据必然"不足"，不能误停。"""
+        monkeypatch.delenv('GITEE_TOKEN', raising=False)
+        code, out = self._run(
+            {'openalex': dict(layer=1, caps=['search', 'academic'],
+                              results=[_OK_ITEM]),
+             'gitee': dict(layer=2, caps=['search', 'opensource'],
+                           config_keys=['GITEE_TOKEN'], available=False)},
+            monkeypatch, capsys, sources='openalex')
+        assert code == 0
+        assert '局部自检' in out.out, out.out
+        assert '环境不足' not in out.out
+
+    def test_no_engine_working_still_exits_1(self, monkeypatch, capsys):
+        code, out = self._run(
+            {'baidu-serp': dict(layer=2, caps=['search', 'cn_source'],
+                                results=None)},
+            monkeypatch, capsys)
+        assert code == 1

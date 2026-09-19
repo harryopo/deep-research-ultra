@@ -5,6 +5,53 @@
 
 ---
 
+## v6.8.0（2026-09-19）— Phase 0 环境闸门：不足即硬停并引导配置（D14）
+
+### 触发这次改动的事实
+用户实跑一次调研，引擎可用性表长这样：可用只有 openalex / pubmed / github-deep-search /
+baidu-serp / sogou-weixin，其余全灭（semantic-scholar·github-code-search·gitee 缺
+`S2_API_KEY`/`GITHUB_TOKEN`/`GITEE_TOKEN`，arxiv-fulltext HTTP 406，baidu-xueshu 403，
+duckduckgo/bing-html/searxng 服务未就绪，Tavily/Firecrawl/open-websearch 的 MCP 根本没连）。
+旧版 `--probe` 只要有一个 ✅ 就退 0，Lead 于是带着这副残缺牌面开跑——要求：
+**环境缺失就先停下来引导用户配，配足了再调研。**
+
+### 新增 `probe.source_gate()`：三条判据，缺一不可
+| 判据 | 不满足的含义 |
+|------|-------------|
+| 真出数据的引擎 ≥ 3 | 没有跨源三角验证的对照 |
+| 覆盖 ≥ 2 层 | 同层几个源往往抓同一批网页——数量够、独立性不够 |
+| 至少一条一手制品通道（`academic`/`fulltext`/`opensource`/`code_search`…） | 归属型 claim（"某仓库/某论文原文说 X"）一条都验证不了，实测 110 条卡 pending |
+
+判据只认 `STATUS_OK`（真返回结果），`⚠️ 0 结果` 与 `❌ 失败` 一律不计——这正是 v6.4
+"引擎真实性自检"的口径延伸：`--list` 的 ✅ 数不能当充分性依据。
+
+### 指引按"这个引擎靠什么通道出数据"给，不按层号猜
+`probe.CONFIG_GUIDE` 逐变量给「去哪申请 + 解锁什么 + `export X="<值>"`」；服务类原因区分
+MCP（要连 server，指向 `--mcp-check` / `setup-mcp.sh --core`）与直连端点（反爬/网络阻断，
+指向 `--proxy` 或同层替代源）。实跑第一版把 duckduckgo、sogou-zhihu 也说成"去连 MCP server"，
+是误导，改为按 `engine_kind()`（实现模块是否 mcp）+ note 关键词分流。
+同一条动作被多个源共用时并成一行（如 `github-deep-search, github-code-search: 缺 GITHUB_TOKEN…`）。
+
+### `--probe` 退出码即闸门
+`0` 放行 / `3` 环境不足（打印 blockers + 配置指引）/ `1` 一个引擎都没出数据。
+新增 `--allow-degraded` 才允许带缺口放行，且放行时强制打印"报告里必须写明数据源受限"。
+`--probe --sources a,b` 视为局部自检，只报状态不做全局判定，避免"只测一个引擎→必然不足"的误停。
+
+### 文档与约束
+SKILL.md 步骤 0.4 重写为「环境闸门（硬停，不是提示）」：退出码 → Lead 动作对照表，
+并规定**放行但有缺口时也要先 AskUserQuestion 问「现在配 / 就这样开跑」**，不许默认降级；
+红线区新增「禁止越过 Phase 0 环境闸门」。`--env-check` 补 `OPENALEX_MAILTO` 提示（v6.7 G7）。
+
+### 测试
+新增 `TestSourceGateSufficiency`（6）+ `TestProbeCommandHardStops`（6），套件 224 → **237 全绿**；
+`test_probe.py` 的替身元数据补 `layer`/`capabilities`，与真实 `EngineMetadata` 对齐。
+
+### 实跑校验（本机，非单测）
+`python research.py --probe` → 5 个引擎出数据、覆盖层 [1,2,4]、一手通道 openalex/pubmed，
+闸门判 `✅ 环境可开工` 并列出 6 条缺口指引；把可用集压到 2 源同层时退出码 3 并打印指引。
+
+---
+
 ## v6.7.0（2026-09-19）— 发布门主指标换口径（dogfooding v6.6 后暴露的 3 处）
 
 ### 背景

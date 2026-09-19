@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Research Ultra — 超级深度调研工具 v5.2</title>
+    <title>Deep Research Ultra — 超级深度调研工具 v6.8</title>
     <meta name="description" content="30 个搜索引擎，智能路由 + 四层架构，GitHub 深度搜索，国内内容源，推荐度评分系统。">
     <meta name="theme-color" content="#0a0f1c">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -225,7 +225,7 @@
             </a>
             <ul class="nav-links">
                 <li><a href="#features">核心特性</a></li>
-                <li><a href="#v52">v5.2 新特性</a></li>
+                <li><a href="#v68">v6.8 新特性</a></li>
                 <li><a href="#engines">30 引擎</a></li>
                 <li><a href="#workflow">工作流</a></li>
             </ul>
@@ -237,10 +237,10 @@
         <div class="container">
             <div class="hero-grid">
                 <div class="hero-content">
-                    <div class="hero-badge">v5.2 现已发布</div>
+                    <div class="hero-badge">v6.8 现已发布</div>
                     <h1>超级深度调研工具</h1>
                     <p class="hero-description">
-                        30 个引擎四层架构，智能路由 + GitHub 深度搜索 + 国内内容源 + 推荐度评分。
+                        32 个数据源四层架构，智能路由 + 证据账本溯源 + 发布前校验门 + 环境闸门。
                         从技术选型到学术论文，从开源项目到行业趋势，让 AI 帮你完成深度调研。
                     </p>
                     <div class="hero-actions">
@@ -256,7 +256,7 @@
                     </div>
                     <div class="stats-bar">
                         <div class="stat">
-                            <span class="stat-value">30</span>
+                            <span class="stat-value">32</span>
                             <span class="stat-label">搜索引擎</span>
                         </div>
                         <div class="stat">
@@ -268,7 +268,7 @@
                             <span class="stat-label">查询意图</span>
                         </div>
                         <div class="stat">
-                            <span class="stat-value">96</span>
+                            <span class="stat-value">237</span>
                             <span class="stat-label">测试通过</span>
                         </div>
                     </div>
@@ -279,7 +279,7 @@
                             <span class="terminal-dot"></span>
                             <span class="terminal-dot"></span>
                             <span class="terminal-dot"></span>
-                            <span class="terminal-title">Terminal — deep-research-ultra v5.2</span>
+                            <span class="terminal-title">Terminal — deep-research-ultra v6.8</span>
                         </div>
                         <div class="terminal-body">
                             <div class="terminal-line">
@@ -293,7 +293,7 @@
                                 <span class="terminal-highlight">[LAYER2]</span> 国内源: 百度 + 搜狗知乎<br>
                                 <span class="terminal-success">[SUCCESS]</span> 找到 47 个相关项目，9 篇论文<br>
                                 <span class="terminal-success">[SUCCESS]</span> 推荐度评分完成，雷达图生成<br>
-                                <span class="terminal-success">[SUCCESS]</span> 报告已生成: report_v5.2.md
+                                <span class="terminal-success">[SUCCESS]</span> 报告已生成: report_v6.8.md
                             </div>
                         </div>
                     </div>
@@ -379,6 +379,58 @@
         </div>
     </section>
 
+    <section id="v68" class="v52-features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">v6.8 新特性</span>
+                <h2>从「搜得到」到「可溯源」</h2>
+                <p>证据账本 + 分级来源 + 发布前校验门 + 环境闸门：结论必须能回指到一手来源，环境不足就先停。</p>
+            </div>
+            <div class="v52-grid">
+                <div class="v52-card">
+                    <h3>🧾 证据账本（claim → source）</h3>
+                    <p>每条结论落成 claim，挂上来源与 Tier，可反查可更正。</p>
+                    <ul>
+                        <li>来源 Tier 1-4 分级，转载指纹去重算独立来源</li>
+                        <li>两档 verified 判据：跨域三角（A）/ 一手来源+逐字反查（B）</li>
+                        <li>矛盾记 conflict 并留处置，不静默丢弃</li>
+                        <li>就地更正 claim 原文，附 amended_at 留痕</li>
+                    </ul>
+                </div>
+                <div class="v52-card">
+                    <h3>🛡 发布前校验门</h3>
+                    <p>主指标是引用-证据对齐，而不是漂亮的覆盖率数字。</p>
+                    <ul>
+                        <li>被引用立论的 claim 必须已 verified 或已 conflict</li>
+                        <li>引用编号不得在登记表里指向不同来源（防串号）</li>
+                        <li>全量覆盖率降为告警：分母含未写进报告的过程记录</li>
+                        <li>正文标 ⚠️ 的降级引用只告警，不阻断交付</li>
+                    </ul>
+                </div>
+                <div class="v52-card">
+                    <h3>🛑 Phase 0 环境闸门</h3>
+                    <p>环境不足即硬停，把缺项与配置方法交给用户。</p>
+                    <ul>
+                        <li>--probe 实测每个引擎今天出不出得来数据（杜绝 --list 假绿）</li>
+                        <li>出数据 &lt;3 个 / 覆盖 &lt;2 层 / 无一手制品通道 → 退出码 3</li>
+                        <li>逐条打印去哪申请、解锁什么、export 哪个变量</li>
+                        <li>--allow-degraded 才允许带缺口开跑，并强制声明数据源受限</li>
+                    </ul>
+                </div>
+                <div class="v52-card">
+                    <h3>🤝 Lead 内联编排</h3>
+                    <p>主 Agent 当 Lead，一次性并行派发子 Agent。</p>
+                    <ul>
+                        <li>Plan-Execute-Synthesize-Reflect 四阶段，产物逐段落盘</li>
+                        <li>多视角专家团：域专家 / 怀疑者 / 实践者对抗</li>
+                        <li>相关性兜底：低相关结果不静默混过结论链</li>
+                        <li>交付契约：长报告落盘，返回值只给短摘要</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section id="v52" class="v52-features">
         <div class="container">
             <div class="section-header">
@@ -435,7 +487,7 @@
         <div class="container">
             <div class="section-header">
                 <span class="section-label">引擎架构</span>
-                <h2>30 个引擎，四层架构</h2>
+                <h2>32 个数据源，四层架构</h2>
                 <p>MCP 服务器 + 学术直连 + Skill 层 + 国内内容源 + 降级引擎，分层降级，确保可用。</p>
             </div>
             <div class="engines-grid">
@@ -612,11 +664,11 @@
                         <path d="M11 8v6"></path>
                         <path d="M8 11h6"></path>
                     </svg>
-                    Deep Research Ultra v5.2
+                    Deep Research Ultra v6.8
                 </div>
                 <ul class="footer-links">
                     <li><a href="#features">核心特性</a></li>
-                    <li><a href="#v52">v5.2 新特性</a></li>
+                    <li><a href="#v68">v6.8 新特性</a></li>
                     <li><a href="#engines">30 引擎</a></li>
                     <li><a href="#workflow">工作流</a></li>
                 </ul>
