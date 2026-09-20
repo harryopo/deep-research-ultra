@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.10.0
+version: 6.11.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -469,7 +469,11 @@ python "${SKILL_DIR}/scripts/research.py" "关键词" --format markdown
 **目标**：报告发布前做确定性质量闸门，不通过不能交付。
 
 ```bash
-python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger
+# 过门 + 盖防伪戳（v6.11：只有脚本能给报告盖章）
+python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger --stamp
+
+# 交付前验戳（把这一行输出贴给用户/留在会话里）
+python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger --verify-stamp
 ```
 
 | 校验项 | 失败处理 |
@@ -484,8 +488,14 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 | 必需章节：执行摘要/方法/结论/来源 | 补写章节 |
 | 低质源占比：Tier4 < 30%（告警） | 建议补权威源后复核 |
 | 执行摘要 ≤ 1200 字 | 精简摘要 |
+| **防伪戳（v6.11）**：`--stamp` 只在过门后往 report.md 尾部写一行 `<!-- drux:validated body=… ledger=… claims=N sources=N -->`；`--verify-stamp` 复核正文与账本指纹 | 没戳／正文改过／账本变过 → 重跑 `--stamp`；手抄一行戳骗不过指纹 |
 
 > 校验通过（exit 0）后才向用户交付；`--format html/markdown/json` 均可先导出再校验。
+>
+> **为什么要有戳**：另一次实跑里，Lead 在写不出报告时落了一份带占位内容的 report.md，并在
+> 会话里声称"校验门 passed"——他根本没跑校验。"诚实标注"这条铁律拦不住不碰工具的人，
+> 所以把成本抬起来：**"过了校验门"必须是脚本产物，不是一句自述**。交付前先跑
+> `--verify-stamp`，它输出的那行 ✅/❌ 才是凭据；没戳＝未校验，直接说"未过门"，别改口。
 
 ### Phase 6: 交付契约（落盘 + 短摘要）
 
@@ -502,14 +512,16 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 └── report.html        # 交付物（--format html 时）
 ```
 
-**落盘顺序**：Lead 依据账本写 `report.md` → 跑 `validate_report.py` → 通过后才回复用户。
+**落盘顺序**：Lead 依据账本写 `report.md` → `validate_report.py --stamp`（过门即盖戳）→
+`--verify-stamp` 复核 → 才回复用户。**报告里那句"校验 passed"必须有戳背书**；
+没有戳就写"未过门：<issue 列表>"，不许凭自述交付。
 中途快撑不住（上下文/turn/时间接近上限）时，**先把当前版本的 report.md 落盘再说话**，
 并在摘要里写明"未完成的部分"——留下可用的半成品，好过什么都不留下。
 
 **最终回复模板（≤25 行，严格按此结构）**：
 
 ```
-📄 报告：<report.md 的绝对路径>（<字数> 字，<N> 个来源，校验 passed）
+📄 报告：<report.md 的绝对路径>（<字数> 字，<N> 个来源，校验 passed <戳 body=xxxx>）
 
 一句话结论：<用户要的决策答案>
 
@@ -1133,8 +1145,9 @@ python "${SKILL_DIR}/scripts/panel.py" review-outline --input outline.md --roles
 # 5. 来源 Tier 分级（独立工具）
 python "${SKILL_DIR}/scripts/tier.py" "https://www.gov.cn/x"                          # → Tier 1
 
-# 6. 发布前校验门（exit 0=通过）
-python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger
+# 6. 发布前校验门（exit 0=通过）+ 防伪戳
+python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger --stamp
+python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger --verify-stamp
 ```
 
 ### 14.4 路由决策示例
@@ -1186,7 +1199,7 @@ scripts/
 ├── similarity.py            # 转载指纹去重 + claim 语义聚类 + 数值矛盾检测
 ├── repo_health.py           # 仓库健康扫描（官方 API 事实 + 停更 + 许可证传染 + OSV CVE）
 ├── panel.py                 # 专家团评审清单生成（多视角 + 红蓝对抗契约）
-├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素）
+├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素）+ 防伪戳 --stamp/--verify-stamp
 ├── engines/
 │   ├── __init__.py          # 引擎导出聚合（32 个数据源，28 个可搜索）
 │   ├── base.py              # SearchEngine 抽象基类 + EngineMetadata + EngineRegistry
@@ -1213,6 +1226,8 @@ scripts/
     ├── test_console.py      # GBK 控制台冒烟（CLI 不崩 + 中文以 UTF-8 落管道）
     ├── test_probe.py        # 功能自检判定（0 结果 ≠ 可用）
     ├── test_mcp_client.py   # MCP 真连接（一会话一进程 / 超时可中断 / 不留孤儿）
+    ├── test_ledger_hygiene.py  # 证据/claim 分离 + merge 拒收与去重计数
+    ├── test_validation_stamp.py # 防伪戳（盖戳只在过门后 / 改正文或账本即失效 / 手抄骗不过）
     └── test_v6.py           # tier/ledger/panel/validate/plan/reflect/score/平台引擎/相关性过滤
 ```
 
@@ -1234,6 +1249,7 @@ scripts/
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
 - ❌ **禁止越过 Phase 0 环境闸门**（v6.8）— `--probe` 退出码 3 时不许开跑，也不许自行加 `--allow-degraded`；停下来把配置指引给用户，等他配好或明确授权降级
+- ❌ **禁止凭自述交付**（v6.11）— 报告尾部没有 `validate_report.py --stamp` 盖下的 `drux:validated` 戳，就不许说"校验门 passed"；没戳只能写"未过门：<issue>"。手抄一行戳过不了 `--verify-stamp` 的指纹复核
 - ❌ **禁止把搜索结果当结论**（v6.10）— `--ledger` 只登记证据；claim 必须用 `add-claim` 显式立论并挂来源。要沿用旧行为得自己加 `--auto-claim` 并说明理由
 - ❌ **禁止把 MCP 的"配置就绪"当"连上了"**（v6.9）— 只有 `--probe`/`--mcp-check` 真握手拿到结果才算这个源存在；握手超时要先预热（首次 npx/uvx 下包），别静默丢掉这个源
 - ❌ **禁止探索性空转** — 不 `ls` skill 目录、不读脚本源码、不跑 `--help`；文档即接口

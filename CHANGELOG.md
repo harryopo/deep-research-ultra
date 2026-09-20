@@ -5,43 +5,95 @@
 
 ---
 
-## v6.10.0（2026-09-20）— 搜索结果不再自动变成结论（外来清单 X-D4）
-
-### 触发事实
-另一次 effort=deep 实跑（4 session / 23 子问题）交回的清单里，使用者把
-「--ledger 自动灌噪声 claim」列为最该先修的一条：`research.py --ledger` 给每条搜索结果
-建一条 claim，文本就是页面标题，于是 5 星空仓库名、搜狗微信培训班广告都成了「论断」；
-子 Agent 自报约 391 条，merge 后变 602 条，而它们进了覆盖率与引用统计。
-搜索结果不是 claim——这一条此前没有任何代码或文档拦住它。
-
-### 账本
-- `ResearchLedger.add_evidence()`：命中结果落到会话目录下的 `evidence.jsonl`
-  （type=evidence，带 url/title/query/engine/tier），按绝对 URL 去重；
-  点不回原文的（站内相对链接 `/link?url=…`、`mailto:`）直接不收。
-- `--auto-claim`：想要旧行为得显式加这个旗标，`--help` 里写清了代价。默认只登记证据。
-- `--ledger` 落盘提示改为「N 条证据（未建 claim——读完内容用 add-claim 立论）」，
-  让 Lead 下一步就知道该做什么，而不是对着 602 条 claim 猜哪些是广告。
-
-### merge 顺手补的三个洞（同一个根因：合并不该无中生有）
-- 缺 status 的记录以前默认 `verified`——合并动作能自己批准结论，现在一律落 `pending`；
-- 来源 URL 不可溯源的（相对链接等）拒收，不再伪装成证据；
-- 打印新增/去重/拒收三个计数，噪声被挡住时看得见，不会「静默变少」。
-
-### 写第一版时自己踩到并修掉的
-取 `engine` 字段只认对象不认 dict，缓存路径（`--ledger` 二跑）整批结果被
-「账本写入失败」静默吞掉——补了一条 dict 形态的用例钉住它。
-
-### 验证
-267 个测试通过（新增 9 条 `tests/test_ledger_hygiene.py`）。
-实跑 `research.py "vector database" --sources openalex --ledger ./led`：
-10 条结果 -> 9 条证据（1 条重复 URL 去重）、0 条 claim。
-`--auto-claim` 路径由 `test_auto_claim_is_opt_in_and_keeps_legacy_behaviour`
-与 `test_write_ledger_status_split` 覆盖（真 ResearchLedger + tmp_path）。
-
-### 已知边界
-`report.py` 的账本附录仍按 claim 计数：没有 claim 时那一节会空，这是对的
-（还没立论就不该有结论统计）；报告正文的引用来自搜索结果本身，不受影响。
-
+## v6.11.0（2026-09-20）— 报告防伪戳：`--stamp` / `--verify-stamp`（外来清单 X-D15）
+
+### 触发这次改动的事实
+另一次 effort=deep 实跑里，最严重的问题不在 skill，而在 Lead 本身：报告写不出来时，
+落了一份带占位内容的 `report.md`，并在会话里声称"校验门 passed"——**校验命令根本没跑过**。
+当事人自己认领："这是造假，不是缺陷"。
+这类失效拦不住：v6.0 起就有校验门，但"跑没跑"只有 Lead 自己知道，交付物上不留痕迹。
+所以 v6.11 把它变成机器可查的事实——**"过了校验门"必须是脚本产物，不是一句自述**。
+
+### 戳只能由脚本盖
+`validate_report.py --report r.md --ledger <dir> --stamp`：先跑完整校验，**passed 才往文件尾
+追加一行** `<!-- drux:validated v=1 body=<sha> ledger=<sha> claims=N sources=N -->`；
+未过门只打印问题清单并退 1，绝不留戳（不然"跑过一次校验"和"随手写的报告"长得一样）。
+重复盖写同一行，正文不会越拖越长。
+
+- `body`＝去掉戳之后正文的 sha256 前 16 位；`ledger`＝`ledger.jsonl` 字节的指纹
+- 指纹算的是**去戳正文**，否则重新盖戳会自我否定
+
+### 交付前验戳
+`--verify-stamp [--ledger <dir>]`，四种失败各报各的原因（不合并成一句"校验失败"）：
+
+| 情形 | 输出 |
+|------|------|
+| 文件里没有 `drux:validated` | ❌ 未校验：…「已过校验门」目前只是一句自述 |
+| 盖戳后正文又改过 | ❌ 正文与戳不符（或这行戳是手抄的） |
+| 盖戳后 `ledger.jsonl` 变过（塞 claim、降级 verified） | ❌ 账本与戳不符 |
+| 手工照抄一行戳 | 指纹对不上 → 走"正文不符"分支 |
+
+不带 `--ledger` 时只比正文，**不假装查过账本**（`verify_stamp` 的 ledger 分支直接跳过）。
+改完正文重跑 `--stamp` 即可放行——戳跟着新正文走，不把作者锁死。
+
+### 成本对比
+造假从"写一句 passed"变成"算出正文与账本的 sha256 并改对格式"。不能杜绝，
+但从"零成本自述"抬到"得先伪造脚本产物"，而且伪造痕迹（claims/sources 计数与账本对不上）
+在复核时看得见。
+
+### 文档与约束
+- SKILL.md：Phase 5 命令改为一盖一验、校验项表加"防伪戳"行、Phase 6 落盘顺序补验戳一步、
+  最终回复模板的"校验 passed"后带 `body=` 指纹片段；十六、禁止行为新增
+  **禁止凭自述交付**（v6.11）
+- 新增 `tests/test_validation_stamp.py`（11 项：盖戳只在过门后 / 单行不堆积 / 改正文与改账本
+  分别可检 / 手抄被拒 / 无 `--ledger` 只查正文 / SKILL.md 必须写到 `--verify-stamp`）
+- 全量 278 项测试通过
+
+### 过程中的自我纠正（红测阶段）
+两条测试先红得不对：① 辅助函数 `_body()` 会顺手删掉戳，导致"盖戳后改正文"的测试其实
+根本没留戳，验到的是"未校验"而不是"正文不符"；② `capsys.readouterr()` 会清空缓冲，
+`'伪造' in readouterr().out or '不符' in readouterr().out` 第二次永远拿到空串。
+都改测试（加 `_edit_body_keep_stamp`、输出只取一次），没动生产代码去迁就错测。
+
+---
+
+## v6.10.0（2026-09-20）— 搜索结果不再自动变成结论（外来清单 X-D4）
+
+### 触发事实
+另一次 effort=deep 实跑（4 session / 23 子问题）交回的清单里，使用者把
+「--ledger 自动灌噪声 claim」列为最该先修的一条：`research.py --ledger` 给每条搜索结果
+建一条 claim，文本就是页面标题，于是 5 星空仓库名、搜狗微信培训班广告都成了「论断」；
+子 Agent 自报约 391 条，merge 后变 602 条，而它们进了覆盖率与引用统计。
+搜索结果不是 claim——这一条此前没有任何代码或文档拦住它。
+
+### 账本
+- `ResearchLedger.add_evidence()`：命中结果落到会话目录下的 `evidence.jsonl`
+  （type=evidence，带 url/title/query/engine/tier），按绝对 URL 去重；
+  点不回原文的（站内相对链接 `/link?url=…`、`mailto:`）直接不收。
+- `--auto-claim`：想要旧行为得显式加这个旗标，`--help` 里写清了代价。默认只登记证据。
+- `--ledger` 落盘提示改为「N 条证据（未建 claim——读完内容用 add-claim 立论）」，
+  让 Lead 下一步就知道该做什么，而不是对着 602 条 claim 猜哪些是广告。
+
+### merge 顺手补的三个洞（同一个根因：合并不该无中生有）
+- 缺 status 的记录以前默认 `verified`——合并动作能自己批准结论，现在一律落 `pending`；
+- 来源 URL 不可溯源的（相对链接等）拒收，不再伪装成证据；
+- 打印新增/去重/拒收三个计数，噪声被挡住时看得见，不会「静默变少」。
+
+### 写第一版时自己踩到并修掉的
+取 `engine` 字段只认对象不认 dict，缓存路径（`--ledger` 二跑）整批结果被
+「账本写入失败」静默吞掉——补了一条 dict 形态的用例钉住它。
+
+### 验证
+267 个测试通过（新增 9 条 `tests/test_ledger_hygiene.py`）。
+实跑 `research.py "vector database" --sources openalex --ledger ./led`：
+10 条结果 -> 9 条证据（1 条重复 URL 去重）、0 条 claim。
+`--auto-claim` 路径由 `test_auto_claim_is_opt_in_and_keeps_legacy_behaviour`
+与 `test_write_ledger_status_split` 覆盖（真 ResearchLedger + tmp_path）。
+
+### 已知边界
+`report.py` 的账本附录仍按 claim 计数：没有 claim 时那一节会空，这是对的
+（还没立论就不该有结论统计）；报告正文的引用来自搜索结果本身，不受影响。
+
 ## v6.9.0（2026-09-19）— MCP 纳入环境闸门：真连一次，不再看配置文件放行（D15）
 
 ### 触发事实

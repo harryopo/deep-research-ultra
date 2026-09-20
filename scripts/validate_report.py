@@ -8,6 +8,11 @@ validate_report.py — 调研报告质量校验门（Quality Gate）  [v6.0 新�
   校验 4 低质源占比：Tier 4 来源占比 < 30%（否则告警）
   校验 5 摘要精简：执行摘要篇幅 ≤ 上限（防空洞）
 
+防伪戳（v6.11）：
+- --stamp       校验通过后在文件尾部盖一行 drux:validated 戳，内含正文与账本指纹
+- --verify-stamp 交付前验戳：没戳 / 正文被改过 / 账本变过 / 戳是手写的 → 一律不通过
+  戳只能由本脚本盖，目的是把"声称过了校验门"的成本从撒个谎抬到伪造脚本产物。
+
 设计约束：
 - 纯确定性规则（正则 + 账本查询），不依赖 LLM，秒级返回
 - 退出码：0 = 通过；1 = 未通过；2 = 参数/IO 错误
@@ -15,6 +20,7 @@ validate_report.py — 调研报告质量校验门（Quality Gate）  [v6.0 新�
 
 from __future__ import annotations
 
+import hashlib
 import re
 import sys
 from dataclasses import dataclass, field
@@ -335,6 +341,74 @@ def _strip_md(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 防伪校验戳（v6.11 / X-D15）
+# ---------------------------------------------------------------------------
+
+STAMP_RE = re.compile(r'^<!--\s*drux:validated\b.*-->\s*$', re.M)
+STAMP_FMT = 1
+
+
+def _sha(text_or_bytes) -> str:
+    raw = (text_or_bytes.encode('utf-8') if isinstance(text_or_bytes, str)
+           else bytes(text_or_bytes))
+    return hashlib.sha256(raw).hexdigest()[:16]
+
+
+def _body_of(md: str) -> str:
+    """去戳后的正文：戳本身不参与指纹，否则重新盖戳会自我否定。"""
+    return STAMP_RE.sub('', md).strip()
+
+
+def _ledger_fingerprint(ledger_dir: Optional[str]) -> str:
+    if not ledger_dir:
+        return ''
+    path = Path(ledger_dir) / 'ledger.jsonl'
+    if not path.exists():
+        return 'absent'
+    return _sha(path.read_bytes())
+
+
+def _parse_stamp(md: str) -> Dict[str, str]:
+    m = STAMP_RE.search(md)
+    if not m:
+        return {}
+    return dict(re.findall(r'(\w+)=([^\s]+)', m.group(0)))
+
+
+def write_stamp(report_path: str, ledger_dir: Optional[str],
+                stats: Dict[str, Any]) -> str:
+    """盖戳（只在 passed 后调用）。重复盖写同一行，不堆积。"""
+    path = Path(report_path)
+    fields = [
+        f'v={STAMP_FMT}',
+        f'body={_sha(_body_of(path.read_text(encoding="utf-8", errors="ignore")))}',
+        f'ledger={_ledger_fingerprint(ledger_dir) or "none"}',
+        f'claims={stats.get("claims", "?")}',
+        f'sources={stats.get("sources", "?")}',
+    ]
+    line = f'<!-- drux:validated {" ".join(fields)} -->'
+    body = _body_of(path.read_text(encoding='utf-8', errors='ignore'))
+    path.write_text(body + '\n\n' + line + '\n', encoding='utf-8')
+    return line
+
+
+def verify_stamp(md: str, ledger_dir: Optional[str]) -> tuple:
+    """返回 (ok, reason)。reason 里必须点明是哪一半不成立，便于 Lead 自修。"""
+    stamp = _parse_stamp(md)
+    if not stamp:
+        return False, ('未校验：报告里没有 validate_report.py --stamp 盖下的 drux:validated 戳，'
+                       '「已过校验门」目前只是一句自述')
+    if stamp.get('body') != _sha(_body_of(md)):
+        return False, '正文与戳不符：盖戳之后正文又被改过（或这行戳是手抄的），请重新 --stamp'
+    if ledger_dir:
+        want = stamp.get('ledger')
+        if want != _ledger_fingerprint(ledger_dir):
+            return False, ('账本与戳不符：盖戳之后 ledger.jsonl 变过'
+                           '（新增/降级 claim 都要重新过门），请重新 --stamp')
+    return True, f'戳有效：body={stamp.get("body")} ledger={stamp.get("ledger", "未比对")}'
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -344,7 +418,11 @@ def _main(argv: Optional[List[str]] = None) -> int:
         print(__doc__)
         print('''\n用法:
   python validate_report.py --report <report.md> --ledger <ledger_dir>
-            [--min-coverage 0.6] [--min-sources 1] [--max-summary 1200]''')
+            [--min-coverage 0.6] [--min-sources 1] [--max-summary 1200]
+  python validate_report.py --report <report.md> --ledger <ledger_dir> --stamp
+            # 过门后盖防伪戳（不过门只留问题清单，不留戳）
+  python validate_report.py --report <report.md> [--ledger <ledger_dir>] --verify-stamp
+            # 交付前验戳：没戳/正文改过/账本变过 → 退出码 1''')
         return 0
 
     def _opt(name: str, default: str = '') -> str:
@@ -362,6 +440,12 @@ def _main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     md = Path(report_path).read_text(encoding='utf-8', errors='ignore')
+
+    if '--verify-stamp' in args:
+        ok, reason = verify_stamp(md, ledger_path)
+        print(('✅ ' if ok else '❌ ') + reason)
+        return 0 if ok else 1
+
     result = validate_report(
         md,
         ledger_dir=ledger_path,
@@ -376,6 +460,11 @@ def _main(argv: Optional[List[str]] = None) -> int:
         'issues': result.issues,
         'warnings': result.warnings,
     }, ensure_ascii=False, indent=2))
+    if '--stamp' in args:
+        if not result.passed:
+            print('❌ 未过门，不盖戳。修完 issues 再跑一次。')
+            return 1
+        print('✅ 已盖防伪戳: ' + write_stamp(report_path, ledger_path, result.stats))
     return 0 if result.passed else 1
 
 
