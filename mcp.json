@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "deep-research-ultra": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["${QODER_PLUGIN_ROOT}/server.py"]
+    }
+  }
+}

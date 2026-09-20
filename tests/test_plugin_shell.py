@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'scripts'))
+sys.path.insert(0, str(ROOT / 'skills' / 'deep-research-ultra' / 'scripts'))
 
 from engines.mcp_client import McpSession  # noqa: E402
 
@@ -55,3 +55,17 @@ def test_cjk_argument_round_trips():
         # 空 text 不是编码坏了，label 按 text 分流，别给「工具没返回内容」扣上损坏的帽子。
         damaged = '工具无返回内容' if text == '' else '中文往返损坏'
         assert probe in text, f'{damaged}：收到 {text!r} / {getattr(s, "error", "")}'
+
+
+import json
+
+
+def test_plugin_shell_files_exist():
+    for rel in ('.qoder-plugin/plugin.json', 'mcp.json', 'hooks/hooks.json'):
+        assert (ROOT / rel).exists(), f'缺 {rel}'
+    manifest = json.loads((ROOT / '.qoder-plugin' / 'plugin.json').read_text(encoding='utf-8'))
+    assert manifest['name'] == 'deep-research-ultra'
+    assert manifest['version'].startswith('7.')
+    declared = json.loads((ROOT / 'mcp.json').read_text(encoding='utf-8'))
+    assert 'deep-research-ultra' in declared['mcpServers']
+    assert (ROOT / 'skills' / 'deep-research-ultra' / 'SKILL.md').exists(), 'skill 未下沉'

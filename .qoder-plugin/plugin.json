@@ -1,0 +1,14 @@
+{
+  "name": "deep-research-ultra",
+  "displayName": "超级深度调研",
+  "version": "7.0.0",
+  "description": "Deep research with evidence ledger, real-source probe and an anti-forgery gate enforced by MCP + Stop hook.",
+  "descriptionZh": "超级深度调研：证据账本可溯源、引擎真实自检、防伪校验戳由 MCP 与 Stop hook 强制执行。",
+  "author": { "name": "harryopo" },
+  "keywords": ["research", "mcp", "evidence", "deep-research"],
+  "category": "developer-tools",
+  "tags": ["skill", "mcp", "hooks"],
+  "skills": "./skills/",
+  "mcpServers": "./mcp.json",
+  "hooks": "./hooks/hooks.json"
+}
