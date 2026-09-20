@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.11.0
+version: 6.12.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -754,9 +754,15 @@ python "${SKILL_DIR}/scripts/research.py" "Qwen/Qwen2.5-7B" --sources modelscope
 
 ```bash
 # 每个候选仓库跑健康扫描（事实 + 停更 + 许可证 + CVE）
+# 先配 GITHUB_TOKEN，否则匿名只有 60 次/小时，深跑必被限流：export GITHUB_TOKEN="<PAT>"
 python "${SKILL_DIR}/scripts/repo_health.py" "owner/repo" --package "pypi:requests"     # GitHub
 python "${SKILL_DIR}/scripts/repo_health.py" "https://gitee.com/oschina/xx" --json       # Gitee
 ```
+
+> **verdict 五态（v6.12）**：`ok` 才有事实；`not_found`（404）是仓库自身的事实，可当结论用；
+> `rate_limited`（429）/`forbidden`（403）/`unreachable`（网络）是**我们没查到**，
+> 综合等级一律 `unknown`、退出码 3，且报告里不许写成"该仓库无法核实/疑似停更"。
+> 未核实就只有两条路：配好 `GITHUB_TOKEN` 重跑，或在报告里如实标"该仓库事实未核实"。
 
 **输出要求**：
 - 结论前置"风险标签"：🔴 高风险（停更/强传染许可证/CVE 未修复）/ 🟠 中风险 / 🟢 低风险；无官方 API 数据支撑的指标一律标注"未核实"
@@ -1197,7 +1203,7 @@ scripts/
 ├── tier.py                  # 来源 Tier 分级（域名校验，score/report/validate 共用）
 ├── ledger.py                # 证据账本（claim→source 可溯源，多子Agent并发写）
 ├── similarity.py            # 转载指纹去重 + claim 语义聚类 + 数值矛盾检测
-├── repo_health.py           # 仓库健康扫描（官方 API 事实 + 停更 + 许可证传染 + OSV CVE）
+├── repo_health.py           # 仓库健康扫描（官方 API 事实 + 停更 + 许可证传染 + OSV CVE；verdict 五态，限流判 unknown）
 ├── panel.py                 # 专家团评审清单生成（多视角 + 红蓝对抗契约）
 ├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素）+ 防伪戳 --stamp/--verify-stamp
 ├── engines/
@@ -1227,6 +1233,7 @@ scripts/
     ├── test_probe.py        # 功能自检判定（0 结果 ≠ 可用）
     ├── test_mcp_client.py   # MCP 真连接（一会话一进程 / 超时可中断 / 不留孤儿）
     ├── test_ledger_hygiene.py  # 证据/claim 分离 + merge 拒收与去重计数
+    ├── test_repo_health_verdict.py # 仓库扫描五态（限流=unknown / 404=真结论 / token 真发出）
     ├── test_validation_stamp.py # 防伪戳（盖戳只在过门后 / 改正文或账本即失效 / 手抄骗不过）
     └── test_v6.py           # tier/ledger/panel/validate/plan/reflect/score/平台引擎/相关性过滤
 ```

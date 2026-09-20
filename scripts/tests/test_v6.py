@@ -686,10 +686,10 @@ class TestRepoHealth:
     def test_stale_repo_high_risk(self, monkeypatch):
         from repo_health import scan_repo
         import repo_health as rh
-        monkeypatch.setattr(rh, '_get_json', lambda url: {
+        monkeypatch.setattr(rh, 'fetch_json', lambda url, headers=None: (200, {
             'full_name': 'a/b', 'description': 'd', 'language': 'Python',
             'stargazers_count': 5, 'pushed_at': '2020-01-01T00:00:00Z',
-            'archived': False, 'license': {'spdx_id': 'GPL-3.0'}})
+            'archived': False, 'license': {'spdx_id': 'GPL-3.0'}}))
         monkeypatch.setattr(rh, '_post_json', lambda url, p: {'vulnerabilities': [
             {'id': 'GHSA-x', 'summary': 's', 'aliases': ['CVE-2024-1']}]})
         h = scan_repo('a/b', with_cve_package='pypi:demo')
@@ -701,20 +701,24 @@ class TestRepoHealth:
     def test_archived_flag(self, monkeypatch):
         from repo_health import scan_repo
         import repo_health as rh
-        monkeypatch.setattr(rh, '_get_json', lambda url: {
+        monkeypatch.setattr(rh, 'fetch_json', lambda url, headers=None: (200, {
             'full_name': 'a/b', 'pushed_at': '2026-08-01T00:00:00Z', 'archived': True,
-            'stargazers_count': 100, 'license': {'spdx_id': 'MIT'}})
+            'stargazers_count': 100, 'license': {'spdx_id': 'MIT'}}))
         monkeypatch.setattr(rh, '_post_json', lambda url, p: None)
         h = scan_repo('a/b')
         assert any(r['category'] == 'maintenance' and '归档' in r['detail'] for r in h.risks)
 
-    def test_api_unavailable(self, monkeypatch):
-        from repo_health import scan_repo
+    def test_api_unreachable_is_not_a_verdict(self, monkeypatch):
+        """v6.12：传输层失败＝这次没查到（unknown），不再伪装成一条 high 风险。"""
+        from repo_health import build_markdown, scan_repo
         import repo_health as rh
-        monkeypatch.setattr(rh, '_get_json', lambda url: None)
+        monkeypatch.setattr(rh, 'fetch_json', lambda url, headers=None: (0, None))
         h = scan_repo('a/b')
         assert h.api_ok is False
-        assert any(r['category'] == 'api_unavailable' for r in h.risks)
+        assert h.verdict == 'unreachable'
+        assert h.risks == []
+        assert h.overall() == 'unknown'
+        assert '未核实' in build_markdown(h)
 
 
 # ============================================================

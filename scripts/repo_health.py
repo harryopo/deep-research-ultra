@@ -20,8 +20,10 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import re
 import sys
+import urllib.error
 import urllib.request
 import urllib.parse
 from dataclasses import dataclass, field
@@ -70,13 +72,35 @@ def license_risk(spdx_id: str) -> Tuple[str, str]:
 # ---------------------------------------------------------------------------
 # HTTP 工具
 # ---------------------------------------------------------------------------
-def _get_json(url: str) -> Optional[Any]:
+def fetch_json(url: str, headers: Optional[Dict[str, str]] = None) -> Tuple[int, Any]:
+    """取 JSON，并把"为什么没取到"一起带回来：(HTTP 状态码, 数据)。
+
+    状态码不能压成 None——403/429 是我们被限流，404 才是仓库真不存在。
+    混成一个结论就会把活跃仓库判成高风险。0 表示传输层失败（DNS/超时/断网）。
+    """
+    hdrs = {'User-Agent': UA, 'Accept': 'application/json'}
+    hdrs.update(headers or {})
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept': 'application/json'})
+        req = urllib.request.Request(url, headers=hdrs)
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            return json.loads(resp.read().decode('utf-8', errors='ignore'))
+            return resp.status, json.loads(resp.read().decode('utf-8', errors='ignore'))
+    except urllib.error.HTTPError as e:
+        return int(e.code), None
     except Exception:
-        return None
+        return 0, None
+
+
+# 状态码 → 判定。未列出的（5xx、401 等）一律按"这次没查到"处理。
+VERDICT_BY_STATUS = {200: 'ok', 404: 'not_found', 403: 'forbidden', 429: 'rate_limited'}
+UNVERIFIED = ('rate_limited', 'forbidden', 'unreachable')
+
+
+def api_headers(host: str) -> Tuple[Dict[str, str], bool]:
+    """GitHub 匿名限额只有 60 次/小时，一次深跑必撞——有 GITHUB_TOKEN 就带上。"""
+    token = os.environ.get('GITHUB_TOKEN', '').strip()
+    if host == 'github' and token:
+        return {'Authorization': f'Bearer {token}'}, False
+    return {}, host == 'github'
 
 
 def _post_json(url: str, payload: Dict[str, Any]) -> Optional[Any]:
@@ -111,6 +135,9 @@ class RepoHealth:
     repo: str
     host: str = 'github'
     api_ok: bool = False
+    verdict: str = 'pending'          # ok / not_found / rate_limited / forbidden / unreachable
+    http_status: int = 0
+    anonymous: bool = False           # GitHub 匿名请求（60 次/小时），限流时要说清这点
     facts: Dict[str, Any] = field(default_factory=dict)      # 官方 API 事实（带检测时间）
     detected_at: str = field(default_factory=lambda: datetime.datetime.now().isoformat(
         timespec='seconds'))
@@ -122,6 +149,9 @@ class RepoHealth:
         self.risks.append({'level': level, 'category': category, 'detail': detail})
 
     def overall(self) -> str:
+        # 没查到就判 unknown：限流是我们的问题，不是仓库的风险
+        if self.verdict in UNVERIFIED:
+            return 'unknown'
         if any(r['level'] == 'high' for r in self.risks):
             return 'high'
         if any(r['level'] == 'medium' for r in self.risks):
@@ -139,13 +169,21 @@ def scan_repo(ref: str, with_cve_package: Optional[str] = None) -> RepoHealth:
         raise ValueError(f'无法解析仓库引用：{ref}（期望 owner/repo 或 GitHub/Gitee URL）')
     h = RepoHealth(host=parsed['host'], owner=parsed['owner'], repo=parsed['repo'])
 
-    if h.host == 'github':
-        data = _get_json(f'https://api.github.com/repos/{h.owner}/{h.repo}')
-    else:
-        data = _get_json(f'https://gitee.com/api/v5/repos/{h.owner}/{h.repo}')
-    if not data:
-        h.add_risk('high', 'api_unavailable', '官方 API 不可达或仓库不存在（事实无法核实）')
+    headers, h.anonymous = api_headers(h.host)
+    url = (f'https://api.github.com/repos/{h.owner}/{h.repo}' if h.host == 'github'
+           else f'https://gitee.com/api/v5/repos/{h.owner}/{h.repo}')
+    status, data = fetch_json(url, headers)
+    h.http_status = status
+    h.verdict = VERDICT_BY_STATUS.get(status, 'unreachable')
+    if h.verdict == 'ok' and not isinstance(data, dict):
+        h.verdict = 'unreachable'
+    if h.verdict == 'not_found':
+        h.add_risk('high', 'not_found',
+                   f'{h.owner}/{h.repo} 在 {h.host} 上不存在（API 404）——'
+                   '改名、删除或从未公开，这是仓库的事实，不是我们查不到')
         return h
+    if h.verdict != 'ok':
+        return h     # 限流/无权限/网络故障：一条风险都不写，原因交给 build_markdown
     h.api_ok = True
 
     pushed = data.get('pushed_at') or data.get('updated_at') or ''
@@ -247,10 +285,28 @@ def _osv_severity(v: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # 报告
 # ---------------------------------------------------------------------------
+def unverified_fix(h: RepoHealth) -> str:
+    """未核实必须给得出下一步动作，尤其缺 token 这种一秒能修的事。"""
+    if h.verdict == 'unreachable':
+        return '网络/DNS/超时，或返回体不是 JSON——检查网络或代理（--proxy）后重跑'
+    if h.anonymous:
+        return (f'{h.verdict}：本次是 GitHub 匿名请求，限额只有 60 次/小时，深跑必撞。'
+                '配 token 后重跑：export GITHUB_TOKEN="<你的 PAT>"（只读 public_repo 足够）')
+    if h.verdict == 'rate_limited':
+        return '已带 GITHUB_TOKEN 仍 429：等 1 小时或降低扫描频次后重跑'
+    return '已带 GITHUB_TOKEN 仍 403：多为二级限流或私有仓库权限不足，稍后重跑或换 token'
+
+
 def build_markdown(h: RepoHealth) -> str:
     lines = [f'## 开源仓库健康扫描 — {h.facts.get("name", f"{h.owner}/{h.repo}")}',
              f'> 检测时间：{h.detected_at}（数据源：{"GitHub REST API" if h.host == "github" else "Gitee v5 API"}；OSV 官方）',
              '']
+    if h.verdict in UNVERIFIED:
+        lines.append(f'### ⚠️ 未核实（verdict={h.verdict}，HTTP {h.http_status or "—"}）')
+        lines.append('- 本次一条官方事实都没拿到，因此**不能**据此判该仓库有风险或无风险')
+        lines.append(f'- 原因与对策：{unverified_fix(h)}')
+        lines.append('- 综合结论：**UNKNOWN（未核实）**，不是 LOW 也不是 HIGH')
+        return '\n'.join(lines)
     lines.append('### 仓库事实（官方数据，非 AI 推断）')
     lines.append('| 项 | 值 |')
     lines.append('|----|----|')
@@ -299,13 +355,15 @@ def _main(argv: Optional[List[str]] = None) -> int:
     h = scan_repo(opts.repo, with_cve_package=opts.package or None)
     if opts.json:
         print(json.dumps({
+            'verdict': h.verdict, 'http_status': h.http_status, 'anonymous': h.anonymous,
             'detected_at': h.detected_at, 'facts': h.facts,
             'risks': h.risks, 'cves': h.cves,
             'package_health': h.package_health, 'overall': h.overall(),
         }, ensure_ascii=False, indent=2))
     else:
         print(build_markdown(h))
-    return 0
+    # 未核实不是"扫过了"：退非 0，免得 Lead 把限流当成一次成功的扫描写进报告
+    return 3 if h.verdict in UNVERIFIED else 0
 
 
 if __name__ == '__main__':

@@ -5,6 +5,49 @@
 
 ---
 
+## v6.12.0（2026-09-20）— 仓库健康扫描分五态，限流不再冒充"仓库有风险"（外来清单 X-D11）
+
+### 触发这次改动的事实
+`repo_health.py` 原来只有一条出口：`_get_json()` 把所有异常压成 `None`，
+`scan_repo` 见到 `None` 就写一条 **high** 风险
+「官方 API 不可达或仓库不存在（事实无法核实）」，然后综合等级 high。
+GitHub 匿名 API 只有 60 次/小时，一次深跑很容易撞 403/429——
+于是一个活跃仓库在报告里被判成高风险，读起来还像有依据。
+**限流是我们的问题，不是仓库的问题**，两件事被塞进了同一个字段。
+
+### fetch_json 返回 (状态码, 数据)，判定分五态
+| verdict | 来源 | 含义 | 综合等级 | 退出码 |
+|---------|------|------|----------|--------|
+| `ok` | 200 | 拿到官方事实 | high/medium/low（按风险算） | 0 |
+| `not_found` | 404 | 仓库不存在/已删除——这是仓库自身的事实 | high（category `not_found`） | 0 |
+| `rate_limited` | 429 | 我们被限流 | **unknown**，一条风险都不写 | 3 |
+| `forbidden` | 403 | 配额耗尽/权限不足 | **unknown** | 3 |
+| `unreachable` | 0 及其他 | 网络/DNS/超时/返回体不是 JSON | **unknown** | 3 |
+
+`overall()` 新增 `unknown`：没查到既不是低风险也不是高风险，是"不知道"。
+未核实时 `build_markdown` 不再摆那张事实表（空值会读成"star 未知=不活跃"），
+改打「⚠️ 未核实（verdict=…，HTTP …）+ 原因与对策」。
+
+### 带上 GITHUB_TOKEN
+`api_headers(host)` 读 `GITHUB_TOKEN`，只在 host==github 时加 `Authorization: Bearer`
+（Gitee 请求不会漏出这个 token，有测试钉住）。没配 token 时 `h.anonymous=True`，
+限流提示直接给到「export GITHUB_TOKEN="<你的 PAT>"（只读 public_repo 足够）」，
+而不是含糊的"无法核实"。
+
+### 测试接缝的连带修改
+`test_v6.py` 里 3 个用例原来 monkeypatch `_get_json`，改 patch `fetch_json` 返回
+`(200, payload)`；`test_api_unavailable` 改名 `test_api_unreachable_is_not_a_verdict`，
+断言从"有一条 high 风险"翻转为"risks 为空 + overall==unknown + 报告写明未核实"。
+新增 `tests/test_repo_health_verdict.py`（11 项：五态各一 / 事实仍可取 / token 真发出去 /
+Gitee 不漏 token / markdown 给对策且不摆事实表 / CLI 未核实退非 0）。全量 289 项通过。
+
+### 实跑核对
+`repo_health.py fastapi/fastapi --json` → `verdict=ok, http_status=200, anonymous=true` 带全事实；
+`repo_health.py this-org-really-does-not-exist-xyz/nope --json` → `verdict=not_found`，
+风险类别 `not_found`（真结论），两条都按预期退 0。
+
+---
+
 ## v6.11.0（2026-09-20）— 报告防伪戳：`--stamp` / `--verify-stamp`（外来清单 X-D15）
 
 ### 触发这次改动的事实
