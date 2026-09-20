@@ -5,8 +5,6 @@
 依赖：本机实测 mcp 2.1.1 —— 2.x 里 FastMCP 已改名为 MCPServer，
       import 路径是 mcp.server.mcpserver（写 mcp.server.fastmcp 会直接 ModuleNotFoundError）。
 """
-from __future__ import annotations
-
 import sys
 from pathlib import Path
 
