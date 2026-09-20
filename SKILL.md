@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.13.1
+version: 6.14.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -251,6 +251,11 @@ pending → searching → verified | conflict | supplementing → completed
 > **子问题数 = `--dimensions` 的个数**：想要 7-10 个子问题就要给 7-10 个维度，否则 breadth 空转。
 > **v6.6 起 `--effort` 真正生效**：此前 effort 只影响打印，plan 预设仍按 `--depth`（默认 standard，上限 5）取值，8 个维度会被静默截为 5。现在 effort 优先映射预设（exhaustive↔extreme），超出上限的维度会在 stderr 告警并记入 `plan.dropped_dimensions`。
 
+> **单轮产能红线（v6.14）**：上表的报告字数是**多轮累计目标**，一轮写不完是设计使然，不是你偷懒。
+> **一个 session 一轮**——禁止把多个 session 的活并到一轮里，更禁止为凑"看起来完成"而砍掉正文、留占位内容。
+> 一轮写不完就照实说"本轮完成 X 个维度，余下 N 个在下一轮"，账本可续、防伪戳只认当轮那份 `report.md`。
+> 机械部分别手搓：先跑 `skeleton.py`（见 Phase 4.5），Lead 只写机器写不了的摘要、判断与连接。
+
 ### Phase 1.5: 计划确认门
 
 **目标**：把选择权交给用户，避免返工。
@@ -464,6 +469,31 @@ python "${SKILL_DIR}/scripts/research.py" "关键词" --format markdown
 | 平均 CRAAP 分 | ≥ 70 |
 | 证据充分子主题占比 | 100% |
 
+### Phase 4.5: 报告骨架由账本生成（v6.14）
+
+**目标**：把"能自动来的"从 Lead 手里拿走，让一轮产能只花在判断上。
+
+```bash
+python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger \
+       -o report.md --title "<报告标题>"
+```
+
+脚本从账本读出，**Lead 不要再手抄、也不要改动**：
+
+| 骨架里已有的 | 来源 |
+|--------------|------|
+| 按主题分好组的 claim 清单（verified 直述、conflict/待核带 ⚠️） | `ledger.jsonl` 的 claim + status |
+| 每条 claim 后面的 `[N]` 引用编号 | source 的 `primary_index`（与校验门同一套编号） |
+| 附录来源登记表 `| [N] | Tier | 标题 | URL |` | source 条目全量 |
+| 「claims/verified/来源/独立域名」四个事实数字 | 账本统计 |
+
+Lead 只写机器写不了的三处：执行摘要、调研方法、结论与建议——以及把 ⚠️ 待核项补证据或降级。
+这三处脚本会留 `【待写】` 标记。
+
+> **为什么留标记**：上一轮实跑就是"deep 档写不完 → 落一份带占位内容的 report.md → 声称过了校验门"。
+> 现在 `【待写】` 是校验门的**硬失败项**（见 Phase 5 表），骨架不写掉标记就永远盖不了戳——
+> 占位内容出不了门，比"提醒 Lead 要诚实"可靠。
+
 ### Phase 5: 发布前校验门
 
 **目标**：报告发布前做确定性质量闸门，不通过不能交付。
@@ -485,6 +515,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 | 全量覆盖率 verified/total ≥ 0.6（**v6.7 降级为告警**：分母含未写进报告的过程记录，用它阻断会与"报告可用"矛盾） | 参考告警补验证，不阻断交付 |
 | **独立来源强度（v6.3）**：每条 verified claim 独立来源 ≥2；**v6.7 起档 B（`evidence_tier=B` 且有 `verify_method`）豁免**——归属型断言不该被要求第二个域 | 补交叉验证或降级 pending |
 | **六维要素（v6.3）**：报告含仓库链接时，风险标签/许可证/维护/适配/落地/量化齐备 | 按 7.0b 六维质量门补写 |
+| 占位内容（v6.14）：报告里不得残留 `【待写】`（skeleton.py 的待写标记） | 把该段写完并删掉标记，或按"一个 session 一轮"推到下一轮；不许带着标记盖戳 |
 | 必需章节：执行摘要/方法/结论/来源 | 补写章节 |
 | 低质源占比：Tier4 < 30%（告警） | 建议补权威源后复核 |
 | 执行摘要 ≤ 1200 字 | 精简摘要 |
@@ -512,7 +543,8 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 └── report.html        # 交付物（--format html 时）
 ```
 
-**落盘顺序**：Lead 依据账本写 `report.md` → `validate_report.py --stamp`（过门即盖戳）→
+**落盘顺序**：`skeleton.py` 出骨架（引用与登记表自动来）→ Lead 写掉三处 `【待写】` →
+`validate_report.py --stamp`（过门即盖戳）→
 `--verify-stamp` 复核 → 才回复用户。**报告里那句"校验 passed"必须有戳背书**；
 没有戳就写"未过门：<issue 列表>"，不许凭自述交付。
 中途快撑不住（上下文/turn/时间接近上限）时，**先把当前版本的 report.md 落盘再说话**，
@@ -1151,7 +1183,10 @@ python "${SKILL_DIR}/scripts/panel.py" review-outline --input outline.md --roles
 # 5. 来源 Tier 分级（独立工具）
 python "${SKILL_DIR}/scripts/tier.py" "https://www.gov.cn/x"                          # → Tier 1
 
-# 6. 发布前校验门（exit 0=通过）+ 防伪戳
+# 6. 报告骨架（v6.14）：引用编号 + 来源登记表由账本直出，Lead 只补【待写】段落
+python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger -o report.md --title "报告标题"
+
+# 7. 发布前校验门（exit 0=通过）+ 防伪戳
 python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger --stamp
 python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger --verify-stamp
 ```
@@ -1205,7 +1240,8 @@ scripts/
 ├── similarity.py            # 转载指纹去重 + claim 语义聚类 + 数值矛盾检测
 ├── repo_health.py           # 仓库健康扫描（官方 API 事实 + 停更 + 许可证传染 + OSV CVE；verdict 五态，限流判 unknown）
 ├── panel.py                 # 专家团评审清单生成（多视角 + 红蓝对抗契约）
-├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素）+ 防伪戳 --stamp/--verify-stamp
+├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素/占位标记）+ 防伪戳 --stamp/--verify-stamp
+├── skeleton.py              # 报告骨架生成（v6.14）：从账本出引用编号+来源登记表，正文留【待写】给 Lead
 ├── engines/
 │   ├── __init__.py          # 引擎导出聚合（32 个数据源，28 个可搜索）
 │   ├── base.py              # SearchEngine 抽象基类 + EngineMetadata + EngineRegistry
@@ -1237,6 +1273,7 @@ scripts/
     ├── test_pdf_artifact.py   # 制品校验（PDF 魔数/篇幅/完整性/论文 ID 一致；LaTeX 认 gzip）
     ├── test_repo_health_verdict.py # 仓库扫描五态（限流=unknown / 404=真结论 / token 真发出）
     ├── test_validation_stamp.py # 防伪戳（盖戳只在过门后 / 改正文或账本即失效 / 手抄骗不过）
+    ├── test_skeleton.py     # 骨架（引用=账本编号 / 登记表不串号 / 【待写】过不了门 / 无账本硬停）
     └── test_v6.py           # tier/ledger/panel/validate/plan/reflect/score/平台引擎/相关性过滤
 ```
 
@@ -1258,6 +1295,7 @@ scripts/
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
 - ❌ **禁止越过 Phase 0 环境闸门**（v6.8）— `--probe` 退出码 3 时不许开跑，也不许自行加 `--allow-degraded`；停下来把配置指引给用户，等他配好或明确授权降级
+- ❌ **禁止把骨架当报告交**（v6.14）— 残留 `【待写】` 就是硬失败；deep 档一轮写不完时，照实说"本轮完成到哪、余下几轮"，不许砍正文凑字数、不许并多个 session 的活到一轮
 - ❌ **禁止推荐需绑卡的数据源**（v6.13.1）— 环境指引只给"注册即可用、不绑银行卡"的源；有每月免费额度但注册要绑卡的，一律不写进指引，用户主动要才提，并说清计费风险
 - ❌ **禁止凭自述交付**（v6.11）— 报告尾部没有 `validate_report.py --stamp` 盖下的 `drux:validated` 戳，就不许说"校验门 passed"；没戳只能写"未过门：<issue>"。手抄一行戳过不了 `--verify-stamp` 的指纹复核
 - ❌ **禁止把搜索结果当结论**（v6.10）— `--ledger` 只登记证据；claim 必须用 `add-claim` 显式立论并挂来源。要沿用旧行为得自己加 `--auto-claim` 并说明理由

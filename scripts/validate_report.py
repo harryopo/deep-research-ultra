@@ -71,6 +71,8 @@ def extract_citations(report_md: str) -> List[int]:
 _HEADING = re.compile(r'^(#{1,6})\s*(.+?)\s*$')
 _REGISTRY_ROW = re.compile(r'^\s*\|?\s*\[\d{1,3}\]\s*\|')
 _CITATION = re.compile(r'\[(\d{1,3})\](?!\()(?!:)')
+# v6.14：skeleton.py 的待写标记。骨架不是报告，标记没删净就出门等于交占位内容。
+_PLACEHOLDER = re.compile(r'【待写】')
 
 
 def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]]
@@ -150,6 +152,16 @@ def validate_report(report_md: str,
     for section, kws in REQUIRED_SECTIONS.items():
         if _section_missing(report_md, section, kws):
             report.issues.append(f'「{section}」章节缺失（关键词: {"/".join(kws[:2])}）')
+
+    # ---------- 校验 3b：占位内容（v6.14）----------
+    # skeleton.py 生成的骨架带【待写】标记。深档一轮写不完时，过去的做法是糊一份
+    # 占位正文并声称过门；现在标记本身就是硬失败，骨架出不了门。
+    placeholders = len(_PLACEHOLDER.findall(report_md))
+    report.stats['placeholders'] = placeholders
+    if placeholders:
+        report.issues.append(
+            f'仍有 {placeholders} 处【待写】占位——这是骨架不是报告（v6.14）：'
+            '把该段写掉并删除标记，或按"一个 session 一轮"拆到下一轮')
 
     # ---------- 校验 5：执行摘要篇幅 ----------
     m = re.search(r'(?:^|\n)#{1,3}\s*(?:执行摘要|摘要)\s*\n(.*?)(?=\n#{1,3}\s*\S)', report_md, re.S)
