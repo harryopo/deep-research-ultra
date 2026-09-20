@@ -68,4 +68,12 @@ def test_plugin_shell_files_exist():
     assert manifest['version'].startswith('7.')
     declared = json.loads((ROOT / 'mcp.json').read_text(encoding='utf-8'))
     assert 'deep-research-ultra' in declared['mcpServers']
+    cfg = declared['mcpServers']['deep-research-ultra']
+    # env 一旦出现就可能被宿主当成「完整替换」子进程环境：没有 SYSTEMROOT 时
+    # server.py 会死在 import _overlapped（WinError 10106 Winsock 起不来），
+    # 那副长相和「stdio 握手根本不可能」一模一样，会误杀整个插件方案。
+    assert 'env' not in cfg, 'mcp.json 加了 env：宿主按完整替换处理会丢 SYSTEMROOT → WinError 10106'
+    # args[0] 必须走插件根变量：裸 server.py 由宿主 cwd 决定，装到别处就找不到。
+    assert cfg['args'][0].startswith('${QODER_PLUGIN_ROOT}'), \
+        'mcp.json 的脚本路径退回相对/cwd 解析：换安装位置或宿主 cwd 就找不到 server.py'
     assert (ROOT / 'skills' / 'deep-research-ultra' / 'SKILL.md').exists(), 'skill 未下沉'
