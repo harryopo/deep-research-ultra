@@ -19,8 +19,9 @@ curl_cffi>=0.7.0
 # ============================================================
 
 # MCP 服务器（通过 npx/uvx 启动，无需 Python 安装）
-# 如需独立调用 MCP（不通过 Claude），可安装 mcp 库：
-# mcp>=1.0.0
+# 计划 A 的 server.py（本地 stdio MCP server）必需 mcp 库；下限取本机实测版本 2.1.1
+# 注意：mcp 2.x 里 FastMCP 已改名 MCPServer（mcp.server.mcpserver），1.x 的 import 路径不可用
+mcp>=2.1
 
 # 中文分词（可选，提升中文查询的相关性评分）
 # jieba>=0.42.1
