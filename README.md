@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.13.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.13.1-brightgreen.svg)]()
 
 
 ---
@@ -405,7 +405,7 @@ deep-research-ultra/
 ## 🧪 测试
 
 ```bash
-# 运行单元测试（302 个用例）
+# 运行单元测试（304 个用例）
 cd scripts && python -m pytest tests/ -v
 
 # 端到端测试（dry-run）
@@ -524,4 +524,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-*v6.13 · 2026-09-20 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验（非 PDF/截断/换文档一律拒绝落盘）；更新历史见 CHANGELOG.md*
+*v6.13 · 2026-09-20 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验（非 PDF/截断/换文档一律拒绝落盘）+ 环境指引禁推"注册要绑银行卡"的源；更新历史见 CHANGELOG.md*

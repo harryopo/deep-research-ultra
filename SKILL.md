@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.13.0
+version: 6.13.1
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -1233,6 +1233,7 @@ scripts/
     ├── test_probe.py        # 功能自检判定（0 结果 ≠ 可用）
     ├── test_mcp_client.py   # MCP 真连接（一会话一进程 / 超时可中断 / 不留孤儿）
     ├── test_ledger_hygiene.py  # 证据/claim 分离 + merge 拒收与去重计数
+    ├── test_env_guidance_no_card.py # 环境指引：带免费额度的源必须同时写明免绑卡自查
     ├── test_pdf_artifact.py   # 制品校验（PDF 魔数/篇幅/完整性/论文 ID 一致；LaTeX 认 gzip）
     ├── test_repo_health_verdict.py # 仓库扫描五态（限流=unknown / 404=真结论 / token 真发出）
     ├── test_validation_stamp.py # 防伪戳（盖戳只在过门后 / 改正文或账本即失效 / 手抄骗不过）
@@ -1257,6 +1258,7 @@ scripts/
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
 - ❌ **禁止越过 Phase 0 环境闸门**（v6.8）— `--probe` 退出码 3 时不许开跑，也不许自行加 `--allow-degraded`；停下来把配置指引给用户，等他配好或明确授权降级
+- ❌ **禁止推荐需绑卡的数据源**（v6.13.1）— 环境指引只给"注册即可用、不绑银行卡"的源；有每月免费额度但注册要绑卡的，一律不写进指引，用户主动要才提，并说清计费风险
 - ❌ **禁止凭自述交付**（v6.11）— 报告尾部没有 `validate_report.py --stamp` 盖下的 `drux:validated` 戳，就不许说"校验门 passed"；没戳只能写"未过门：<issue>"。手抄一行戳过不了 `--verify-stamp` 的指纹复核
 - ❌ **禁止把搜索结果当结论**（v6.10）— `--ledger` 只登记证据；claim 必须用 `add-claim` 显式立论并挂来源。要沿用旧行为得自己加 `--auto-claim` 并说明理由
 - ❌ **禁止把 MCP 的"配置就绪"当"连上了"**（v6.9）— 只有 `--probe`/`--mcp-check` 真握手拿到结果才算这个源存在；握手超时要先预热（首次 npx/uvx 下包），别静默丢掉这个源

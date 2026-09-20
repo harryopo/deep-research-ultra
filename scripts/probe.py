@@ -160,8 +160,8 @@ CONFIG_GUIDE: Dict[str, str] = {
                     '（匿名可用但限 3 次/秒，多子 Agent 并发会掉结果）',
     'UNPAYWALL_EMAIL': '填任意常用邮箱即可（解锁 OA 全文定位）',
     'OPENALEX_MAILTO': '填邮箱进 polite pool；不配也能查，但并发时极易 429',
-    'TAVILY_API_KEY': 'https://app.tavily.com 申请（1000 次/月免费）',
-    'FIRECRAWL_API_KEY': 'https://www.firecrawl.dev 申请（500 credits/月）',
+    'TAVILY_API_KEY': 'https://app.tavily.com 申请（1000 次/月免费；注册前确认免绑卡——要绑银行卡就放弃这个源）',
+    'FIRECRAWL_API_KEY': 'https://www.firecrawl.dev 申请（500 credits/月；注册前确认免绑卡——要绑银行卡就放弃这个源）',
     'CRAWL4AI_URL': '本地起服务后设为 http://localhost:11235',
     'SEARXNG_URL': '自建 SearXNG 实例地址（如 http://localhost:8888）；没有实例就排除该源',
 }
