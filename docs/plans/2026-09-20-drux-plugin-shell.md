@@ -413,7 +413,7 @@ Expected: 返回含同一串中文。
 - [ ] **Step 4: 验 hook 真被调**
 
 Run: `cat "C:/Users/Administrator/.agents/skills/deep-research-ultra/hooks/.drux-hook-stop.log"`
-Expected: 至少一行 `{"at": ..., "bytes": N}`。没有 → hook 未生效，把 Stop 事件名/路径写法作为待查项记下来，不要靠猜改。
+Expected: 至少一行 `{"at": ..., "raw_bytes": N, "chars": M}`。没有 → hook 未生效，把 Stop 事件名/路径写法作为待查项记下来，不要靠猜改。
 
 - [ ] **Step 5: 写验证结论**
 
