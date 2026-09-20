@@ -20,17 +20,80 @@ Deep Research Ultra v4.0 — Layer 1: 学术全文与引用图谱引擎层
 """
 
 import json
+import hashlib
 import os
+import re
+import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import xml.etree.ElementTree as ET
 
 from .base import SearchEngine, SearchResult, EngineMetadata
 from .fallback import _http_get, _http_post, DEFAULT_USER_AGENT
 from .academic_engines import _decode_bytes, _json_loads
+
+# ---------------------------------------------------------------------------
+# 制品校验（v6.13 / X-D10）：下载回来的字节得先证明"是它、且完整"
+# ---------------------------------------------------------------------------
+
+MIN_PDF_BYTES = 4096          # 一篇 arXiv 论文的 PDF 不可能比这更小；HTML 报错页就在这道被挡下
+
+
+def _pdf_page_texts(raw: bytes) -> Optional[List[str]]:
+    """抽前两页文字用于比对论文 ID；没装 pypdf 就返回 None（＝这一项没核，不谎称核过）。"""
+    try:
+        import io
+
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(raw))
+        return [(reader.pages[i].extract_text() or '')
+                for i in range(min(2, len(reader.pages)))]
+    except Exception:
+        return None
+
+
+def verify_pdf_artifact(raw: bytes, paper_id: str = '') -> Dict:
+    """四道判定：是不是 PDF → 篇幅像不像论文 → 有没有下载完 → 是不是这一篇。
+
+    任一道不过就返回 ok=False。历史上 _http_get 返回什么都直接落盘，
+    代理换成一张几百字节的 HTML 报错页也算"下载成功"，账本里就多了一条
+    指向无关文档的一手来源。
+    """
+    raw = raw or b''
+    out: Dict[str, Any] = {'ok': False, 'reason': '', 'bytes': len(raw),
+                           'sha256': '', 'pages': None, 'id_matched': None}
+    if not raw:
+        out['reason'] = '空响应（0 字节）'
+        return out
+    out['sha256'] = hashlib.sha256(raw).hexdigest()[:16]
+    if not raw.startswith(b'%PDF-'):
+        out['reason'] = (f'不是 PDF（首字节不是 %PDF-），拿到的是 {raw[:24]!r}'
+                         '……多半是 HTML 报错页/登录页，或被网络层换掉的文档')
+        return out
+    if len(raw) < MIN_PDF_BYTES:
+        out['reason'] = f'PDF 太小（{len(raw)} 字节 < {MIN_PDF_BYTES}），不像一篇论文正文'
+        return out
+    if b'%%EOF' not in raw[-1024:]:
+        out['reason'] = 'PDF 尾部缺 %%EOF，下载被截断，不许当完整全文用'
+        return out
+    out['pages'] = len(re.findall(rb'/Type\s*/Page[^s]', raw))
+    if paper_id:
+        texts = _pdf_page_texts(raw)
+        if texts is None:
+            out['ok'] = True
+            out['reason'] = '结构合规可用；未装 pypdf，论文 ID 一致性未核'
+            return out
+        if paper_id not in ' '.join(texts):
+            out['reason'] = (f'PDF 正文里找不到论文 ID {paper_id}——拿到的可能是另一篇文档，'
+                             '不能当这条 claim 的一手来源')
+            return out
+        out['id_matched'] = True
+    out['ok'] = True
+    out['reason'] = 'PDF 校验通过（魔数/篇幅/完整性/ID 一致）'
+    return out
 
 
 # ============================================================
@@ -283,7 +346,10 @@ class ArxivFulltextEngine(SearchEngine):
         url = self.PDF_URL_TEMPLATE.format(paper_id=clean_id)
         self._rate_limit()
         raw = _http_get(url, timeout=60, proxy=kwargs.get('proxy'))
-        if not raw:
+        check = verify_pdf_artifact(raw or b'', clean_id)
+        self.last_download = check
+        if not check['ok']:
+            print(f'❌ arXiv PDF 制品校验未过（{clean_id}）：{check["reason"]}', file=sys.stderr)
             return None
         try:
             with open(save_path, 'wb') as f:
@@ -308,8 +374,10 @@ class ArxivFulltextEngine(SearchEngine):
         clean_id = paper_id.split('v')[0] if 'v' in paper_id else paper_id
         url = self.LATEX_URL_TEMPLATE.format(paper_id=clean_id)
         self._rate_limit()
-        raw = _http_get(url, timeout=60, proxy=kwargs.get('proxy'))
-        if not raw:
+        raw = _http_get(url, timeout=60, proxy=kwargs.get('proxy')) or b''
+        if not raw.startswith(b'\x1f\x8b'):
+            print(f'❌ arXiv LaTeX 不是 gzip 包（{clean_id}）：拿到 {len(raw)} 字节，'
+                  f'前缀 {raw[:16]!r}——多半是报错页或源码不存在', file=sys.stderr)
             return None
         return {'tar_gz': raw, 'paper_id': clean_id}
 

@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.12.0
+version: 6.13.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -654,7 +654,7 @@ e = ArxivFulltextEngine()
 # 搜索论文（返回元数据 + PDF/HTML/LaTeX URL）
 results = e.search("transformer attention", max_results=10)
 # 下载 PDF
-e.download_pdf("2404.19756", "paper.pdf")
+e.download_pdf("2404.19756", "paper.pdf")          # 落盘前四道校验：非 PDF / 太小 / 截断 / 不是这一篇 → 返回 None 且不写盘
 # 获取 LaTeX 源码（tar.gz）
 latex = e.fetch_latex("2404.19756")
 ```
@@ -1233,6 +1233,7 @@ scripts/
     ├── test_probe.py        # 功能自检判定（0 结果 ≠ 可用）
     ├── test_mcp_client.py   # MCP 真连接（一会话一进程 / 超时可中断 / 不留孤儿）
     ├── test_ledger_hygiene.py  # 证据/claim 分离 + merge 拒收与去重计数
+    ├── test_pdf_artifact.py   # 制品校验（PDF 魔数/篇幅/完整性/论文 ID 一致；LaTeX 认 gzip）
     ├── test_repo_health_verdict.py # 仓库扫描五态（限流=unknown / 404=真结论 / token 真发出）
     ├── test_validation_stamp.py # 防伪戳（盖戳只在过门后 / 改正文或账本即失效 / 手抄骗不过）
     └── test_v6.py           # tier/ledger/panel/validate/plan/reflect/score/平台引擎/相关性过滤

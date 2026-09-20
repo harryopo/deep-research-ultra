@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.12
+# Deep Research Ultra — 超级深度调研工具 v6.13
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.12.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.13.0-brightgreen.svg)]()
 
 
 ---
@@ -30,6 +30,7 @@
 | 🧾 **证据与结论分离（v6.10）** | `--ledger` 只登记证据到 evidence.jsonl，claim 必须显式 add-claim；merge 拒收不可溯源来源并打印 新增/去重/拒收，缺 status 一律 pending（不再默认 verified） |
 | 🔐 **报告防伪戳（v6.11）** | `--stamp` 只在过门后往 report.md 尾部盖一行 `drux:validated`（含正文与账本指纹）；交付前 `--verify-stamp` 复核——没戳/改正文/改账本/手抄戳一律 exit 1，"校验 passed"不再是自述 |
 | 🧭 **仓库扫描五态（v6.12）** | `repo_health.py` 分清 ok / not_found / rate_limited / forbidden / unreachable：429、403、断网一律 `unknown` 且退出码 3，不再把限流写成"该仓库高风险"；GitHub 请求自动带 `GITHUB_TOKEN`（Gitee 不漏）
+| 📄 **下载制品校验（v6.13）** | arXiv PDF/LaTeX 落盘前验魔数、篇幅、`%%EOF` 完整性与论文 ID 一致性；HTML 报错页、断流、"换成另一篇"一律返回 None 并打印原因，不再伪装成一次成功下载 |
 | 🔌 **MCP 真连接（v6.9）** | 5 个 MCP 源纳入闸门：一个会话一个进程真握手、25 秒整场预算、超时不留孤儿进程；连不上就报「❌ 连不上 + 原因」，配置齐全不再等于可用 |
 | 📦 **文件化交付契约（v6.5）** | 报告一律落盘 `.research/<session>/report.md`，返回值只给 ≤25 行短摘要（长正文塞返回值会被截断） |
 | 🖥️ **Windows 控制台自适应（v6.5）** | CLI 强制 UTF-8 输出，GBK 代码页不再 UnicodeEncodeError |
@@ -404,7 +405,7 @@ deep-research-ultra/
 ## 🧪 测试
 
 ```bash
-# 运行单元测试（289 个用例）
+# 运行单元测试（302 个用例）
 cd scripts && python -m pytest tests/ -v
 
 # 端到端测试（dry-run）
@@ -523,4 +524,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-*v6.12 · 2026-09-20 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）；更新历史见 CHANGELOG.md*
+*v6.13 · 2026-09-20 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验（非 PDF/截断/换文档一律拒绝落盘）；更新历史见 CHANGELOG.md*
