@@ -5,6 +5,37 @@
 
 ---
 
+## v7.0.0-alpha2（2026-09-21）— 跨宿主安装器 install.py：一个文件夹传给别的 AI
+
+**为什么加**：用户要求"别的 AI 也要能用"。内核本来就零宿主依赖（拷目录即可），差的只是
+"各家 MCP 配置落在哪、怎么写"这件事要人手工查。现在一条命令代劳。
+
+**本机实测的宿主形态**（不是查文档，见 spec 第十五节的表）：
+
+| 宿主 | skill 落点 | MCP 落点 | 验证到哪一步 |
+|------|-----------|---------|-------------|
+| Qoder | `~/.qoder/skills/` | 插件壳 `mcp.json` | 已跑通 `drux_ping` 往返 |
+| TRAE CN | `~/.trae-cn/skills/<名>/SKILL.md`（399 个在用） | `%APPDATA%\Trae CN\User\mcp.json`，与插件 mcp.json **同构** | 装到 skill + 写配置 = 11 条测试覆盖；真机 dry-run 已跑 |
+| Codex CLI | `~/.codex/skills/` | `codex mcp add` 一条命令（或 config.toml `[mcp_servers.*]`） | **仅注册通道已验证**（`mcp get` enabled/stdio、`doctor` ✓ 2 stdio）；**调用未验证**，本机无外网，`codex exec` 8 分钟无返回 |
+| Claude Code | `~/.claude/skills/` | **未验证**（CLI 不在 PATH，settings.json 只有 hooks 键） | 文档只写"skill 目录可拷" |
+
+**install.py 的三条硬护栏**（都是先写红测试再实现的）：
+
+1. 目标 `mcp.json` 是坏 JSON → 拒绝覆盖并退 2。把整份配置改写成我们的，等于顺手清掉用户的白名单。
+2. 目标 skill 目录带 `.git` → 拒绝覆盖（本机 TRAE 就是这个现状：整个仓库被塞进 skills 目录，
+   SKILL.md 在下一层所以宿主扫不到）。普通旧版本无 `.git`，正常替换。
+3. 幂等 + 不越界：只动我们那一条，别人的 MCP 条目和未知顶层键原样保留；跑第二遍文件一字节不变；
+   `--dry-run` 与 Qoder（MCP 走插件壳）都不写任何用户配置。
+
+**实测数字**：`tests/test_install.py` 11 passed；根 `15 passed`；skill 脚本 `315 passed`。
+真机 dry-run：`--host trae` 退 2 并指名要人工确认的那个目录，`--host qoder` 退 0 且
+`~/.qoder/skills/deep-research-ultra` 确实没被创建。
+
+**没做**：不给每家落 `plugin.json`（只有 Qoder 用到，先不造轮子）；Codex 的调用要等外网能通再补测，
+在那之前不写"支持 Codex"。
+
+---
+
 ## v7.0.0-alpha（2026-09-21）— 插件壳落地并实测通过：形态冻结，不再改
 
 **这一版只证明一件事**：本地 Python MCP server + 插件 Stop hook 能被宿主真加载。

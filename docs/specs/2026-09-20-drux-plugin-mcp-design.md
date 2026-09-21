@@ -220,7 +220,8 @@ A 失败（例如本地 python 起不了 stdio server）则整个插件化方案
 | 宿主 | 本机状态 | skill 目录 | MCP 注册位置 | 插件清单 |
 |------|---------|-----------|-------------|---------|
 | Qoder | 已装，且本包已跑通 | `~/.qoder/skills/` | 插件的 `mcp.json` | `.qoder-plugin/plugin.json` |
-| Codex CLI | 已装，`codex` 在 PATH | `~/.codex/skills/` | `~/.codex/config.toml` 的 `[mcp_servers.<名>]`（command/args + `.env` 子段） | 缓存里实测到 `.codex-plugin/plugin.json`，其键含 `name/version/description/author/keywords/skills/license/repository/homepage/apps/interface`；marketplace 支持 `source_type = "local"` |
+| TRAE CN | 已装（`~/.trae-cn`，CLI `D:\Trae CN\bin\trae-cn`），399 个 skill 在用 | `~/.trae-cn/skills/<名>/SKILL.md`（**顶层必须直接放 SKILL.md**，放深一层就扫不到） | `%APPDATA%\Trae CN\User\mcp.json` → `{"mcpServers":{名:{command,args,env}}}`，**与插件的 mcp.json 同构** | 另有 `plugins/` + `installed-plugins.json` + `plugin-config.json`，本机未深入验证 |
+| Codex CLI | 已装，`codex` 在 PATH。**注册通道已验证**：`codex mcp add drux -- python <绝对路径>/server.py` 成功，`codex mcp get drux` 显示 enabled/stdio，`codex doctor` 报 ✓ mcp 2 server·0 disabled。**调用未验证**：`codex exec` 需外网，本机无出口（doctor 同时报 websocket 失败 + CDN 不可达），8 分钟无返回 | `~/.codex/skills/` | `~/.codex/config.toml` 的 `[mcp_servers.<名>]`，或用 `codex mcp add` 让它自己写 | 缓存里实测到 `.codex-plugin/plugin.json`（键里**没有** `mcpServers`，故 MCP 只能落 config.toml）；marketplace 支持 `source_type = "local"` |
 | Claude Code | 目录在（`~/.claude/skills` 有 7 个），**CLI 不在 PATH** | `~/.claude/skills/` | 本机 `~/.claude/settings.json` 只有 `hooks` 一个顶层键，`mcpServers` 落点**未验证** | 未验证 |
 | Cursor / Gemini CLI | 未装 | — | — | — |
 
@@ -231,11 +232,17 @@ A 失败（例如本地 python 起不了 stdio server）则整个插件化方案
    不需要注册、不需要插件机制。这是"别的 AI 也能用"的主路。
 2. **MCP 命令一律写绝对路径，不用宿主变量**。`${QODER_PLUGIN_ROOT}` 只有 Qoder 认；
    安装器按当前宿主把 `python <绝对路径>/server.py` 写进它自己的配置，避免"换一家就找不到脚本"。
-3. **每家一份薄适配清单，谁装了谁受益**：`install.py --host qoder|codex` 做三件事——
-   拷 skill 目录 → 往该宿主的 MCP 配置追加一条（幂等，已存在就只比对不重复写）→
-   该宿主若支持插件清单则同时落对应目录名的 `plugin.json`。不装的效果：功能完整，
-   只是 Agent 看不见 `drux_*` 工具、没有 Stop hook 兜底。
+3. **每家一份薄适配清单，谁装了谁受益**：`install.py --host qoder|trae`（已落地，
+   `tests/test_install.py` 11 条）做三件事——拷 skill 目录到该宿主落点并把 `server.py`
+   一起放进去（安装位自成一体，删仓库不坏）→ 往该宿主的 MCP 配置追加一条（幂等，
+   已存在只比对，且**保留别人的条目和自己的未知顶层键**）→ 该宿主若走插件壳就不碰它的
+   用户级配置，只打印指引。三条硬护栏：目标 mcp.json 是坏 JSON 时拒绝覆盖（改写成我们的
+   等于清掉用户白名单）；目标目录带 `.git` 时拒绝覆盖（可能是用户还在改的仓库）；
+   `--dry-run` 一个文件都不写。**未做**：为每家落 `plugin.json`（只有 Qoder 用到，先不造轮子）。
 
-**文档诚实线**：只写"已在本机实测通过"的宿主。Codex 需要真起一次 CLI 才算；
-Claude Code 在 CLI 不可用期间**不写"支持"**，只写"skill 目录可直接拷过去用，MCP 注册位置未验证"。
+不装的效果：功能完整，只是 Agent 看不见 `drux_*` 工具、没有 Stop hook 兜底。
+
+**文档诚实线**：只写"已在本机实测通过"的宿主。Codex 的**调用**要等外网能通再补测，
+在那之前 README 不写"支持 Codex"；Claude Code 在 CLI 不可用期间**不写"支持"**，
+只写"skill 目录可直接拷过去用，MCP 注册位置未验证"。
 

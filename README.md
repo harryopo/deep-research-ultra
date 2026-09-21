@@ -68,13 +68,25 @@ git clone https://github.com/harryopo/deep-research-ultra.git
 cd deep-research-ultra
 pip install -r skills/deep-research-ultra/requirements.txt
 
-# 把 skill 目录放进宿主的 skills 路径即可被触发
+# 把 skill 目录放进宿主的 skills 路径即可被触发（Qoder 为例）
 cp -r skills/deep-research-ultra ~/.qoder/skills/
 
 python skills/deep-research-ultra/scripts/research.py --probe   # 自检：引擎今天真出不出数据
 ```
 
 调用调研时对宿主**没有任何额外要求**：所有强制校验都是 `scripts/` 下的 Python 在跑。
+
+**换别的宿主就换一条命令**（把 skill 目录放到正确位置，顺带把 MCP 配好）：
+
+```bash
+python skills/deep-research-ultra/scripts/install.py --host trae --dry-run   # 先看要动哪些文件
+python skills/deep-research-ultra/scripts/install.py --host trae             # 实际执行
+```
+
+已实测的落点（Windows，2026-09-21）：Qoder `~/.qoder/skills/`、TRAE CN `~/.trae-cn/skills/`
+（两家的 `SKILL.md` 都必须在目录**顶层**，放深一层宿主就扫不到）。TRAE 的 MCP 写在
+`%APPDATA%\Trae CN\User\mcp.json`，安装器按**绝对路径**追加一条、幂等，
+并保留你已有的其它 MCP 条目。安装器遇到"目标像个 git 仓库"会硬停不覆盖，让你先看。
 
 ### 方式二：再注册为宿主插件（可选加分项）
 
