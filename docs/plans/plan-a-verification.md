@@ -56,3 +56,23 @@
 
 - **握手与冷启动计时未落文档**：`task-2-report.md` 的 §4 写的是"报告了 1.2–1.3s"这一转述，没有贴带时间戳的原始输出。计划 A 的 CHANGELOG 承诺要附握手耗时、hook 日志行数、冷启动秒数三个实测数，现在只能引用转述。重启后那次验证要顺手补上可复制的计时。
 - **U2 里 `${QODER_PLUGIN_ROOT}` 的展开只在本机成立**：macOS/Linux 未实测，README 需按现状声明。
+
+## U3 的安装入口：本机能试的都试过了（2026-09-20 二次复测）
+
+复测的三个否定结果（都不是"插件装坏了"，是"根本没装上"）：
+
+| 检查 | 命令/工具 | 结果 |
+|---|---|---|
+| 宿主有没有 `drux_*` 工具 | `mcp_list({keyword:"drux"})` | `{"tools":[],"total":0}`；全量列表里 grep `drux\|deep-research` 也是 0 命中 |
+| hook 有没有被调过 | `ls hooks/` | 只有 `hooks.json`、`probe_log.py`，无 `.drux-hook-stop.log` |
+| 注册表里有没有我们 | 读 `installed_plugins_v2.json` | 仍 26 条，`deep-research`/`drux` 命中 0；`settings.json` 的 `enabledPlugins` 同样 0 条（共 26） |
+
+四条安装路径逐条查过的结论：
+
+1. **`mcp__extension-market__install_extension` 不可用**。入参只有 `installRef`，且描述明文"Never invent references or submit URLs, commands, market IDs, or destination paths"——它只能装市场里已列出的条目，**结构上就装不了本地目录**。
+2. **没有 CLI 入口**。`qoder` 与 `qodercli` 都不在 PATH；`~/.qoder/entry/qoder-dispatcher.ps1` 的查找顺序是 `QODER_CLI_BIN` → PATH 上的 `qodercli` → `~/.qoder/bin/qodercli/qodercli.exe`，本机三者皆无，所以拿不到 `--help` 去看有没有 plugin 子命令。npm 全局目录里也没有 `@qoder-ai` 包。
+3. **没有本地市场先例**。`plugins/cache/` 下只有 `qoder-marketplace` 与 `qoderapp-bundler` 两个市场；注册表 26 条的 `scope` 全是 `user`，没有 `local`/`link`/`dev` 这类值可参照。
+4. **手工写入注册表可行但未执行**。条目形状已知（`{scope, installPath, version, installedAt, marketId, displayName}` + `enabledPlugins["<name>@<market>"]=true`），但 `marketId` 是宿主发放的 UUID，本地插件该填什么**没有证据**；且该文件当场有 5 个 `.tmp`，说明宿主在原子写它，改坏会连累其余 26 个插件。属于共享状态，等用户点头才动。
+
+**因此 U3 目前的状态是"未测"，不是"不成立"**。按判读规则：不能因为看不见 tools 就宣布插件化失败。
+
