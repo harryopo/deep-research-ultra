@@ -76,3 +76,51 @@
 
 **因此 U3 目前的状态是"未测"，不是"不成立"**。按判读规则：不能因为看不见 tools 就宣布插件化失败。
 
+## 手工安装已执行（2026-09-21，用户授权"手工装吧，试一试"）
+
+上面第 4 条路径（手工写入注册表）当场执行了。可逆性先做：改前把
+`installed_plugins_v2.json` 与 `settings.json` 拷到 `~/.qoder/plugins/.planA-backup/*.orig`。
+
+| 步骤 | 做法 | 实测输出 |
+|---|---|---|
+| 导出干净树 | `git archive HEAD \| tar -x -C ~/.qoder/plugins/cache/local/deep-research-ultra/7.0.0/` | 无 `.git`、无 `.superpowers`、无 `bd.html` |
+| 登记 | 键 `deep-research-ultra@local`，`scope: user`，不写 `marketId` | 条目总数 26 → 27；`原有条目一字未动：True`；`enabledPlugins 已置 true：True`；重跑报 `已存在，不动`（幂等） |
+| 装位自验 | 用装位那份 `mcp_client.py` 起装位 `server.py` | `open()=True 耗时 1.22s`；`tools/list -> ['drux_ping']`；中文往返 `发出字节=44 收到字节=44`；hook 探针 `exit=0`，日志 `raw_bytes=45` = 载荷 44 + 换行 |
+
+**这一步只证明"安装位那份树独立可跑"，宿主认不认它仍未测** —— 起新会话后 `mcp_list({keyword:"drux"})` 仍是
+`{"tools":[],"total":0}`，因为本会话早于登记时刻，宿主只在会话启动时加载插件。所以 U3/U4/U5 还是要等一次真重启。
+
+### 两个连带事实
+
+1. **改代码必须重新导出**：宿主现在从 `cache/local/deep-research-ultra/7.0.0/` 加载，不再看
+   `~/.agents/skills/deep-research-ultra`。此后任何改动都要重跑上面那条 `git archive`，否则验的是旧代码。
+2. **`git archive` 出的是 CRLF**：本仓库 `core.autocrlf=true` 且无 `.gitattributes`，blob 存 LF、导出转 CRLF
+   （逐文件测过去 CR 计数：git 侧 0、装位侧 = 行数，去掉 CR 后字节全等）。所以"装位文件跟 git 不一样"是换行符，
+   不是内容漂移——别拿 `sha256sum` 直接比 blob 和工作树。
+
+## 重启前顺手做的两项取证（都改了结论）
+
+### 一、非市场插件的 mcp.json 确实会被宿主加载
+
+`qoder-context@qoderapp-bundler` 的注册条目**没有 `marketId`**，`@` 后缀也不是市场名，但它带着
+`mcp.json` + `hooks/` + `skills/`，且本次会话里 `SearchWorkspace` / `SearchKnowledge` 就是它的 MCP 工具
+（`toolOverrides.exposedName` 去掉了前缀）。它的 `mcp.json` 用的正是
+`"${QODER_PLUGIN_ROOT}/runtime/qoder-search.bundle.mjs"`。
+
+这条先例同时说明：① `@local` 这种非市场后缀不必然被宿主拒绝；② `${QODER_PLUGIN_ROOT}` 是官方在用的变量
+（另有 `${QODER_NODE_RUNTIME}` 指插件自带运行时——Python 没有对应变量，所以 `python` 必须能在宿主环境里
+解析到，这正是 U5 要量的）。**注意它不能替代实测**：它证明的是"这条路走得通"，不是"我们这份也走得通"。
+
+### 二、hook 声明写法横扫 6 个真插件后的纠正
+
+| 判据 | 本机证据 | 我们原来的写法 |
+|---|---|---|
+| `matcher` 键 | 30 个 hook 组里 24 组**根本不写**，5 组写 `'Edit\|Write'` 这类真正则，空串 `""` 只 quality-guardian 的 Stop 一处 | 写了 `"matcher": ""` ❌ |
+| 命令形态 | 主流是 shell 串 + 引号包变量：`node "${QODER_PLUGIN_ROOT}/hooks/x.mjs"`（vercel）、`sh "…"`（superun）；bundler 那份另用 `cmd.exe` + `args` 数组 | `python "${QODER_PLUGIN_ROOT}/hooks/probe_log.py"` ✅ 与 vercel 同形 |
+| 裸相对路径 | quality-guardian 的 `node hooks/x.js` 有先例但无"确实触发过"的证据 | 已避开 ✅ |
+
+空串 matcher 的风险是要害：计划 A 拿 hook 日志当 U4 的**唯一**证据，而空串若被宿主按字面量比较，hook 就永不触发，
+日志为空会被读成"宿主不调插件 hook"——一次假阴性足以作废整个插件方案。故按 24/30 的主流写法删掉该键，
+并加测试 `test_stop_hook_declaration_matches_proven_form` 把"不许空 matcher、必须带 `${QODER_PLUGIN_ROOT}`、
+不许裸相对路径"钉住（红→绿：先失败于 `hooks.json` 的空串，删键后 `4 passed`；技能内 `315 passed` 不变）。
+

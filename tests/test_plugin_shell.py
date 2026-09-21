@@ -77,3 +77,31 @@ def test_plugin_shell_files_exist():
     assert cfg['args'][0].startswith('${QODER_PLUGIN_ROOT}'), \
         'mcp.json 的脚本路径退回相对/cwd 解析：换安装位置或宿主 cwd 就找不到 server.py'
     assert (ROOT / 'skills' / 'deep-research-ultra' / 'SKILL.md').exists(), 'skill 未下沉'
+
+
+def test_stop_hook_declaration_matches_proven_form():
+    """hook 声明只用宿主侧确证跑得通的写法，不许留「静默不触发」的写法。
+
+    判据来自本机 6 个真实插件的 hooks.json，30 个 hook 组里：
+    24 组**根本没有 matcher 键**，5 组是 'Edit|Write' 这类真正则，
+    空串 "" 只有 quality-guardian 的 Stop 一组用过——而它到底触发没有，
+    本机没有任何证据（插件的 hook 不会自己留下日志）。
+    空串若被宿主按字面量比较则 hook 永不触发；计划 A 拿 hook 日志当 U4 的
+    唯一证据，静默不触发会被误读成「宿主不调插件 hook」。所以不赌，按 24/30
+    的主流写法删掉该键。
+    """
+    declared = json.loads((ROOT / 'hooks' / 'hooks.json').read_text(encoding='utf-8'))
+    groups = declared['hooks']['Stop']
+    assert groups, 'Stop 无 hook 组'
+    for grp in groups:
+        if 'matcher' in grp:
+            assert grp['matcher'].strip(), (
+                "hooks.json 写了空 matcher：本机 6 个真插件无此先例（24/30 组直接不写该键），"
+                "空串若被宿主按字面量比较则 hook 永不触发，U4 会拿到假阴性"
+            )
+        for hook in grp['hooks']:
+            cmd = hook['command']
+            assert '${QODER_PLUGIN_ROOT}' in cmd, f'hook 命令未走插件根变量：{cmd}'
+            # 相对路径写法（quality-guardian 的 'node hooks/x.js'）在本机没有「确实触发过」的证据，
+            # 插件的 cwd 由宿主决定，一旦不是插件根就找不到脚本。
+            assert not cmd.split()[-1].startswith('hooks/'), f'hook 命令用了裸相对路径：{cmd}'
