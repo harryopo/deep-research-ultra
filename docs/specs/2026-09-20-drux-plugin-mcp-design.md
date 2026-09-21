@@ -44,7 +44,7 @@ v6.7.0 的一次真实运行（effort=deep、4 session、25 子 Agent）暴露�
 |------|------|------|
 | 验收标准分期 | 一期强制点 → 二期跨子 Agent 共享状态 → 三期 host-only 判定 | 一期不承诺解决 D1/D2/D3 |
 | 强制实现方式 | MCP + Hook 双层 | 只有 MCP 会被绕过；只有 Hook 没有正规入口，反而逼出绕路 |
-| 未安装者策略 | **必需**：装不上就硬停并给指引，不许静默降级 | v7.0.0 破坏性变更 |
+| 未安装者策略 | ~~必需：装不上就硬停~~ → **已被计划 A 实测推翻，改为可选**（见第十五节） | 强制力挪进 skill 自身 Python 进程；不注册插件也完整可用 |
 | 实现语言 | 全 Python，复用 `scripts/` 现有模块 | 不引新依赖、不发 PyPI、冷启动不联网 |
 | Hook 拦截面 | 只拦"交付声明"，不拦写文件动作 | 造假造的是声明，不是文件 |
 
@@ -212,3 +212,30 @@ A 失败（例如本地 python 起不了 stdio server）则整个插件化方案
 | 子 Agent 各起 server 进程 | 二期共享状态失效 | 一期不依赖；二期前实测确认 |
 | 破坏性变更影响老用户 | 需重装、旧文档失效 | v7.0.0 + 迁移说明 + 保留 CLI 与维护入口 |
 | hook 拖慢每一轮结束 | 使用者体感变差 | 500ms 预算 + 退化方案 + 实测数据公开 |
+
+## 十五、跨宿主可移植（用户追加要求：别的 AI 也要能用）
+
+**本机实测的宿主形态**（2026-09-21 探测，不是查文档查来的）：
+
+| 宿主 | 本机状态 | skill 目录 | MCP 注册位置 | 插件清单 |
+|------|---------|-----------|-------------|---------|
+| Qoder | 已装，且本包已跑通 | `~/.qoder/skills/` | 插件的 `mcp.json` | `.qoder-plugin/plugin.json` |
+| Codex CLI | 已装，`codex` 在 PATH | `~/.codex/skills/` | `~/.codex/config.toml` 的 `[mcp_servers.<名>]`（command/args + `.env` 子段） | 缓存里实测到 `.codex-plugin/plugin.json`，其键含 `name/version/description/author/keywords/skills/license/repository/homepage/apps/interface`；marketplace 支持 `source_type = "local"` |
+| Claude Code | 目录在（`~/.claude/skills` 有 7 个），**CLI 不在 PATH** | `~/.claude/skills/` | 本机 `~/.claude/settings.json` 只有 `hooks` 一个顶层键，`mcpServers` 落点**未验证** | 未验证 |
+| Cursor / Gemini CLI | 未装 | — | — | — |
+
+**由此定下的可移植性设计（三条，写死）**：
+
+1. **内核零宿主依赖**：`skills/deep-research-ultra/` 是纯文件（SKILL.md + scripts/*.py + references）。
+   强制校验、证据账本、发布门、防伪戳全在这里面，任何能读 SKILL.md 并执行 `python` 的宿主直接可用，
+   不需要注册、不需要插件机制。这是"别的 AI 也能用"的主路。
+2. **MCP 命令一律写绝对路径，不用宿主变量**。`${QODER_PLUGIN_ROOT}` 只有 Qoder 认；
+   安装器按当前宿主把 `python <绝对路径>/server.py` 写进它自己的配置，避免"换一家就找不到脚本"。
+3. **每家一份薄适配清单，谁装了谁受益**：`install.py --host qoder|codex` 做三件事——
+   拷 skill 目录 → 往该宿主的 MCP 配置追加一条（幂等，已存在就只比对不重复写）→
+   该宿主若支持插件清单则同时落对应目录名的 `plugin.json`。不装的效果：功能完整，
+   只是 Agent 看不见 `drux_*` 工具、没有 Stop hook 兜底。
+
+**文档诚实线**：只写"已在本机实测通过"的宿主。Codex 需要真起一次 CLI 才算；
+Claude Code 在 CLI 不可用期间**不写"支持"**，只写"skill 目录可直接拷过去用，MCP 注册位置未验证"。
+
