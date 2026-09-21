@@ -80,15 +80,17 @@ def test_plugin_shell_files_exist():
 
 
 def test_stop_hook_declaration_matches_proven_form():
-    """hook 声明只用宿主侧确证跑得通的写法，不许留「静默不触发」的写法。
+    """hook 声明只用宿主侧确证跑得通的写法。
 
-    判据来自本机 6 个真实插件的 hooks.json，30 个 hook 组里：
-    24 组**根本没有 matcher 键**，5 组是 'Edit|Write' 这类真正则，
-    空串 "" 只有 quality-guardian 的 Stop 一组用过——而它到底触发没有，
-    本机没有任何证据（插件的 hook 不会自己留下日志）。
-    空串若被宿主按字面量比较则 hook 永不触发；计划 A 拿 hook 日志当 U4 的
-    唯一证据，静默不触发会被误读成「宿主不调插件 hook」。所以不赌，按 24/30
-    的主流写法删掉该键。
+    判据来自本机 6 个真实插件的 hooks.json，30 个 hook 组里：24 组**根本没有 matcher 键**，
+    5 组是 'Edit|Write' 这类真正则，空串 "" 只 quality-guardian 的 Stop 一组用过
+    （本仓库原来也写空串）。
+
+    实测把这条的动机纠正了：2026-09-21 13:28 宿主带着空串 matcher 确实调起过本 hook
+    （日志 raw_bytes=4473，见 docs/plans/plan-a-verification.md 的 U4），所以空串**不是**
+    静默不触发，本机宿主把它当全匹配。保留本断言的理由换成两条：① 24/30 的主流写法是
+    不写该键，跟多数派一致可减少宿主版本差异下的未知面；② 命令必须走
+    ${QODER_PLUGIN_ROOT}——裸相对路径要靠宿主 cwd，换安装位置即失效，这条才会真咬人。
     """
     declared = json.loads((ROOT / 'hooks' / 'hooks.json').read_text(encoding='utf-8'))
     groups = declared['hooks']['Stop']
@@ -96,8 +98,8 @@ def test_stop_hook_declaration_matches_proven_form():
     for grp in groups:
         if 'matcher' in grp:
             assert grp['matcher'].strip(), (
-                "hooks.json 写了空 matcher：本机 6 个真插件无此先例（24/30 组直接不写该键），"
-                "空串若被宿主按字面量比较则 hook 永不触发，U4 会拿到假阴性"
+                "hooks.json 写了空 matcher：实测宿主会当全匹配（13:28 那次就是它调起来的），"
+                "但本机 24/30 组直接不写该键，跟多数派一致以免撞宿主版本差异"
             )
         for hook in grp['hooks']:
             cmd = hook['command']
