@@ -5,6 +5,39 @@
 
 ---
 
+## v7.0.0-alpha3（2026-09-21）— 五个业务工具落地：补上 pending → verified 的断点
+
+**为什么不是四个工具**：spec 第六节原本只给 `session_start / claim_add / gate_check / stamp_issue` 四个。
+照那四个写完，三条红测试（`test_gate_check_reports_pass_and_fail`、`test_stamp_binds_body_and_ledger`、
+`test_second_claim_after_stamp_invalidates_ledger_match`）怎么也绿不了——不是 fixture 打错字，
+是**四个工具里没有任何一条路能把 claim 升到 verified**：MCP 侧只能记 pending，发布门永远不过，
+戳永远盖不上，`gate_check` 和 `stamp_issue` 于是变成两个永远报失败的空转工具。
+
+**处置**：补第五个工具 `drux_claim_verify`（机械升级），而不是放宽账本纪律、允许调用方自称
+"我已交叉验证"（那正是账本一直拦的东西）。档 A 数**不同注册域**且转载去重后 ≥2 组，
+档 B 走既有的 `verify_primary` 同制品反查。
+
+**一处刻意的不对称**：升级判据比发布门 2b 更严——2b 只做标题/内容去重，两条同域来源在门里算 2，
+在 SKILL.md 的档 A 定义（≥2 个不同注册域）里只算 1。取严不取宽，宁可少升也不放水。
+
+**两个自己抓到的设计缺陷**（写实现时发现的，不是测出来的）：
+
+1. 逐条 `set_status` 会让 n 条 claim 触发 n 次账本全量重写 → 改成一次批量落盘；
+   且已 verified 的 claim 不再重写——重写会动账本指纹，把先前盖好的戳白白作废。
+2. 把每条 claim 的域名清单塞进 `extra=` 会整批共享同一份清单（`set_status` 是批量写）
+   → 只记一个 `verified_via='cross_validation'` 标记，域名本来就能从账本来源行推出来。
+
+**并发门**：`ledger.lock` 存在即拒绝升级并直说，且**不删别人的锁**。
+
+**实测数字**：新增 `tests/test_server_tools.py` 16 passed；根 `tests` 31 passed（7.49s）；
+skill 脚本 `315 passed`（53.16s）。计划 A 的两条真握手协议测试没有删掉，改成断言五个工具名
+（`names == BUSINESS_TOOLS` 且 `'drux_ping' not in names`），中文往返改走 `drux_claim_add`
+的失败路径——它们干的活是"真起子进程说协议"，这个职责不能因为探针工具下线就丢。
+
+**没做**：`hooks/gate_hook.py`（Stop 钩子）与端到端实跑仍在计划 B 后半。
+
+---
+
 ## v7.0.0-alpha2（2026-09-21）— 跨宿主安装器 install.py：一个文件夹传给别的 AI
 
 **为什么加**：用户要求"别的 AI 也要能用"。内核本来就零宿主依赖（拷目录即可），差的只是

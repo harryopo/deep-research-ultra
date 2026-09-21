@@ -21,7 +21,16 @@ def _session(budget: float = 25.0) -> McpSession:
     return McpSession([sys.executable, str(ROOT / 'server.py')], env, budget)
 
 
-def test_server_hands_shake_and_lists_drux_ping():
+BUSINESS_TOOLS = ['drux_session_start', 'drux_claim_add', 'drux_claim_verify',
+                  'drux_gate_check', 'drux_stamp_issue']
+
+
+def test_server_hands_shake_and_lists_business_tools():
+    """真握手拿到 tools/list，且列表就是计划 B 的五个业务工具。
+
+    判据从「有 drux_ping」换成「五个业务工具齐、探针已删」：探针只是 A 阶段证明
+    server 能起来的脚手架，留着它会让宿主把"能连通"当成"有业务能力"。
+    """
     with _session() as s:
         assert s.open(), f'stdio 握手失败：{getattr(s, "error", "未知原因")}'
         listed = s.request('tools/list')
@@ -34,14 +43,24 @@ def test_server_hands_shake_and_lists_drux_ping():
         # 推导式会抛 TypeError 并把上面攒下的 error 上下文一起弄丢。
         tools = (listed.get('result') or {}).get('tools') or []
         names = [t.get('name') for t in tools]
-        assert 'drux_ping' in names, f'探针工具未注册：{names} / {getattr(s, "error", "")}'
+        assert names == BUSINESS_TOOLS, f'注册表与 TOOLS 不一致：{names}'
+        assert 'drux_ping' not in names, '探针未从协议层删除'
 
 
 def test_cjk_argument_round_trips():
+    """中文入参经 stdio 往返：出站参数与回程结果都不许乱码。
+
+    计划 B 删了 echo 型的 drux_ping，改走 drux_claim_add 的失败路径——它会把
+    session_id 原样拼进 error（`{session_id!r}` 和含该 id 的账本路径），
+    于是同一次调用既验中文入参进得去、也验中文出站回得来，
+    顺带确证「失败长得像失败」在真协议层仍成立（ok:false 而非 isError 伪装成功）。
+    """
     probe = '边缘推理·调研 2026 年—含全角？'
     with _session() as s:
         assert s.open(), f'stdio 握手失败：{getattr(s, "error", "未知原因")}'
-        got = s.request('tools/call', {'name': 'drux_ping', 'arguments': {'text': probe}})
+        got = s.request('tools/call', {'name': 'drux_claim_add',
+                                       'arguments': {'session_id': probe,
+                                                     'text': '中文正文也要回得来'}})
         assert got, f'tools/call 无响应：{getattr(s, "error", "")}'
         err = got.get('error')
         assert not err, f'tools/call 返回 JSON-RPC error：{err} / {getattr(s, "error", "")}'
@@ -55,6 +74,8 @@ def test_cjk_argument_round_trips():
         # 空 text 不是编码坏了，label 按 text 分流，别给「工具没返回内容」扣上损坏的帽子。
         damaged = '工具无返回内容' if text == '' else '中文往返损坏'
         assert probe in text, f'{damaged}：收到 {text!r} / {getattr(s, "error", "")}'
+        back = json.loads(text)
+        assert back['ok'] is False and back['hint'], f'不存在的 session 却回了成功形状：{back}'
 
 
 import json

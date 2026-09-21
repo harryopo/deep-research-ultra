@@ -87,16 +87,27 @@ README 安装章节重写，SKILL.md 顶部加一句版本迁移提示。这是�
 一期不利用这点，但**必须按"server 内可持有会话级状态"来写**，二期断路器直接受益。
 （若实测发现子 Agent 另起进程，一期结论不变，二期方案改，记入风险。）
 
-## 六、MCP 工具契约（一期四个）
+## 六、MCP 工具契约（一期四个 → 实现期改五个，见下）
 
 统一约定：入参 JSON 化（长中文正文走参数，不走 argv，顺带消掉 Windows GBK 传参乱码）；
 返回值恒含 `ok`；失败必带 `error` 与 `hint`，**绝不返回看起来成功的空结果**。
 
+> **实现期修订（2026-09-21，计划 B 落地时）**：四个工具凑不成一次交付。
+> 判据不是偏好而是实测——写 `tests/test_server_tools.py` 时，"一份真能过门的报告"这条路径
+> 走不通：`validate_report()` 要求每条被引 claim 已 verified、每个 topic 至少 1 条 verified，
+> 而本节的四个工具里**没有任何一条路能把 claim 升到 verified**。
+> 结果就是发布门永远不过、`drux_stamp_issue` 永远拿不到戳、三个工具空转。
+> 处置是**补第五个工具 `drux_claim_verify`（机械升级）而不是放宽账本纪律**——
+> 让 Lead 自报"我已交叉验证"正是 D6/D9/D14 反复拦下的东西。
+> 同步修订：`drux_session_start` 增 `sources[]` / `allow_degraded`，闸门不过时除 `issues` 还给 `config_guide`。
+
 ### `drux_session_start`
-- 入参：`query`、`effort`、`dimensions[]`
+- 入参：`query`、`effort`、`dimensions[]`、`sources[]`（指定探哪些引擎）、`allow_degraded`
 - 行为：跑 Phase 0 环境闸门（复用 `probe.source_gate()`），通过后建 `.research/<session_id>/`
 - 返回：`session_id`、`ledger_dir`、`usable_engines[]`、`warnings[]`
 - 闸门不过：`ok:false`，`issues` 逐条给"缺什么 / 去哪配 / 怎么验"（取 `probe.CONFIG_GUIDE`）；**不建 session**
+- `allow_degraded=true` 才可在有缺口时开跑，且回执必须继续挂 `issues` + `degraded:true`
+  （只在用户明确说"不配了，直接下一步"时由 Lead 传，工具不许替他决定）
 
 ### `drux_claim_add`
 - 入参：`session_id`、`text`、`topic`、`sources[{url,title,tier?}]`、`perspective?`、`confidence?`
@@ -105,10 +116,20 @@ README 安装章节重写，SKILL.md 顶部加一句版本迁移提示。这是�
 - 硬规则：不可溯源 URL（相对链接、空、非 http）拒收并给原因；**调用方自称 verified 一律忽略并回注 warning**
   （保持"verified 只能由交叉验证或一手反查赋予"的既有纪律）
 
+### `drux_claim_verify`（实现期新增）
+- 入参：`session_id`、`claim_ids[]`、`method`（`cross` 档 A / `primary` 档 B）、`check_url?`、`check_title?`、`verify_method?`、`note?`
+- 行为：`cross` 由机器数证据强度后调 `ledger.set_status(...,'verified')`；`primary` 直接委托 `ledger.verify_primary()`
+- 判据比发布门 2b **更严**：2b 只做转载去重后计数（两条同域来源在门里算 2），
+  本工具额外要求 ≥2 个不同注册域——与 SKILL.md 档 A 的定义对齐。升级取严不取宽
+- 并发门：`ledger.lock` 存在即 `ok:false`（整文件重写会覆盖另一处的写入），且**不删别人的锁**
+- 返回：`verified[]`、`refused[{claim_id,reason}]`；未知 claim_id 直接 `ok:false` + `error` 点名 + `hint`
+- 已 verified 的 id 只回显不重写：重写会动账本指纹，让刚盖的戳无端失效
+
 ### `drux_gate_check`
 - 入参：`session_id`、`report_path`
 - 行为：只读跑 `validate_report()`
-- 返回：`passed`、`issues[]`、`warnings[]`、`stats`
+- 返回：`passed`、`issues[]`、`warnings[]`、`stats`；实现期另返回 `stamp_valid` / `stamp_reason`
+  （一次调用同时看清"门过没过"和"已有戳是否仍与正文/账本一致"）
 
 ### `drux_stamp_issue`
 - 入参：`session_id`、`report_path`
@@ -184,7 +205,7 @@ hook 靠 `session.json` 判断"哪次调研、什么时候开的"，不靠猜 mt
 3. hook 测试：把 `gate_hook.py` 当 CLI 测（stdin 喂 hook JSON，断言退出码与输出），
    三场景——真报告放行、假戳拦下、无声明不拦。
 4. **端到端硬指标（一期验收门，不接受用单测替代）**：真跑一次 `effort=standard` 调研，要求
-   四个工具全部被实际调用过、report.md 带有效戳、hook 未被绕过、`--verify-stamp` 输出 ✅。
+   五个工具全部被实际调用过、report.md 带有效戳、hook 未被绕过、`--verify-stamp` 输出 ✅。
    做不到即视为一期未完成。
 
 ## 十二、一期不做
@@ -198,7 +219,7 @@ hook 靠 `session.json` 判断"哪次调研、什么时候开的"，不靠猜 mt
 
 1. **计划 A｜插件壳与连通性**：目录下沉、`plugin.json`、`mcp.json`、`server.py` 骨架，
    验收标准只有一条——真握手拿到 `tools/list`（含中文入参往返）。这一步把第二节所有"未验证项"变成事实。
-2. **计划 B｜四个工具 + hook + 端到端**：在 A 的确证结果上实现工具、`gate_hook.py`、测试与实跑。
+2. **计划 B｜五个工具 + hook + 端到端**：在 A 的确证结果上实现工具、`gate_hook.py`、测试与实跑。
 
 A 失败（例如本地 python 起不了 stdio server）则整个插件化方案作废，回到"仅 CLI + 文档"，
 并把失败原因写进 CHANGELOG，不硬撑。
