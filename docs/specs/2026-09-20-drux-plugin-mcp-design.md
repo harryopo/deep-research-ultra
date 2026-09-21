@@ -180,6 +180,28 @@ hook 靠 `session.json` 判断"哪次调研、什么时候开的"，不靠猜 mt
 性能：hook 只做文件读 + sha256，预算 500ms。实测超预算则退化为"戳行存在 + gate.json 指纹匹配"，
 退化条件与实测数据一并记进 CHANGELOG。
 
+### 实现期修订（2026-09-21，按抓到的真实载荷改）
+
+本机抓到的 Stop 载荷（`hooks/.drux-hook-stop.raw`，1087 字节）字段是
+`session_id / transcript_path / cwd / hook_event_name / model / permission_mode /
+stop_hook_active / last_assistant_message / parent_request_set_id / parent_business_info`。
+据此四处改动，都是把猜测换成事实：
+
+1. **工作区来自 `cwd` 字段**，不靠进程 cwd（宿主起的子进程 cwd 由宿主决定，实测不是插件根）。
+2. **判定 1 换成"`report.md` 的 mtime ≥ `session.json.started_at`"**。载荷里没有"本轮会话开始"
+   这个量（`parent_business_info.begin_at` 是本轮起点，但跨轮续聊时它会跳），
+   用账本自带的 started_at 更稳，也仍是"旧报告不算本轮交付"。
+3. **新增循环保护：`stop_hook_active` 为真一律放行**。宿主用它告知"上次拦过、你已经又跑了一轮"，
+   再拦就是死循环——这个字段在载荷里，不用它等于埋一个卡死会话的 bug。
+4. **不再比 `gate.json`**。戳里两个指纹（body / ledger）就是 `stamp_issue` 写 gate.json 时用的
+   同一对指纹，再比一遍零新增信息，却多开一个可被伪造的文件；判据收敛到 `verify_stamp()` 一条。
+
+失败面按"钩子不许把会话卡死"排：载荷坏 / 自己抛异常 / 超预算 → 一律放行并在 stderr 说明原因，
+**只有真判出假交付才退 2**。（超预算没做"退化弱检"：弱检要读的文件正是超时来源。）
+
+实测耗时（2026-09-21，本机）：报告 2800 字符 + 账本 200 行的满判一次，5 次里中位 119ms、
+最慢 155ms，其中 python 解释器冷启动占 50ms —— 距 500ms 预算有余量，退化路径留到真超时再谈。
+
 ## 九、错误处理
 
 - server 起不来 / 未装：`drux_session_start` 调不到 → Lead 硬停，打印装插件的确切命令，
