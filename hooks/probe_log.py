@@ -23,7 +23,11 @@ def main() -> int:
     record = json.dumps({'at': datetime.datetime.now().isoformat(),
                          'raw_bytes': len(raw),
                          'chars': len(payload)}, ensure_ascii=False)
-    target = Path(__file__).resolve().parent / '.drux-hook-stop.log'
+    here = Path(__file__).resolve().parent
+    # 只记字节数学不到载荷的字段名，而 gate_hook 要靠载荷定位工作区。
+    # 最新一份原样落盘（覆盖即可：要的是形态，不是样本量）。
+    (here / '.drux-hook-stop.raw').write_bytes(raw)
+    target = here / '.drux-hook-stop.log'
     with target.open('a', encoding='utf-8') as fh:
         fh.write(record + '\n')
     return 0
