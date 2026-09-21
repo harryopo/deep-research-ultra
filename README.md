@@ -52,32 +52,50 @@
 
 ## 📦 安装
 
+这个包**一个目录、两种用法**。选哪种都行，硬性校验（发布门、防伪戳、证据账本）在两种用法下都生效——
+它们由本仓库自带的 Python 脚本执行，不依赖宿主是否加载了插件。
+
 ### 前置条件
 
-- Python 3.10+
-- Claude Code 或 TRAE（用于调用 Skill 与 MCP）
-- Node.js 16+（用于运行 MCP 服务器，通过 npx）
-- uv/uvx（可选，用于 Python 类 MCP 服务器）
+- Python 3.10+，且 `python` 在 PATH 上（插件模式下宿主会直接 spawn 它）
+- 第三方依赖只有一个：`ddgs`；插件模式额外需要 `mcp>=2.1,<3`
+- 任一 Agent 宿主（Qoder / Claude Code / TRAE / Codex CLI 等）
 
-### 安装步骤
+### 方式一：解包即用（默认，零注册、零重启）
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/YOUR_USERNAME/deep-research-ultra.git
+git clone https://github.com/harryopo/deep-research-ultra.git
 cd deep-research-ultra
+pip install -r skills/deep-research-ultra/requirements.txt
 
-# 2. 安装 Python 依赖（仅 ddgs 一个第三方库）
-pip install -r requirements.txt
+# 把 skill 目录放进宿主的 skills 路径即可被触发
+cp -r skills/deep-research-ultra ~/.qoder/skills/
 
-# 3. 一键配置 MCP（推荐 --core 免费模式，3 分钟完成）
-bash scripts/setup-mcp.sh --core
-
-# 4. 检查数据源可用性
-python scripts/research.py --mcp-check
-
-# 5. 列出所有引擎
-python scripts/research.py --list
+python skills/deep-research-ultra/scripts/research.py --probe   # 自检：引擎今天真出不出数据
 ```
+
+调用调研时对宿主**没有任何额外要求**：所有强制校验都是 `scripts/` 下的 Python 在跑。
+
+### 方式二：再注册为宿主插件（可选加分项）
+
+注册后多得到两样东西：Agent 能直接看见并调用 `drux_*` 工具；`Stop` hook 在收尾时兜一道
+"没过校验门就想交报告"的拦截。
+
+```bash
+# 让宿主从本地插件缓存目录加载（Qoder 为例）
+mkdir -p ~/.qoder/plugins/cache/local/deep-research-ultra/7.0.0
+git archive HEAD | tar -x -C ~/.qoder/plugins/cache/local/deep-research-ultra/7.0.0
+```
+
+然后在 `~/.qoder/plugins/installed_plugins_v2.json` 里登记一条 `installPath` 指向上面这个目录，
+并把插件名写进 `~/.qoder/settings.json` 的 `enabledPlugins`，**开一个新会话**生效。
+
+> ⚠️ 三条实测过的注意事：
+> 1. 注册只是**指针**，宿主从 `installPath` 读代码。改完仓库代码必须重新执行上面的
+>    `git archive` 那两行，否则宿主跑的还是旧副本。
+> 2. 会话的工具表是**启动时的快照**：注册插件后旧会话里看不到 `drux_*`，要开新会话。
+>    hook 不需要重启（按事件实时读取）。
+> 3. macOS / Linux 的插件登记路径**未实测**，本仓库所有实测数据来自 Windows。
 
 ### 依赖说明
 
@@ -85,7 +103,7 @@ python scripts/research.py --list
 |------|------|------|
 | `ddgs` | DuckDuckGo 搜索（Layer 4 降级引擎） | ✅ 是 |
 | Python 标准库 | urllib/json/subprocess（核心模块） | ✅ 内置 |
-| `mcp` | 独立调用 MCP 服务器（不通过 Claude） | ❌ 可选 |
+| `mcp` | 仅注册为插件时才需要（承载 `server.py`） | ❌ 方式二必需 |
 | `jieba` | 中文分词（提升评分准确性） | ❌ 可选 |
 
 > 💡 核心模块仅依赖 Python 标准库 + ddgs，最小化依赖体积。

@@ -5,6 +5,43 @@
 
 ---
 
+## v7.0.0-alpha（2026-09-21）— 插件壳落地并实测通过：形态冻结，不再改
+
+**这一版只证明一件事**：本地 Python MCP server + 插件 Stop hook 能被宿主真加载。
+四个业务工具和真正的校验 hook **还没写**，那是计划 B。标 alpha 就是为了不让人误以为插件已经能干业务活。
+因此 skill 正文版本仍是 6.14.0——业务行为一行没改。
+
+**实测数据（本机当轮跑出来的，不是推断）**
+
+| 证据 | 数值 | 出处 |
+|------|------|------|
+| stdio 握手（从插件安装位起进程） | `open()=True`，耗时 **1.22 s** | 安装位自验脚本 |
+| `tools/list` 往返 | 发出 44 字节 / 收到 44 字节，返回 `['drux_ping']` | 同上 |
+| 中文入参往返 | 探针串 `边缘推理·调研 2026 年—含全角？` 原样返回，`isError` 为假 | `tests/test_plugin_shell.py` |
+| 宿主面板可见工具 | 「扩展管理 → 连接器」列出 `deep-research-ultra · 可用 · drux_ping` | 2026-09-21 用户截图 |
+| 插件 Stop hook 真被宿主调起 | 日志行 `at 2026-09-21T13:28:42.747507, raw_bytes=4473, chars=2403`，**当轮未重启** | `hooks/probe_log.py` 落的日志 |
+| 回归 | 根目录 `4 passed`；`skills/deep-research-ultra/scripts` `315 passed` | pytest |
+
+**改了什么**
+
+| 改动 | 位置 | 说明 |
+|------|------|------|
+| skill 目录下沉 | `skills/deep-research-ultra/` | 腾出仓库根放插件壳，一个包同时是 skill、MCP server、插件 |
+| 插件清单 | `.qoder-plugin/plugin.json` | 声明 `skills` / `mcpServers` / `hooks` 三个入口 |
+| MCP 声明 | `mcp.json` | 命令走 `${QODER_PLUGIN_ROOT}`；**故意不写 `env`**——Windows 上给子进程空 env 会在 `import _overlapped` 处崩，看起来像"握手不可能" |
+| hook 声明 | `hooks/hooks.json` | Stop 组不写 `matcher` 键（本机 24/30 组的主流写法），命令绝对路径化 |
+| 探针脚本 | `server.py`、`hooks/probe_log.py` | 只够证明通路，`drux_ping` 是占位工具，计划 B 换成业务工具 |
+| 壳的回归测试 | `tests/test_plugin_shell.py` | 握手、中文往返、壳文件、hook 声明写法四项断言 |
+| 安装文档重写 | `README.md` | 拆成"解包即用（零注册零重启）"与"注册为宿主插件（可选）"两条路 |
+
+**一条被实测推翻的旧设定（记下来防止再犯）**
+设计阶段定过"插件未安装则不装不开跑"。实测表明强制力放在 skill 自己的 Python 里更稳：
+子进程直连 `server.py` 已两次跑通，且不需要注册、不需要重启会话。
+所以本版改为 **A 路（skill 内部直连，默认）承担强制校验，B 路（注册为宿主插件）只是加分项**。
+宿主会话的工具表是启动时快照——这是"要重启"的唯一原因，跟校验强度无关。
+
+---
+
 ## v6.14.0（2026-09-20）— deep 档写不完，不该逼出"看起来完成"的产物（外来清单 X-D14）
 
 **触发这次改动的事实**：外来缺陷清单 X-D14 指着 effort 分级表说事——`deep` 档定义 6000-15000 字、

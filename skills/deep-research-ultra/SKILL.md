@@ -12,6 +12,11 @@ allowed-tools: Read Write Bash Glob Grep AskUserQuestion Agent WebSearch WebFetc
 **Plan → Execute → Synthesize → Reflect 四阶段深度调研范式**
 **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
 
+> **路径变更（v7 插件壳）**：本 skill 已从仓库根下沉到 `<仓库根>/skills/deep-research-ultra/`，
+> 下文 `${SKILL_DIR}` 一律指这个子目录。scripts 与 references 的相对关系不变，
+> 但**从旧版本升级的安装位需要重新拷贝整个 skill 目录**，否则 `research.py` 会找不到 `tier.py` 等同级模块。
+> 注册为宿主插件是**可选加分项**（见 README 方式二），本 skill 的强制校验不依赖它。
+
 ---
 
 ## 零、执行模型与冷启动（先读这一节）
