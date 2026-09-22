@@ -129,6 +129,12 @@ def _section_missing(md: str, section: str, keywords: List[str]) -> bool:
     return True
 
 
+def _repo_key(url: str) -> str:
+    """归到 `host/owner/repo`：同一仓库的 blob/raw/tree 子路径算同一个仓库。"""
+    m = re.match(r'https?://((?:github|gitee)\.com)/([\w.-]+)/([\w.-]+)', url or '')
+    return f'{m.group(1)}/{m.group(2)}/{m.group(3)}' if m else (url or '')
+
+
 def validate_report(report_md: str,
                     ledger: Optional[Any] = None,
                     ledger_dir: Optional[str] = None,
@@ -312,24 +318,40 @@ def validate_report(report_md: str,
             f'{"、".join(map(str, weak_verified[:5]))}——需补充交叉验证或降级为 pending')
 
     # ---------- 校验 6（v6.3）：开源调研六维要素 ----------
-    # 报告含候选仓库链接（GitHub/Gitee）时，检查六维质量门要素是否齐备
+    # 报告含候选仓库链接（GitHub/Gitee）时，检查六维质量门要素是否齐备。
+    # v6.15：仓库链接也可能是"引一个仓库当证据"而非"做选型调研"，那种报告被要求补
+    # 许可证/最近提交纯属误伤。改为认正文的显式声明「选型调研: 是/否」；没写仍按选型处理，
+    # 但拦下来时要把这个声明位告诉 Lead，别让人以为只有一条路去补六张表。
     repo_links = re.findall(r'https://(?:github|gitee)\.com/[\w.-]+/[\w.-]+', report_md)
     if repo_links:
-        required_dims = {
-            '风险标签': ('🔴', '高风险', '🟠', '中风险', '🟢', '低风险', '风险'),
-            '许可证': ('许可证', 'License', 'MIT', 'GPL', 'Apache'),
-            '维护/最近提交': ('最近提交', '维护', '停更', 'pushed', '活跃'),
-            '适配性': ('适配', '兼容', '技术栈', '改造'),
-            '落地成本/计划': ('落地', '成本', '灰度', '回滚', '改造范围'),
-            '量化指标': ('指标', '基线', '量化', '预期'),
-        }
-        missing_dims = [name for name, kws in required_dims.items()
-                       if not any(kw in report_md for kw in kws)]
+        declared = re.search(r'选型调研\s*[:：]\s*(是|否)', report_md)
         report.stats['opensource_repos'] = len(set(repo_links))
-        if missing_dims:
-            report.issues.append(
-                f'开源调研六维质量门缺失维度: {"、".join(missing_dims)}'
-                f'（报告含 {len(set(repo_links))} 个候选仓库链接）')
+        if declared and declared.group(1) == '否':
+            report.stats['opensource_gate'] = 'exempt'
+            cited = {_repo_key(str(s.get('url', ''))) for s in sources}
+            unsourced = [u for u in sorted(set(repo_links)) if _repo_key(u) not in cited]
+            if unsourced:
+                report.issues.append(
+                    f'已声明「选型调研: 否」，六维不适用；但 {len(unsourced)} 个仓库链接'
+                    f'在账本里没有对应来源，引用性事实仍须可溯源：{"、".join(unsourced[:3])}')
+        else:
+            report.stats['opensource_gate'] = 'six-dims'
+            required_dims = {
+                '风险标签': ('🔴', '高风险', '🟠', '中风险', '🟢', '低风险', '风险'),
+                '许可证': ('许可证', 'License', 'MIT', 'GPL', 'Apache'),
+                '维护/最近提交': ('最近提交', '维护', '停更', 'pushed', '活跃'),
+                '适配性': ('适配', '兼容', '技术栈', '改造'),
+                '落地成本/计划': ('落地', '成本', '灰度', '回滚', '改造范围'),
+                '量化指标': ('指标', '基线', '量化', '预期'),
+            }
+            missing_dims = [name for name, kws in required_dims.items()
+                           if not any(kw in report_md for kw in kws)]
+            if missing_dims:
+                report.issues.append(
+                    f'开源调研六维质量门缺失维度: {"、".join(missing_dims)}'
+                    f'（报告含 {len(set(repo_links))} 个候选仓库链接）。'
+                    f'若这不算选型调研（仓库只是被引作证据），在正文写一行'
+                    f'「选型调研: 否」即可豁免六维，改为核查引用是否带来源')
 
     # ---------- 校验 4：低质源占比 ----------
     if sources:

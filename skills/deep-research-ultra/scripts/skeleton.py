@@ -84,7 +84,14 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
               f'{PLACEHOLDER} 写检索窗口、数据源分层、子 Agent 分工与 verified 判据（档 A/档 B）',
               f'账本事实：claims {len(claims)} 条（verified {verified} / 仅作线索 {hedged}'
               f' / 冲突待裁决 {conflicts}），'
-              f'来源 {len(sources)} 条，独立域名 {len({_host(s.get("url", "")) for s in sources})} 个。', '']
+              f'来源 {len(sources)} 条，独立域名 {len({_host(s.get("url", "")) for s in sources})} 个。']
+    # 校验门见到仓库链接就要求六维（风险/许可证/维护/适配/落地/量化）。报告里只是
+    # 引某个仓库当证据时，这六项不相关——给一行可改的声明位，默认按选型调研从严。
+    if any('github.com' in str(s.get('url', '')) or 'gitee.com' in str(s.get('url', ''))
+           for s in sources):
+        lines.append('选型调研: 是（在几个候选仓库里做取舍；若仓库只是被引作证据，'
+                     '把这里改成"否"即豁免六维检查，但仍须每个仓库链接能溯源）')
+    lines.append('')
 
     lines += ['## 结论与建议', f'{PLACEHOLDER} 结论、风险、落地步骤（这一节是机器给不了的）', '']
 

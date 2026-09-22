@@ -357,3 +357,84 @@ def test_hit_records_the_query_that_matched(monkeypatch):
     for r in results:
         assert r.query == effective, f'结果没记命中查询：{r.query!r} != {effective!r}'
         assert r.to_dict()['query'] == effective, 'to_dict 丢了 query，JSON 里看不见'
+
+
+# ---------------------------------------------------------------------------
+# 第 13 条：六维质量门按"报告里有没有仓库链接"触发，误伤引用型报告
+# （反馈原话：建议加显式声明位，如报告写"选型调研: 否"即豁免六维、
+#   改查"引用性事实是否带来源"）
+# ---------------------------------------------------------------------------
+
+def _sparse_report(extra_line=''):
+    """一份只把仓库当证据引用、没有六维要素的报告。"""
+    return f'''# 报告
+{extra_line}
+## 执行摘要
+推荐项目X [1] https://github.com/a/b。
+## 调研范围与方法
+m
+## 结论与建议
+c
+## 来源
+[1] https://github.com/a/b [2] https://gitee.com/a/b2
+'''
+
+
+def _ledger_with_repos(tmp_path):
+    from ledger import ResearchLedger
+    L = ResearchLedger(str(tmp_path / 'ledger')).init()
+    c1 = L.add_claim('项目X 可用', '开源', 'verified', 'general', 0.9)
+    L.add_source(c1['id'], 'https://github.com/a/b', tier=2)
+    L.add_source(c1['id'], 'https://gitee.com/a/b2', tier=2)
+    return L
+
+
+def test_declaring_no_selection_survey_exempts_six_dims(tmp_path):
+    """写"选型调研: 否"就该免掉六维——方法论报告被要求补许可证/最近提交是误伤。"""
+    from validate_report import validate_report
+    r = validate_report(_sparse_report('选型调研: 否'), ledger=_ledger_with_repos(tmp_path))
+    assert not any('六维' in i for i in r.issues), f'豁免没生效：{r.issues}'
+    assert r.passed is True, f'豁免后应真的过门，实际：{r.issues}'
+
+
+def test_declaring_yes_keeps_the_six_dims(tmp_path):
+    from validate_report import validate_report
+    r = validate_report(_sparse_report('选型调研: 是'), ledger=_ledger_with_repos(tmp_path))
+    assert any('六维' in i for i in r.issues), '声明是选型调研，六维门必须照旧'
+
+
+def test_exemption_still_requires_each_repo_to_be_sourced(tmp_path):
+    """豁免六维不等于豁免溯源：被当证据引用的仓库仍要到账本里找得到。"""
+    from validate_report import validate_report
+    L = _ledger_with_repos(tmp_path)
+    r = validate_report(
+        _sparse_report('选型调研: 否') + '另见 https://github.com/zzz/untracked。\n',
+        ledger=L)
+    bad = [i for i in r.issues if 'untracked' in i]
+    assert bad, f'没账本的仓库链接该被点名，实际：{r.issues}'
+
+
+def test_gate_without_declaration_tells_how_to_declare(tmp_path):
+    """没声明时仍然拦，但要把豁免口写给 Lead 看，别让人以为只能去补六维。"""
+    from validate_report import validate_report
+    r = validate_report(_sparse_report(), ledger=_ledger_with_repos(tmp_path))
+    hits = [i for i in r.issues if '六维' in i]
+    assert hits, '未声明时六维门应照旧生效'
+    assert '选型调研' in hits[0], f'拦截语要给出声明位：{hits[0]}'
+
+
+def test_skeleton_offers_the_declaration_slot_only_for_repo_reports(tmp_path):
+    """骨架要把声明位递到人手上；默认必须是"是"（从严），不能白送豁免。"""
+    from ledger import ResearchLedger
+    from skeleton import build_skeleton
+
+    with_repo = ResearchLedger(str(tmp_path / 'l1')).init()
+    c = with_repo.add_claim('仓库 X 能做这事', '开源', 'verified', 'general', 0.9)
+    with_repo.add_source(c['id'], 'https://github.com/a/b', tier=2)
+    body = build_skeleton(str(tmp_path / 'l1'))
+    assert '选型调研: 是' in body, '含仓库来源的骨架要给出自带默认从严的声明位'
+
+    no_repo = ResearchLedger(str(tmp_path / 'l2')).init()
+    c2 = no_repo.add_claim('论文说这事有效', '学术', 'verified', 'general', 0.9)
+    no_repo.add_source(c2['id'], 'https://arxiv.org/abs/2401.00001', tier=1)
+    assert '选型调研' not in build_skeleton(str(tmp_path / 'l2')), '与仓库无关的报告别塞这行'
