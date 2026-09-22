@@ -475,3 +475,64 @@ def test_re_running_init_does_not_move_the_session_start(tmp_path):
     assert info['started_at'] == '2020-01-01T00:00:00', f'重跑 init 改写了会话起点：{info}'
     assert info['query'] == '别丢掉我', f'重跑 init 覆盖了 MCP 写的字段：{info}'
     assert L.entries_path.exists(), '不覆盖身份证不等于跳过建账本'
+
+
+# ---------------------------------------------------------------------------
+# 反馈 #5 收口：curl_cffi 从"可选增强"改成闸门必查
+#
+# 判据来自 2026-09-22 的前后对照实测：同一批 8 条 arXiv URL、间隔数十秒——
+# urllib 全部 HTTP 406（含几十秒前刚拿到过结果的 cat:cs.CL），装上 curl_cffi 后
+# 7 条返回真实字节。所以"未装自动降级、不影响基本功能"这句是错的。
+# ---------------------------------------------------------------------------
+
+PROFILES = ('minimal', 'opensource', 'academic', 'full')
+
+
+def _fake_curl_cffi(monkeypatch, present: bool):
+    import types
+
+    if present:
+        monkeypatch.setitem(sys.modules, 'curl_cffi', types.ModuleType('curl_cffi'))
+    else:
+        monkeypatch.setitem(sys.modules, 'curl_cffi', None)  # import 时抛 ImportError
+
+
+@pytest.mark.parametrize('profile', PROFILES)
+def test_env_gate_treats_curl_cffi_as_required(monkeypatch, profile):
+    """四个 profile 一律硬缺失。缺它时挂在所有引擎共用的传输层上，没有哪个场景能免疫。"""
+    from env_check import run_env_check
+
+    _fake_curl_cffi(monkeypatch, present=False)
+    rep = run_env_check(profile, include_net=False)
+    names = [c.name for c in rep.missing]
+    assert 'curl_cffi' in names, f'{profile} 档没把 curl_cffi 判成硬缺失：missing={names}'
+    assert not rep.ready, '缺共用传输层却报"就绪"，Lead 就会拿着 406 当"这个主题没资料"'
+
+
+def test_env_gate_passes_curl_cffi_when_importable(monkeypatch):
+    """负向断言要有正向对照：装了就必须放行，否则上面那条测试永远绿灯。"""
+    from env_check import run_env_check
+
+    _fake_curl_cffi(monkeypatch, present=True)
+    rep = run_env_check('academic', include_net=False)
+    items = [c for c in rep.checks if c.name == 'curl_cffi']
+    assert items and items[0].ok, f'装了 curl_cffi 仍被判缺失：{items}'
+    assert 'curl_cffi' not in [c.name for c in rep.missing]
+
+
+def test_missing_curl_cffi_names_the_measured_consequence(monkeypatch):
+    """缺失详情要带上量出来的后果和补法，不能只说"import 失败"。"""
+    from env_check import run_env_check
+
+    _fake_curl_cffi(monkeypatch, present=False)
+    rep = run_env_check('academic', include_net=False)
+    item = [c for c in rep.missing if c.name == 'curl_cffi'][0]
+    assert '406' in item.detail, f'要说清后果（arXiv 实测 406）：{item.detail}'
+    assert 'pip install curl_cffi' in item.detail, f'要给一条可执行修复：{item.detail}'
+
+
+def test_requirements_no_longer_claims_curl_cffi_is_optional():
+    """requirements.txt 里"不影响基本功能"这句已被实测证伪，留着就是文档漂移复发。"""
+    req = (Path(__file__).resolve().parents[2] / 'requirements.txt').read_text(encoding='utf-8')
+    assert '不影响基本功能' not in req, 'curl_cffi 缺装已被实测证伪为影响基本功能'
+    assert 'curl_cffi' in req

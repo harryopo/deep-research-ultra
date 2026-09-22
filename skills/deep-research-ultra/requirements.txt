@@ -1,6 +1,6 @@
 # Deep Research Ultra — Python 依赖（当前版本见 SKILL.md frontmatter，历史见 CHANGELOG.md）
-# 核心模块仅使用 Python 标准库（urllib/json/subprocess），无需第三方依赖即可运行
-# 注意：未装 ddgs 时 Layer 4 的 duckduckgo 引擎不可用，用 `research.py --probe` 确认
+# 核心逻辑仅使用 Python 标准库（urllib/json/subprocess），但下面三项要装齐才跑得动真实检索
+# 用 `research.py --probe` / `--env-check` 确认，缺哪项它会点名并给修复命令
 
 # Layer 4 降级引擎依赖（必需，用于 DuckDuckGo 搜索）
 ddgs>=6.0.0
@@ -11,12 +11,14 @@ ddgs>=6.0.0
 mcp>=2.1,<3
 
 # ============================================================
-# v5.0 新增依赖（推荐安装）
+# 全部引擎共用的传输层（必需）
 # ============================================================
 
-# curl_cffi — TLS 指纹伪装（反爬虫升级，替代 urllib）
-# 一行代码绕过 TLS/JA3 检测：requests.get(url, impersonate="chrome124")
-# 未安装时自动降级到 urllib，不影响基本功能
+# curl_cffi — TLS/JA3 指纹伪装。原先写作"推荐安装、未装自动降级 urllib"，
+# 2026-09-22 前后对照实测推翻这句：同一批 8 条 arXiv URL，urllib 全部 HTTP 406
+# （连几十秒前刚返回过结果的查询也一样），装上后 7 条拿到真实字节。
+# 缺它的后果不是"少个增强"，是 Lead 拿一套没有指纹的传输层去判"这个源不行"，
+# 学术类与国内平台 claim 的升级路径从源头就断掉。--env-check 已把它列为硬缺失。
 curl_cffi>=0.7.0
 
 # ============================================================

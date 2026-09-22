@@ -688,8 +688,9 @@ from curl_cffi import requests as cffi_requests
 r = cffi_requests.get(url, impersonate="chrome124")  # 伪装 Chrome 124
 ```
 
-- 未安装 curl_cffi 时退回 urllib（保留兼容），但**会在 stderr 说一次**：这一轮所有请求都没有 TLS 指纹，
-  arXiv / 国内平台的 406、403 很可能由此而来。补装：`pip install curl_cffi`
+- curl_cffi 是**必需依赖**（`--env-check` 四个 profile 都把它当硬缺失来判）。没装时 urllib 仍能发请求，
+  但实测同一批 arXiv URL 一律 HTTP 406、装上后同样这些 URL 全部拿到内容——留着"降级"只会让 Lead
+  把传输层被拦误判成"这个源不行"。补装：`pip install curl_cffi`
 - 支持 HTTP GET + POST，统一重试与代理
 
 ### 5.2 LayeredCrawler 四级爬取策略
@@ -938,11 +939,10 @@ BaiduXueshuEngine().search("transformer attention", max_results=10)
 
 ```bash
 # 国内源无需任何配置，开箱即用
+# 必装：curl_cffi（全部引擎共用的 TLS 指纹伪装，不装则 arXiv 一律 406）
+pip install curl_cffi
 # 可选：配置 GITHUB_TOKEN 增强 GitHub 搜索
 export GITHUB_TOKEN=your_token
-
-# 可选：安装 curl_cffi 增强反爬虫
-pip install curl_cffi
 ```
 
 ---
@@ -1168,7 +1168,7 @@ python "${SKILL_DIR}/scripts/research.py" --mcp-check
 # 3. 列出所有可用引擎（共 32 个）
 python "${SKILL_DIR}/scripts/research.py" --list
 
-# 4.（可选）安装 curl_cffi 增强 TLS 伪装
+# 4. 必装 curl_cffi（全引擎共用的 TLS 指纹伪装，--env-check 会判它硬缺失）
 pip install curl_cffi
 
 # 5.（可选）配置 GITHUB_TOKEN 增强 GitHub 深度搜索

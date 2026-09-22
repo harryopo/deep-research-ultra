@@ -38,7 +38,7 @@ PROFILES: Dict[str, Dict[str, Any]] = {
     'minimal': {
         'desc': '任何调研的最小底子',
         'commands': ['python'],
-        'modules': ['engines'],
+        'modules': ['engines', 'curl_cffi'],
         'skills': [],
         'envs': [],
         'net': [],
@@ -46,7 +46,7 @@ PROFILES: Dict[str, Dict[str, Any]] = {
     'opensource': {
         'desc': '开源项目调研（Gitee/ModelScope/arXiv 免费直连，基本零配置）',
         'commands': ['python'],
-        'modules': ['engines'],
+        'modules': ['engines', 'curl_cffi'],
         'skills': ['oss-finder', 'agent-reach', 'sciverse'],
         'envs': ['GITHUB_TOKEN'],  # 可选（提升 GitHub 深搜速率）
         'net': ['github.com', 'gitee.com', 'modelscope.cn', 'arxiv.org'],
@@ -54,7 +54,7 @@ PROFILES: Dict[str, Dict[str, Any]] = {
     'academic': {
         'desc': '学术论文调研（arXiv 免费直连；可选 key 解锁增强）',
         'commands': ['python'],
-        'modules': ['engines'],
+        'modules': ['engines', 'curl_cffi'],
         'skills': ['sciverse', 'defuddle'],
         'envs': ['UNPAYWALL_EMAIL', 'GITHUB_TOKEN', 'OPENALEX_MAILTO'],
         'net': ['arxiv.org', 'api.semanticscholar.org', 'api.openalex.org', 'doi.org'],
@@ -62,7 +62,7 @@ PROFILES: Dict[str, Dict[str, Any]] = {
     'full': {
         'desc': '全量深度调研（MCP + Tavily/Firecrawl + Crawl4AI 反爬）',
         'commands': ['python', 'npx', 'claude'],
-        'modules': ['engines'],
+        'modules': ['engines', 'curl_cffi'],
         'skills': ['oss-finder', 'agent-reach', 'last30days', 'sciverse', 'defuddle', 'context7'],
         'envs': ['TAVILY_API_KEY', 'FIRECRAWL_API_KEY', 'GITHUB_TOKEN', 'UNPAYWALL_EMAIL',
                  'CRAWL4AI_URL', 'CRAWL4AI_API_TOKEN', 'OPENALEX_MAILTO'],
@@ -79,6 +79,14 @@ OPTIONAL_ENVS = {'GITHUB_TOKEN', 'UNPAYWALL_EMAIL', 'CRAWL4AI_URL', 'CRAWL4AI_AP
 ENV_HINTS = {
     'OPENALEX_MAILTO': ('OpenAlex 匿名请求不进 polite pool，多子 Agent 并发时极易 429；'
                         '设为你的邮箱即可显著提升配额'),
+}
+
+# Python 模块同理：只报"import 失败"等于没报——Lead 看不出这会污染哪些源的判据
+MODULE_HINTS = {
+    'curl_cffi': ('所有引擎共用的 TLS/JA3 指纹伪装缺失，HTTP 全部裸走 urllib。实测同一批 '
+                  'arXiv URL：urllib 一律 HTTP 406（连几十秒前刚返回过的查询也一样），'
+                  '装上千篇一律放行；国内平台同理回 403。此时"指定引擎没结果"多半是传输层被拦，'
+                  '不是主题没资料。修复：pip install curl_cffi'),
 }
 OPTIONAL_SKILLS = {'agent-reach', 'last30days', 'sciverse', 'context7', 'defuddle',
                    'oss-finder'}
@@ -147,6 +155,9 @@ def _check_module(name: str) -> Tuple[bool, str]:
         importlib.import_module(name)
         return True, f'import {name} OK'
     except Exception as e:
+        hint = MODULE_HINTS.get(name)
+        if hint:
+            return False, hint
         return False, f'import {name} 失败：{e}'
 
 
