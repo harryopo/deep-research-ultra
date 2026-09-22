@@ -138,7 +138,8 @@ projects/deep-research-ultra/
 
 ### 3.2 保留文件
 
-- `scripts/search.py` — 保留作为 v3 兼容入口和 Layer 4 降级实现
+- `scripts/search.py` — 保留作为 v3 兼容入口；它自带一套 HTML 解析引擎，**不在** v4 的引擎注册表里，
+  路由与 `--probe` 都不加载它（第 4 层降级引擎在 `scripts/engines/fallback.py`）
 - `SKILL.md` — 更新为 v4.0 主入口
 - `references/tool-integration.md` — 保留
 - `LICENSE` / `README.md` / `requirements.txt` — 保留

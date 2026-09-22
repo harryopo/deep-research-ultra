@@ -357,10 +357,10 @@
       "name": "v3 兼容性",
       "input": "使用 v3 语法搜索：python search.py '关键词' --sources baidu,bing,duckduckgo --format markdown",
       "expected_behavior": [
-        "v3 的 --sources 参数仍可用（降级到 Layer 4）",
+        "v3 的 --sources 参数仍可用（search.py 自带一套 HTML 解析引擎，不经引擎注册表）",
         "v3 的 --format markdown 仍可用",
         "v3 的缓存目录 ~/.cache/deep-research/ 仍兼容",
-        "显示降级提示（建议配置 MCP）"
+        "逐源打印取到几条（如 ✅ bing: 3 条结果），取不到的源要说明原因"
       ],
       "category": "compatibility",
       "v4_feature": true
@@ -503,10 +503,10 @@
       "name": "v3→v4 兼容性：--sources 参数",
       "input": "python search.py 'AI' --sources baidu,bing,duckduckgo（v3 语法）",
       "expected_behavior": [
-        "v3 引擎名（baidu/bing/duckduckgo）自动映射到 Layer 4 降级引擎",
-        "显示降级提示：'当前使用降级模式，建议运行 setup-mcp.sh --core'",
+        "v3 引擎名（baidu/bing/duckduckgo）由 search.py 自己的解析类承接，注册表不加载这个入口",
+        "HTTP 取页统一走带 TLS 指纹的公共通道（engines.fallback._http_get）",
         "结果仍可正常返回（HTML 解析）",
-        "缓存键与 v4 一致（向后兼容）"
+        "缓存目录仍是 ~/.cache/deep-research/（1 小时 TTL）"
       ],
       "category": "compatibility",
       "v4_feature": true

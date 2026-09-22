@@ -367,7 +367,7 @@ deep-research-ultra/
 ├── LICENSE                     # MIT 许可证
 ├── scripts/
 │   ├── research.py             # 主入口（CLI：--auto-route/--effort/--breadth/--ledger/--perspectives）
-│   ├── search.py               # 引擎兼容入口（保留 --sources 旧参数）
+│   ├── search.py               # v3 独立兼容入口（引擎注册表与路由不加载它，主入口是 research.py）
 │   ├── setup-mcp.sh            # MCP 一键配置脚本
 │   ├── router.py               # 智能路由（三级级联 Rule→Semantic→LLM）
 │   ├── recommend.py            # 推荐度评分（GitHub 8 维 / 论文 5 维 + 雷达图）
