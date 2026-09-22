@@ -174,13 +174,38 @@ def _flat_records(data) -> List[Any]:
     return [data]      # 缺 type 也不猜，交给 merge 点名拒收
 
 
+def _read_shard_text(path: Path) -> Tuple[str, Optional[str]]:
+    """严格按 UTF-8 读分片，返回 (文本, 拒收原因)。
+
+    原先用 read_text(errors='ignore')：Windows 写文件默认 GBK，中文字节被两两拼成
+    合法 UTF-8 序列，JSON 照样解析得过——实测 '该政策「支持」中小（企业）发展' 落成
+    'ߡ֧֡Сҵչ2026 겹 3~5 Ԫ' 并计入"新增 claim 1 条"。乱码当结论入库比丢数据更糟，
+    所以解码失败一律点名拒收，并顺带试出真实编码，别让人自己猜。
+    """
+    raw = path.read_bytes()
+    try:
+        return raw.decode('utf-8-sig'), None      # utf-8-sig：Windows 宿主常写 BOM
+    except UnicodeDecodeError:
+        pass
+    for enc in ('gbk', 'gb18030', 'big5', 'shift_jis'):
+        try:
+            raw.decode(enc)
+            return '', (f'看起来是 {enc.upper()} 存的，本工具只收 UTF-8；写分片时显式'
+                        f'指定 encoding="utf-8"，否则中文会被解成乱码，进了账本也看不出来')
+        except UnicodeDecodeError:
+            continue
+    return '', '不是任何可识别的文本编码，本工具只收 UTF-8'
+
+
 def _load_shard(path: Path) -> Tuple[List[Any], List[str]]:
     """读子 Agent 产物，返回 (扁平记录, 解析错误)。
 
     解析失败必须回话：静默读成 0 条等于把整份分片丢掉而没人知道
     （2026-09-22 实跑：merge 报"拒收 5 条"，正好是 5 个形状不合的分片）。
     """
-    txt = path.read_text(encoding='utf-8', errors='ignore')
+    txt, why = _read_shard_text(path)
+    if why:
+        return [], [why]
     items: List[Any] = []
     errors: List[str] = []
     if path.suffix.lower() == '.jsonl':
@@ -440,14 +465,28 @@ class ResearchLedger:
     def merge(self, src_dir: str) -> Tuple[int, int]:
         """合并 src_dir 下的全部子产物（.jsonl / .json），按 id 去重。
 
+        src_dir 也可以是单个分片文件——把文件路径写成目录路径是最常见的误用，
+        原先它对文件与不存在都回 "0 条 + 合并完成"，Lead 分不清"子 Agent 真没产出"
+        和"我路径写错了"。
+
         返回 (新增 claim 数, 新增 source 数)；去重/拒收计数记在 self.last_merge，
         让"有多少噪声被挡在门外"看得见，而不是静默变少。
         """
         src = Path(src_dir)
-        stats = {'claims': 0, 'sources': 0, 'deduped': 0, 'rejected': 0}
+        stats = {'files': 0, 'claims': 0, 'sources': 0, 'deduped': 0, 'rejected': 0}
         self.last_merge = stats
         if not src.exists():
-            return 0, 0
+            raise FileNotFoundError(
+                f'分片路径不存在: {src}'
+                f'（--dir 传放分片的目录，或直接传单个 .json/.jsonl 文件）')
+        if src.is_file():
+            files = [src]
+        else:
+            files = sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json'))
+        stats['files'] = len(files)
+        if not files:
+            print(f'{src} 下没有 *.json / *.jsonl 分片，本次没有可合并的子产物',
+                  file=sys.stderr)
         existing = self._ids()
         existing_src = existing_sources(self.root)
         rejects: Dict[Tuple[str, str], int] = {}
@@ -456,7 +495,7 @@ class ResearchLedger:
             stats['rejected'] += 1
             rejects[(fname, reason)] = rejects.get((fname, reason), 0) + 1
 
-        for f in sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json')):
+        for f in files:
             if f.name == self.EVIDENCE:
                 continue                       # 证据不是结论，永不进 claim/source 表
             items, errors = _load_shard(f)
@@ -511,10 +550,6 @@ class ResearchLedger:
             tail = f'（{n} 条）' if n > 1 else ''
             print(f'拒收 {fname}: {reason}{tail}', file=sys.stderr)
         return stats['claims'], stats['sources']
-
-    def append_file(self, path: str) -> Tuple[int, int]:
-        """合并单个产物文件。"""
-        return self.merge(path if Path(path).is_dir() else str(Path(path).parent))
 
     def _ids(self) -> set:
         return {e['id'] for e in self._all() if e.get('type') == 'claim'}
@@ -694,8 +729,10 @@ def _main(argv: Optional[List[str]] = None) -> int:
                     # --status 与 --text 至少给一个；只给 --text 时状态原样不动
   python ledger.py verify-primary --session <dir> --claim-id <id>[,<id>...] \
       --check-url <一手制品URL> [--check-title <t>] [--method repo_health]
-  python ledger.py merge --session <dir> --dir <src_dir>
-                    # 递归收 *.json/*.jsonl；记录形状两种都认：
+  python ledger.py merge --session <dir> --dir <src_dir|分片文件>
+                    # 递归收 *.json/*.jsonl（--dir 给单个文件也认）；只收 UTF-8 分片，
+                    # 编码不对/路径不存在都点名回话，不会静默报"0 条"
+                    # 记录形状两种都认：
                     # 逐条 {"type":"claim","id","text","topic"} /
                     #      {"type":"source","claim_id","url","title","tier"}
                     # 容器 {"claims":[...], "sources":[...]}（容器内可省 type）
@@ -792,11 +829,17 @@ def _main(argv: Optional[List[str]] = None) -> int:
         if not src:
             print('缺少 --dir <src_dir>', file=sys.stderr)
             return 2
-        c, s = ledger.merge(src)
+        try:
+            c, s = ledger.merge(src)
+        except FileNotFoundError as e:
+            print(str(e), file=sys.stderr)
+            return 2
         st = ledger.last_merge
-        print(f'合并完成：新增 claim {c} 条，source {s} 条，'
+        if not st['files']:
+            return 0        # 一份分片都没看见，别再打一行像是成功 receipts 的统计
+        print(f'合并完成：收到 {st["files"]} 份分片，新增 claim {c} 条，source {s} 条，'
               f'去重 {st["deduped"]} 条，拒收 {st["rejected"]} 条'
-              '（拒收＝点不回原文或缺类型的记录，不会进账本；逐条原因已按文件名打在 stderr）')
+              '（拒收＝点不回原文、缺类型或编码不对的记录，不会进账本；逐条原因已按文件名打在 stderr）')
         return 0
 
     if cmd == 'export':

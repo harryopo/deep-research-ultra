@@ -19,11 +19,13 @@
 `repo_health.fetch_json` **保留**自己的 urllib：它必须把 403/429/404 分开（X-D11 的修复），
 而公共通道非 200 只回 None，换过去会把状态码契约打回"一律算无法核实"。这一条写进门测试的白名单注释。
 
-**新增机械门**（`tests/test_v6151_transport.py`，6 项）：AST 扫 `scripts/` 全量，
+**新增机械门**（`tests/test_v6151_transport.py`，7 项）：AST 扫 `scripts/` 全量，
 `urlopen` / `opener.open` / `build_opener` 只允许出现在 `engines/fallback.py` 与 `repo_health.py`；
 白名单另配正向对照（扫描器必须抓到这两个文件里的调用点），否则扫描器失效会让这条门永远绿灯。
 其余 4 项用本地真 socket 服务（200 与 403 两条路径）断言改写后的行为：失败要留下 `HTTP 403`，
-成功要真拿到 JSON。
+成功要真拿到 JSON；最后一项按 `inspect.signature` 反查 `search.py` 里对 `_http_get`/`_reachable` 的调用点，
+传了签名之外的 kwarg 就点名行号——这条是自己踩出来的：改写时把 `method='HEAD'` 留在了新 helper 上，
+import 不报错、一调用就 TypeError。
 
 **顺带澄清 `search.py` 的身份**（文档与代码不符，实测取证）：迁移文档把它写成"v3 兼容入口**和 Layer 4 降级实现**"，
 `evals.json` 两条兼容性用例进一步断言"引擎名自动映射到 Layer 4 降级引擎""显示降级提示：当前使用降级模式…"。
@@ -34,7 +36,34 @@
 
 **实测**：`_http_get_json` 打一个不存在的模型 → 返回 None 且归因 `HTTP 404`（改前归因是空串）；
 `check_network()` 三个探测点与 Bing 可达性判定都在新通道上返回正常。
-`scripts` 全套 367 通过（原 361 + 新 6）。
+`scripts` 全套 368 通过（原 361 + 新 7）。
+
+---
+
+## v6.15.2（2026-09-22）— 分片编码与路径错了要回话，不会翻成乱码入库
+
+**先纠正一条记错的备忘**：X-D6 写的是"Windows GBK 会把中文 argv 打乱，写命令缺批量入口"。实测两条都不成立：
+
+- argv 走的是宽字符命令行，Git Bash 与 `cmd.exe /c` 两条路 × 5 个用例（全角「」（）、半角双引号 + `&`、
+  串内换行、300 字长文本）落盘字节与原文**全部一致**；之前看到的乱码是**控制台输出**按 cp936 渲染，
+  那一层 v6.x 已由 `console.force_utf8()` 收口。
+- 批量入口本来就有：`ledger.py merge --dir` 就是"从文件收一批"，SKILL.md 也早写了
+  （子 Agent 不许直写共享 `ledger.jsonl`，只能写分片再 merge）。所以这一版**没有新增 `--input`**，
+  那会和 merge 重复。
+
+**但同一族的真问题在文件通道上，而且三处全是"静默成功"**（实测取证）：
+
+| 位置 | 症状 | 处理 |
+|------|------|------|
+| `_load_shard` 读分片 | `read_text(encoding='utf-8', errors='ignore')`：Windows 写文件默认 GBK，中文字节两两拼成合法 UTF-8，JSON 照样解析过 → `'该政策「支持」中小（企业）发展，2026 年补贴 3~5 万元'` 落成 `'ߡ֧֡Сҵչ2026 겹 3~5 Ԫ'`，merge 还报"新增 claim 1 条" | 严格 UTF-8 解码（`utf-8-sig` 兼容 BOM），失败按文件点名拒收，并试出真实编码写进提示 |
+| `merge --dir` 指向单个分片文件 | rc=0，"新增 claim 0 条"（rglob 对文件不报错也不干活） | 文件路径直接收那一份；`append_file` 那层"给文件却合并父目录"的意外语义随之删掉（无任何调用方） |
+| `merge --dir` 路径打错 / 目录里没有分片 | 两种都 rc=0 + "合并完成：新增 claim 0 条"，Lead 分不清"子 Agent 真没产出"还是"我路径写错了" | 不存在 → 抛 `FileNotFoundError`，CLI 退 2；空目录 → stderr 说明"没有 *.json/*.jsonl 分片"，并且**不打**那行像成功回执的统计 |
+
+merge 摘要行同时加上"收到 N 份分片"——派发了 5 路只收到 3 份，这是原来看不见的。
+
+**实测**（真命令行，非测试框架）：UTF-8 目录 → "收到 1 份分片，新增 claim 1 条"；`--dir` 传单文件 → 同样收 1 条且落账原文逐字一致；
+GBK 分片 → stderr `拒收 a.json: 看起来是 GBK 存的，本工具只收 UTF-8…`，入库 claim 数 0；不存在的路径 → rc=2；空目录 → 只有 stderr 一行说明。
+`scripts` 全套 375 通过（368 + 新 7，`tests/test_v6152_shard_encoding.py`），根目录插件壳 49 通过。
 
 ---
 
