@@ -724,6 +724,8 @@ def _main(argv: Optional[List[str]] = None) -> int:
   python ledger.py add-source --session <dir> --claim-id <id> --url <u>
                     [--title <t>] [--tier <1-4>] [--craap <score>]
   python ledger.py status --session <dir> [--topic <t>]
+                    # 无 --topic：{"topics": {主题: 明细}, "totals": {全局合计}}
+                    # 有 --topic：只出该主题的明细；主题名打错会列出现有主题并退 2
   python ledger.py set-status --session <dir> --claim-id <id>[,<id>...]
                     [--status <s>] [--note <n>] [--text <就地更正后的 claim 原文>]
                     # --status 与 --text 至少给一个；只给 --text 时状态原样不动
@@ -821,7 +823,32 @@ def _main(argv: Optional[List[str]] = None) -> int:
 
     if cmd == 'status':
         topic = _opt('--topic', '') or None
-        print(json.dumps(ledger.status(topic), ensure_ascii=False, indent=2))
+        data = ledger.status(topic)
+        if topic is not None:
+            if not data:
+                names = ', '.join(sorted(ledger.status())) or '（账本里还没有 claim）'
+                print(f'账本里没有主题「{topic}」，现有主题：{names}', file=sys.stderr)
+                return 2
+            print(json.dumps(data, ensure_ascii=False, indent=2))
+            return 0
+        # 固定信封：主题明细放 topics，全局合计放 totals。
+        # 只改 CLI 出口——进程内 status() 仍是主题字典，发布门按它迭代主题。
+        claims = sum(s.get('claims', 0) for s in data.values())
+        verified = sum(s.get('verified', 0) for s in data.values())
+        totals = {
+            'topics': len(data),
+            'claims': claims,
+            'verified': verified,
+            'conflict': sum(s.get('conflict', 0) for s in data.values()),
+            'supplementing': sum(s.get('supplementing', 0) for s in data.values()),
+            'pending': sum(s.get('pending', 0) for s in data.values()),
+            'coverage': round(verified / claims, 2) if claims else 0.0,
+            'sufficient_topics': sum(1 for s in data.values() if s.get('sufficient')),
+            'insufficient_topics': [t for t, s in data.items()
+                                    if not s.get('sufficient')],
+        }
+        print(json.dumps({'topics': data, 'totals': totals},
+                         ensure_ascii=False, indent=2))
         return 0
 
     if cmd == 'merge':

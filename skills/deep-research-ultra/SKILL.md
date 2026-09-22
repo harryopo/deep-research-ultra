@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.15.2
+version: 6.15.3
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -412,6 +412,8 @@ id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_
      份数对不上派发的路数、或条数与子 Agent 自报数不吻合，就是有的分片没被看见；`--dir` 也可以直接给单个分片文件，路径不存在会报错退出而不是回"0 条"；
      若出现"拒收 N 条"，按 stderr 点名的文件名修形状或改编码后重跑（merge 幂等，重复 merge 只会去重），别放着不管；
   ② `status --session {ledger_dir}` → 处理 conflict → 按档 A/档 B 判据把达标 claim 升级 verified → 生成 outline
+     出的是固定信封：`{"topics": {主题: 明细}, "totals": {claims/verified/coverage/insufficient_topics…}}`，
+     看全局进度读 totals，逐主题补救看 topics；`--topic <t>` 只给该主题明细，主题名打错会列出现有主题并非零退出
 - **证据账本目录约定**：`{workspace}/.research/{session_id}/ledger/`
 
 ### Phase 3: Synthesize（合成）— 结构化报告
@@ -1257,7 +1259,7 @@ python "${SKILL_DIR}/scripts/ledger.py" set-status --session <dir> --claim-id <i
 python "${SKILL_DIR}/scripts/ledger.py" verify-primary --session <dir> --claim-id <id>[,<id>...] \
     --check-url <同一制品的另一通道URL> [--check-title <t>] [--method <手段>]
 python "${SKILL_DIR}/scripts/ledger.py" merge --session <dir> --dir <分片所在目录>
-python "${SKILL_DIR}/scripts/ledger.py" status --session <dir> [--topic <t>]
+python "${SKILL_DIR}/scripts/ledger.py" status --session <dir> [--topic <t>]   # 无 --topic 出 {"topics":…,"totals":…}
 python "${SKILL_DIR}/scripts/ledger.py" export --session <dir> --format json|md [--out <path>]
 
 # 4. 专家团评审清单生成（供主 Agent 消化执行）
