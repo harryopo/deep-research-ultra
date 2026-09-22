@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.15.3
+version: 6.15.4
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -404,12 +404,13 @@ id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_
 - **并行派发**：Lead 对全部叶子子问题**一次性并行** `Agent` 调用（每子 Agent 独立上下文）；breadth = `--breadth` 值。**一次 turn 发完**，不要一个子问题一个 turn 串行派
 - **Lead 不吞原始结果**：子 Agent 的返回值只该是"写了哪几个分片文件 + 几条 claim/几个源"，
   原始搜索结果留在子 Agent 的上下文里，不进 Lead
-- **并发写安全**：子 Agent 各自写独立分片文件 `{ledger_dir}/{slug}.json`，**不直写共享 ledger.jsonl**（多进程并发追加整行不保证原子）；Lead 归并时统一 `ledger.py merge --dir` 收编去重。
+- **并发写安全**：子 Agent 各自写独立分片文件 `{ledger_dir}/{slug}.json`，**不直写共享 ledger.jsonl**（多进程并发追加整行不保证原子）；Lead 归并时统一用 `merge` 收编去重，完整命令见下条 ①（`--session` 不能省，只给 `--dir` 会退 2 报"缺少 --session"）。
   **分片必须是 UTF-8**：Windows 上写文件的默认编码是 GBK，中文会被 merge 点名拒收（不会翻成乱码入库），
   所以宿主写分片时要显式 `encoding="utf-8"`（`--text`/`--url` 走 argv 传参已实测无损，中文单条直写不受影响）
 - **归并**：所有子 Agent 完成后，Lead 依次跑
   ① `python scripts/ledger.py merge --session {ledger_dir} --dir {ledger_dir}` —— 必须看到"收到 N 份分片 / 新增 claim N 条"，
      份数对不上派发的路数、或条数与子 Agent 自报数不吻合，就是有的分片没被看见；`--dir` 也可以直接给单个分片文件，路径不存在会报错退出而不是回"0 条"；
+     份数只数子 Agent 的分片——`--dir` 与 `--session` 同目录时（就是上面这条命令），账本自己的 ledger.jsonl / evidence.jsonl / session.json 不算分片；
      若出现"拒收 N 条"，按 stderr 点名的文件名修形状或改编码后重跑（merge 幂等，重复 merge 只会去重），别放着不管；
   ② `status --session {ledger_dir}` → 处理 conflict → 按档 A/档 B 判据把达标 claim 升级 verified → 生成 outline
      出的是固定信封：`{"topics": {主题: 明细}, "totals": {claims/verified/coverage/insufficient_topics…}}`，

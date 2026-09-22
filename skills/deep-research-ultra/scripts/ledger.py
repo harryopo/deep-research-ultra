@@ -462,6 +462,15 @@ class ResearchLedger:
     # ------------------------------------------------------------------
     # 合并（子 Agent 产物）
     # ------------------------------------------------------------------
+    def _own_paths(self) -> set:
+        """账本自己写出来的文件——归并扫目录时要跳过，按路径认不按文件名。
+
+        子 Agent 的分片可以叫任何名字，包括恰好叫 ledger.jsonl；只按名字跳会把真分片丢掉。
+        """
+        sess = self.root.parent if self.root.name == 'ledger' else self.root
+        return {os.path.normcase(str(p.resolve()))
+                for p in (self.entries_path, self.evidence_path, sess / 'session.json')}
+
     def merge(self, src_dir: str) -> Tuple[int, int]:
         """合并 src_dir 下的全部子产物（.jsonl / .json），按 id 去重。
 
@@ -482,7 +491,11 @@ class ResearchLedger:
         if src.is_file():
             files = [src]
         else:
-            files = sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json'))
+            # --dir 与 --session 同目录是 SKILL.md 写的标准用法，此时 rglob 会扫到
+            # 账本自己的文件——它们是合并的结果，不是子 Agent 的产物
+            own = self._own_paths()
+            files = [f for f in sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json'))
+                     if os.path.normcase(str(f.resolve())) not in own]
         stats['files'] = len(files)
         if not files:
             print(f'{src} 下没有 *.json / *.jsonl 分片，本次没有可合并的子产物',
