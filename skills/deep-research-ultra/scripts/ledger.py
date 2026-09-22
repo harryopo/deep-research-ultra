@@ -4,7 +4,8 @@ ledger.py — 证据账本（Research Ledger）  [v6.0 新增]
 所有搜索证据（claim）与来源（source）的统一持久化层，支持：
 - 多子 Agent 并行追加（JSONL 追加式，O_APPEND，Windows/Linux 均安全）
 - claim → source 多源关联，可审计、可溯源
-- merge：合并子 Agent 产物（claims/、sources/ 子目录下的 json/jsonl）
+- merge：合并子 Agent 产物（递归收 *.json / *.jsonl；两种形状都认——逐条
+  {"type": "claim"|"source", ...} 与容器 {"claims": [...], "sources": [...]}）
 - status：按 topic 统计覆盖率、独立来源数、冲突数（证据充分性判据来源）
 - 导出 JSON / Markdown（供报告引用编号锚定：primary_index = [topic_id-source_seq]）
 
@@ -57,6 +58,9 @@ def _registered_domain(url: str) -> str:
     return '.'.join(parts[-2:]) if len(parts) >= 2 else parts[0]
 
 
+_ARXIV_ID_RE = re.compile(r'(\d{4}\.\d{4,5})')
+
+
 def _artifact_key(url: str) -> str:
     """制品指纹 = 注册域族 + 去掉浏览态路径段的路径。
 
@@ -64,14 +68,53 @@ def _artifact_key(url: str) -> str:
     域全是 arxiv.org，但 6 条会把"另一篇论文存在"记成自己的反查凭据。
     指纹要求反查打在**同一个制品**上：同一文件的不同检索通道（blob 页 / raw 字节流）
     指纹相同；同仓库不同分支或不同文件视为不同制品。
+
+    arXiv 单独归一到论文 ID：/abs、/pdf、/html、OAI 接口是同一篇论文的四个入口，
+    按路径判同会把"换个通道复核"这种真实反查误拒（2026-09-22 实跑撞上）。
+    版本后缀不参与判同——/abs 本就重定向到最新版，带上版本反而切出假制品。
     """
     u = str(url or '')
     host = _registered_domain(u)
-    path = re.sub(r'^https?://[^/]+', '', u).lower()
-    path = re.sub(r'/(?:blob|tree)/', '/', path)          # 浏览态 → 内容态
+    if host == 'arxiv.org':
+        m = _ARXIV_ID_RE.search(u)
+        if m:
+            return f'arxiv:{m.group(1)}'
     if host == 'github.com':
-        path = re.sub(r'^/repos/', '/', path)             # REST API → 仓库页
+        return _github_key(u)
+    path = re.sub(r'^https?://[^/]+', '', u).lower()
     return f'{host}:{path.rstrip("/")}'
+
+
+def _github_key(u: str) -> str:
+    """GitHub 同一份内容的几个入口归一到 owner/repo@ref:path。
+
+    网页 blob/tree、REST contents、raw 字节流是同一制品（反馈 #4：官方 API 与
+    官方网页这对最硬的自证组合，原先两条通道都不认）。ref 缺省（REST 不带
+    ?ref=）取的是默认分支，与 main/master 记同一个值；3.14 这类具名分支仍是
+    不同制品——版本差异正是结论本身。
+    """
+    m = re.match(r'https?://([^/]+)/?(?:repos/)?([^/]+)/([^/]+)/?(.*)',
+                 str(u or ''))
+    if not m:
+        return f'github:{str(u or "").lower()}'
+    host, owner, repo, rest = m.group(1).lower(), m.group(2), m.group(3), m.group(4)
+    seg = rest.split('/')
+    ref, path = '', rest
+    if seg[0] in ('blob', 'tree', 'raw', 'resolve') and len(seg) > 1:
+        ref, path = seg[1], '/'.join(seg[2:])
+    elif seg[0] == 'contents':
+        ref = re.search(r'[?&](?:ref|sha)=([^&/]+)', u)
+        ref, path = (ref.group(1) if ref else ''), '/'.join(seg[1:])
+    elif host == 'raw.githubusercontent.com':
+        ref, path = seg[0], '/'.join(seg[1:])
+    key_ref = ref.lower() if ref.lower() not in ('', 'main', 'master') else 'HEAD'
+    return f'github.com:{owner.lower()}/{repo.lower()}@{key_ref}:{path.lower().rstrip("/")}'
+
+
+def _same_url(a: str, b: str) -> bool:
+    """两条 URL 是否字面同一条（只抹掉协议与尾斜杠，不做任何归一）。"""
+    f = lambda s: re.sub(r'^https?://', '', str(s or '').strip().lower()).rstrip('/')
+    return bool(f(a)) and f(a) == f(b)
 
 
 def _is_traceable(url: str) -> bool:
@@ -109,6 +152,52 @@ def _iter_entries(path: Path):
                 yield json.loads(line)
             except (json.JSONDecodeError, ValueError):
                 continue
+
+
+def _flat_records(data) -> List[Any]:
+    """把一份 JSON 值摊平成带 type 的扁平记录。
+
+    容器形状 {"claims": [...], "sources": [...]} 是 SKILL.md 教子 Agent 写的形状，
+    展开时补上 type；逐条扁平记录原样通过。
+    """
+    if isinstance(data, list):
+        return [r for d in data for r in _flat_records(d)]
+    if not isinstance(data, dict):
+        return [data]
+    if data.get('type'):
+        return [data]
+    inner = [(t, data.get(k)) for t, k in
+             (('claim', 'claims'), ('source', 'sources'))]
+    if any(isinstance(v, list) for _, v in inner):
+        return [{**d, 'type': t} for t, v in inner for d in (v or [])
+                if isinstance(d, dict)]
+    return [data]      # 缺 type 也不猜，交给 merge 点名拒收
+
+
+def _load_shard(path: Path) -> Tuple[List[Any], List[str]]:
+    """读子 Agent 产物，返回 (扁平记录, 解析错误)。
+
+    解析失败必须回话：静默读成 0 条等于把整份分片丢掉而没人知道
+    （2026-09-22 实跑：merge 报"拒收 5 条"，正好是 5 个形状不合的分片）。
+    """
+    txt = path.read_text(encoding='utf-8', errors='ignore')
+    items: List[Any] = []
+    errors: List[str] = []
+    if path.suffix.lower() == '.jsonl':
+        for n, line in enumerate(txt.splitlines(), 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                items += _flat_records(json.loads(line))
+            except (json.JSONDecodeError, ValueError):
+                errors.append(f'第 {n} 行不是合法 JSON，该行未进账本')
+        return items, errors
+    try:
+        items = _flat_records(json.loads(txt))
+    except (json.JSONDecodeError, ValueError) as e:
+        errors.append(f'整份文件不是合法 JSON（{e}），一条都没进账本')
+    return items, errors
 
 
 class ResearchLedger:
@@ -223,7 +312,7 @@ class ResearchLedger:
     # ------------------------------------------------------------------
     # Lead 归并：原地改状态
     # ------------------------------------------------------------------
-    def set_status(self, claim_ids: List[str], status: str,
+    def set_status(self, claim_ids: List[str], status: Optional[str],
                    note: str = '', extra: Optional[Dict[str, Any]] = None,
                    text: str = '') -> int:
         """Lead 在归并阶段把达标 claim 升 verified（或降 pending）。
@@ -234,8 +323,9 @@ class ResearchLedger:
 
         text 非空时同时就地更正 claim 原文：反查常会发现"有一句写错了"，
         只加 note 会让错误原文作为 verified 结论永久留在交付物里。
+        status 传 None 表示只改文字不动状态——改错一句话不该顺手把 pending 判成 verified。
         """
-        if status not in VALID_STATUS:
+        if status is not None and status not in VALID_STATUS:
             return 0
         wanted = {c.strip() for c in claim_ids if c and c.strip()}
         if not wanted:
@@ -244,8 +334,9 @@ class ResearchLedger:
         changed = 0
         for e in entries:
             if e.get('type') == 'claim' and e.get('id') in wanted:
-                e['status'] = status
-                e['promoted_at'] = _now()
+                if status is not None:
+                    e['status'] = status
+                    e['promoted_at'] = _now()
                 if note:
                     e['note'] = note
                 if text:
@@ -283,10 +374,13 @@ class ResearchLedger:
         claims = {e['id']: e for e in entries
                   if e.get('type') == 'claim' and e.get('id')}
         src_hosts: Dict[str, set] = {}
+        src_urls: Dict[str, set] = {}
         for e in entries:
             if e.get('type') == 'source' and e.get('claim_id'):
                 src_hosts.setdefault(e['claim_id'], set()).add(
                     _artifact_key(e.get('url', '')))
+                src_urls.setdefault(e['claim_id'], set()).add(
+                    str(e.get('url', '')))
         check_host = _artifact_key(check_url)
         targets = []
         for cid in wanted:
@@ -297,6 +391,12 @@ class ResearchLedger:
             if not hosts:
                 print(f"拒绝 verify-primary：claim {cid} 无任何来源，"
                       f"归属型断言也必须指向一个制品", file=sys.stderr)
+                continue
+            if any(_same_url(check_url, u) for u in src_urls.get(cid, set())):
+                print(f"拒绝 verify-primary：claim {cid} 的反查 URL 与账本里已有的"
+                      f"来源是同一条，重填它没有任何验证动作——换一个通道"
+                      f"（同一篇论文的 /pdf、/html、OAI 接口，或同一文件的 raw / "
+                      f"REST API）再报", file=sys.stderr)
                 continue
             if check_host not in hosts:
                 print(f"拒绝 verify-primary：claim {cid} 的反查制品 "
@@ -332,12 +432,21 @@ class ResearchLedger:
             return 0, 0
         existing = self._ids()
         existing_src = existing_sources(self.root)
+        rejects: Dict[Tuple[str, str], int] = {}
+
+        def reject(fname: str, reason: str):
+            stats['rejected'] += 1
+            rejects[(fname, reason)] = rejects.get((fname, reason), 0) + 1
+
         for f in sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json')):
             if f.name == self.EVIDENCE:
                 continue                       # 证据不是结论，永不进 claim/source 表
-            for item in self._read_any(f):
+            items, errors = _load_shard(f)
+            for msg in errors:
+                reject(f.name, msg)
+            for item in items:
                 if not isinstance(item, dict):
-                    stats['rejected'] += 1
+                    reject(f.name, '记录不是 JSON 对象')
                     continue
                 typ = item.get('type')
                 if typ == 'evidence':
@@ -347,7 +456,7 @@ class ResearchLedger:
                         stats['deduped'] += 1
                         continue
                     if not str(item.get('text') or '').strip():
-                        stats['rejected'] += 1
+                        reject(f.name, 'claim 缺 text，空断言不进账本')
                         continue
                     # 缺 status 一律 pending：合并动作不能自己批准结论
                     self.add_claim(
@@ -362,8 +471,11 @@ class ResearchLedger:
                 elif typ == 'source':
                     cid = str(item.get('claim_id', ''))
                     url = str(item.get('url', ''))
-                    if not cid or not _is_traceable(url):
-                        stats['rejected'] += 1     # 点不回原文的"来源"是假溯源
+                    if not cid:
+                        reject(f.name, 'source 缺 claim_id，不知道这条来源支撑谁')
+                        continue
+                    if not _is_traceable(url):
+                        reject(f.name, f'来源 {url[:60] or "(空)"} 点不回原文，是假溯源')
                         continue
                     key = (cid, url)
                     if key in existing_src:
@@ -374,7 +486,12 @@ class ResearchLedger:
                     existing_src.add(key)
                     stats['sources'] += 1
                 else:
-                    stats['rejected'] += 1         # 认不出的类型不猜，交给人看
+                    reject(f.name, '记录没有 type 字段：逐条记录要写 '
+                                   '"type": "claim" / "source"，或用 '
+                                   '{"claims": [...], "sources": [...]} 容器')
+        for (fname, reason), n in sorted(rejects.items()):
+            tail = f'（{n} 条）' if n > 1 else ''
+            print(f'拒收 {fname}: {reason}{tail}', file=sys.stderr)
         return stats['claims'], stats['sources']
 
     def append_file(self, path: str) -> Tuple[int, int]:
@@ -383,29 +500,6 @@ class ResearchLedger:
 
     def _ids(self) -> set:
         return {e['id'] for e in self._all() if e.get('type') == 'claim'}
-
-    @staticmethod
-    def _read_any(path: Path):
-        """按扩展名读文件为 dict 列表。"""
-        txt = path.read_text(encoding='utf-8', errors='ignore')
-        try:
-            if path.suffix.lower() == '.jsonl':
-                for line in txt.splitlines():
-                    line = line.strip()
-                    if line:
-                        try:
-                            yield json.loads(line)
-                        except ValueError:
-                            continue
-            else:  # .json：单个 dict 或列表
-                data = json.loads(txt)
-                if isinstance(data, list):
-                    for d in data:
-                        yield d
-                elif isinstance(data, dict):
-                    yield data
-        except ValueError:
-            return
 
     # ------------------------------------------------------------------
     # 读取 / 统计
@@ -577,11 +671,16 @@ def _main(argv: Optional[List[str]] = None) -> int:
   python ledger.py add-source --session <dir> --claim-id <id> --url <u>
                     [--title <t>] [--tier <1-4>] [--craap <score>]
   python ledger.py status --session <dir> [--topic <t>]
-  python ledger.py set-status --session <dir> --claim-id <id>[,<id>...] --status <s> [--note <n>]
-                    [--text <就地更正后的 claim 原文>]
+  python ledger.py set-status --session <dir> --claim-id <id>[,<id>...]
+                    [--status <s>] [--note <n>] [--text <就地更正后的 claim 原文>]
+                    # --status 与 --text 至少给一个；只给 --text 时状态原样不动
   python ledger.py verify-primary --session <dir> --claim-id <id>[,<id>...] \
       --check-url <一手制品URL> [--check-title <t>] [--method repo_health]
   python ledger.py merge --session <dir> --dir <src_dir>
+                    # 递归收 *.json/*.jsonl；记录形状两种都认：
+                    # 逐条 {"type":"claim","id","text","topic"} /
+                    #      {"type":"source","claim_id","url","title","tier"}
+                    # 容器 {"claims":[...], "sources":[...]}（容器内可省 type）
   python ledger.py export --session <dir> [--format json|md] [--out <path>]''')
         return 0
 
@@ -650,14 +749,19 @@ def _main(argv: Optional[List[str]] = None) -> int:
             print(str(e), file=sys.stderr)
             return 2
         ids = [i.strip() for i in _opt('--claim-id').split(',') if i.strip()]
-        status = _opt('--status')
-        if not ids or not status:
-            print('缺少 --claim-id / --status', file=sys.stderr)
+        status, text = _opt('--status'), _opt('--text')
+        if not ids:
+            print('缺少 --claim-id', file=sys.stderr)
             return 2
-        changed = ledger.set_status(ids, status, note=_opt('--note'),
-                                    text=_opt('--text'))
-        print(f'已更新 {changed} 条 claim → {status}'
-              + ('（原文已就地更正）' if _opt('--text') else ''))
+        if not status and not text:
+            print('缺少 --status（改状态）或 --text（就地更正原文），至少给一个',
+                  file=sys.stderr)
+            return 2
+        changed = ledger.set_status(ids, status or None, note=_opt('--note'),
+                                    text=text)
+        print(f'已更新 {changed} 条 claim'
+              + (f' → {status}' if status else '')
+              + ('（原文已就地更正）' if text else ''))
         return 0 if changed else 1
 
     if cmd == 'status':
@@ -674,7 +778,7 @@ def _main(argv: Optional[List[str]] = None) -> int:
         st = ledger.last_merge
         print(f'合并完成：新增 claim {c} 条，source {s} 条，'
               f'去重 {st["deduped"]} 条，拒收 {st["rejected"]} 条'
-              '（拒收＝点不回原文或缺类型的记录，不会进账本）')
+              '（拒收＝点不回原文或缺类型的记录，不会进账本；逐条原因已按文件名打在 stderr）')
         return 0
 
     if cmd == 'export':

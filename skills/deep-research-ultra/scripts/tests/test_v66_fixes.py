@@ -426,15 +426,19 @@ class TestGateTierBExemptsCrossSourceRule:
     实测把刚 verify-primary 升上来的 claim 又拦成 issue。
     """
 
-    def _led(self, tmp_path, verify_method='repo_health'):
+    def _led(self, tmp_path, verify_method='abs-page'):
+        """档 B 升级的一条 claim：来源 /abs，反查走同一篇论文的 /pdf。
+
+        原先反查重填的是 /abs 本身，v6.15 起 verify_primary 拒绝"把账本已有的
+        URL 再填一遍"；用同一论文的第二个通道才是这条豁免该放的真实形态。
+        """
         from ledger import ResearchLedger
         L = ResearchLedger(str(tmp_path / 'ledger')).init()
-        url = 'https://docs.github.com/en/copilot/responsible-use/copilot-in-the-cli'
-        c = L.add_claim('GitHub 官方文档告诫 CLI 需授权', '主题A', 'pending', 'general', 0.9)
-        L.add_source(c['id'], url, title='Responsible use of Copilot in the CLI', tier=2)
-        L.verify_primary([c['id']], url,
-                         check_title='Responsible use of Copilot in the CLI',
-                         method=verify_method)
+        url = 'https://arxiv.org/abs/1802.08979'
+        c = L.add_claim('NL2Bash 论文自述评测用单元测试', '主题A', 'pending', 'general', 0.9)
+        L.add_source(c['id'], url, title='NL2Bash', tier=1)
+        L.verify_primary([c['id']], 'https://arxiv.org/pdf/1802.08979',
+                         check_title='NL2Bash', method=verify_method)
         if not verify_method:      # 构造"自称档 B 但无反查记录"的越权样本
             entries = list(L._all())
             L.entries_path.write_text('', encoding='utf-8')
@@ -450,13 +454,13 @@ class TestGateTierBExemptsCrossSourceRule:
     def _report(self):
         return """# 报告
 ## 执行摘要
-官方文档要求执行前授权 [1]。
+论文自述评测方式 [1]。
 ## 调研范围与方法
 多源检索。
 ## 结论与建议
 结论良好。
 ## 来源
-[1] Responsible use of Copilot in the CLI https://docs.github.com/en/copilot/responsible-use/copilot-in-the-cli
+[1] NL2Bash https://arxiv.org/abs/1802.08979
 """
 
     def test_tier_b_claim_with_recheck_passes(self, tmp_path):
@@ -565,15 +569,20 @@ class TestVerifyPrimaryArtifactBinding:
         return ResearchLedger(str(tmp_path / 'ledger')).init()
 
     def test_batch_rejects_claims_whose_artifact_differs(self, tmp_path):
-        from ledger import ResearchLedger, ResearchLedger as R  # noqa: F401
+        """反查打在 A 论文的 PDF 通道上：A 升、B 不升。
+
+        原先这条用的是 A 已有的 /abs 链接本身，等于把"重填一遍 URL"当成合法反查
+        （v6.15 起 verify_primary 明确拒绝），换 /pdf 通道既保住跨制品断言、
+        又不再依赖那条自批通道。
+        """
         L = self._L(tmp_path)
         a = L.add_claim('NL2Bash 说了 X', 'LLM', 'pending')
         b = L.add_claim('NaSh 说了 Y', 'LLM', 'pending')
         L.add_source(a['id'], 'https://arxiv.org/abs/1802.08979')
         L.add_source(b['id'], 'https://arxiv.org/abs/2506.13028')
         changed = L.verify_primary(
-            [a['id'], b['id']], 'https://arxiv.org/abs/1802.08979',
-            check_title='NL2Bash', method='abs-page')
+            [a['id'], b['id']], 'https://arxiv.org/pdf/1802.08979',
+            check_title='NL2Bash', method='pdf-read')
         assert changed == 1, '只应升级真正反查过的那一条'
         st = {c['id']: c['status'] for c in L.export_json()['claims']}
         assert st[a['id']] == 'verified' and st[b['id']] == 'pending'

@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.14.0
+version: 6.15.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -36,8 +36,10 @@ fork 里同时无法 `AskUserQuestion`（Phase 1 的澄清门必须要它），�
 实测一次失败运行里，fork 用 10 个 turn 中的 7 个去 `ls` skill 目录、读目标项目
 package.json/tailwind 配置、跑 `--help` —— 真正的检索只剩 3 个 turn。所以：
 
-1. **不要探索 skill 自身**：不 `ls` 脚本目录、不读 `scripts/*.py` 源码、不跑 `--help`。
-   本文件就是唯一接口文档，命令照抄即可。
+1. **不要探索 skill 自身**：不 `ls` 脚本目录、不读 `scripts/*.py` 源码。
+   本文件就是接口文档，命令照抄即可（十四节的签名表已列全）。
+   万一遇到文档没写的参数，`python scripts/<名>.py --help` 一次拿到准确签名——
+   这比猜参数或读源码都便宜，禁止的是把 turn 花在 `ls`/翻源码上，不是查签名。
 2. **不要为调研对象做代码考古**：目标项目的代码/资产只在结论依赖它时才读（如"适配性"维度）。
 3. **第 1 个 turn 就把 Phase 0 的两条命令并行跑完**（环境门 + 引擎自检），
    第 2 个 turn 跑 Phase 1 的 `--plan-only`。**每个 turn 尽量并行发多条命令/多个子 Agent**。
@@ -201,6 +203,12 @@ arXiv 对部分宽查询回 HTTP 406，而它们在 `--list` 里全是 ✅。`--
 用户明确要求带缺口开跑时才加 `--allow-degraded`（此时报告里必须写明数据源受限）；
 `--probe --sources a,b` 是局部自检，只报这几个引擎的状态，不做全局判定。
 
+> **闸门的粒度只到"引擎活着"，不到"本主题到得了"**（v6.15）：探针用的是按引擎定制的固定查询，
+> 放行不等于它对某个长英文主题出得来结果——实测 `arxiv-fulltext` 探针 ✅ 而对该主题每次 HTTP 406。
+> 所以派子 Agent 前，用 `--probe --sources <该主题要用的引擎>` 配上**实际查询词**再试一次
+> （`research.py "<查询词>" --sources <引擎> --format json --no-plan` 就是那次 dry-run）；
+> 到不了就换通道（内置 WebSearch/WebFetch、`gh api`），别把"指定引擎没结果"当成"这个主题没资料"。
+
 ```bash
 # 缺失 MCP → 一键配置（免费模式）；只测某几个引擎用 --sources a,b
 bash "${SKILL_DIR}/scripts/setup-mcp.sh" --core
@@ -337,23 +345,48 @@ Lead（主 Agent）
 指定引擎: {engines}（由 Lead 从 Phase 0 `--probe` 报 ✅ 的引擎中按主题分配）
 
 任务:
-1) 用 python "{SKILL_DIR}/scripts/research.py" "{subtopic}" --no-cache 检索（若指定引擎则加 --sources {engines}）
-   （v6.10：`--ledger` 只登记证据到 evidence.jsonl，不再把搜索结果的标题写成 claim——
-   标题是别人页面的标题，不是你的论断；混进来会让覆盖率与引用统计虚高，实测 391 条 merge 后变 602 条）
-2) 用 python "{SKILL_DIR}/scripts/ledger.py" add-claim --session {ledger_dir} --text "<claim>" --topic "{subtopic}" --status pending --perspective "{perspective}" --confidence <0-1>
-   再用 add-source 为该 claim 关联 ≥1 个来源 URL（--tier 自动判定）
-3) 每条 claim 必须：只记录事实与来源，不做总结断言；发现矛盾标 --status conflict
-约束: 你的全部产物写入 {ledger_dir}/{slug}.json 后退出；不写长篇报告。
+1) 检索：python "{SKILL_DIR}/scripts/research.py" "{subtopic}" --no-cache --format json --no-plan
+   （需要限定引擎时加 --sources {engines}。`--format json --no-plan` 是子 Agent 唯一可消费的
+   输出——默认输出是整页 HTML 报告，读进上下文只会占位不占脑。检索结果只当判断材料，不转手登记）
+2) 落盘：把你的全部产物写进一个文件 {ledger_dir}/{slug}.json，形状照下面的 schema 抄。
+   除这个文件外不写任何东西，尤其**不要跑 ledger.py add-claim 直写共享 ledger.jsonl**
+   （并发追加的原子性不由你保证，Lead 归并时统一 merge 收编）
+3) 每条 claim 只记录事实与来源，不做总结断言；status 一律 "pending"（verified 只能由 Lead 在
+   归并阶段赋予）；发现矛盾写 "status": "conflict"
+
+分片 schema（{slug} 换成你的维度代号，如 D1-gates）：
+{
+  "claims": [
+    {"id": "c-d1-01", "text": "某论文原文说 X（逐字引文）", "topic": "{subtopic}",
+     "perspective": "{perspective}", "confidence": 0.6, "status": "pending"}
+  ],
+  "sources": [
+    {"claim_id": "c-d1-01", "url": "https://arxiv.org/abs/xxxx.xxxxx",
+     "title": "页面标题", "tier": 1}
+  ]
+}
+id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_id 必须指回同文件里的 claim id，
+一条 claim 至少配一个能点回原文的绝对 URL，否则这条别写。
 ```
+
+> **分片形状与 merge 是一对契约**：`ledger.py merge` 递归收 `{ledger_dir}` 下的 `*.json` / `*.jsonl`，
+> 两种形状都认——上面的容器 `{"claims": [...], "sources": [...]}`，以及逐条带 `"type": "claim"|"source"`
+> 的扁平记录。历史上这里只写了"产物写入 {slug}.json"却没给 schema，而 merge 当时只认扁平记录，
+> 结果**照文档做会被整份分片拒收**（实跑一次 5 个分片全被判"拒收 5 条"）。现在 merge 认容器形状，
+> 且拒收会按 `拒收 <文件名>: <原因>` 逐条打到 stderr，不再只给一个总数。
 
 > **status 语义（真实性核心）**：子 Agent 一律写 `pending`——**verified 只能由 Lead 在归并阶段显式赋予**，禁止未验证即标 verified。Lead 有两条合规升级通道，必须按 claim 的证据类型选用：
 >
 > | 档 | 适用 claim | 判据 | 命令 |
 > |----|-----------|------|------|
 > | **A · 跨域三角验证** | 「世界事实」类（某机制的行为、某统计数字） | ≥2 个不同注册域来源 | `ledger.py set-status --claim-id <ids> --status verified --note "交叉验证 N 独立来源"`（发现原文写错时加 `--text` 就地更正） |
-> | **B · 一手来源 + 反查** | **归属型**（"某仓库 README 现状是 X"/"某论文原文说 Y"）——对象就是单个制品，要求第二个域名来验证它自身是判据错配 | 反查 URL 与既有来源指向同一制品（同域同路径；blob/raw 算同一制品，不同分支/文件不算） | `ledger.py verify-primary --claim-id <ids> --check-url <URL> --check-title <t> --method repo_health` |
+> | **B · 一手来源 + 反查** | **归属型**（"某仓库 README 现状是 X"/"某论文原文说 Y"）——对象就是单个制品，要求第二个域名来验证它自身是判据错配 | 反查 URL 与既有来源指向**同一制品**（arXiv 按论文 ID：`/abs`＝`/pdf`＝`/html`＝OAI 接口；GitHub 按 `owner/repo@分支:路径`：blob＝raw＝REST contents 同一制品，api.github.com 与 github.com 同族；**不同分支/不同文件算不同制品**） | `ledger.py verify-primary --claim-id <ids> --check-url <另一通道的同一制品URL> --check-title <t> --method repo_health` |
 >
-> 档 B 不是后门：命令会**拒绝**反查域与 claim 既有来源域不一致的情况（拿一篇无关博客"验证"某仓库是升不上去的），并把 `verify_method` 与反查 URL 写进账本留痕。实测一次调研有 ~110 条归属型 claim 因只有档 A 一条路而全卡在 pending，导致发布门覆盖率虚低。**反查必须真实发生**（读页面/源码/API 比对内容），不允许只把 URL 再填一遍。
+> 档 B 不是后门，两条硬拒（v6.15 起由代码执行，不再靠自觉）：
+> ① **反查 URL 与账本里已有的来源是同一条 → 拒**（重填一遍没有任何验证动作；实测前一版把它做成"想过就把已有 URL 再填一次"的自批通道）；
+> ② 反查制品与 claim 既有来源制品不一致 → 拒（拿一篇无关博客"验证"某仓库升不上去）。
+> 通过的会把 `verify_method` 与反查 URL 写进账本留痕。实测一次调研有 ~110 条归属型 claim 因只有档 A 一条路而全卡在 pending，导致发布门覆盖率虚低。
+> **所以反查必须真换通道**：论文 `/abs` → 去读 `/pdf` 或 `/html` 或 OAI；仓库文件 blob 页 → 去读 `raw.githubusercontent.com` 或 `api.github.com/repos/.../contents/...`。
 >
 > `--session` 传的是 **`{ledger_dir}` 本身**（里面有 `ledger.jsonl`），不是它的父目录：`set-status`/`verify-primary` 现在会先 `require()`，账本不存在直接报错退出，而不是静默建一个空账本再返回"升级 0 条"（v6.7）。
 
@@ -361,7 +394,10 @@ Lead（主 Agent）
 - **Lead 不吞原始结果**：子 Agent 的返回值只该是"写了哪几个分片文件 + 几条 claim/几个源"，
   原始搜索结果留在子 Agent 的上下文里，不进 Lead
 - **并发写安全**：子 Agent 各自写独立分片文件 `{ledger_dir}/{slug}.json`，**不直写共享 ledger.jsonl**（多进程并发追加整行不保证原子）；Lead 归并时统一 `ledger.py merge --dir` 收编去重
-- **归并**：所有子 Agent 完成后，Lead 运行 `python scripts/ledger.py status --session {ledger_dir}` → 处理 conflict → 按交叉验证结果把达标 claim 升级 verified → 生成 outline
+- **归并**：所有子 Agent 完成后，Lead 依次跑
+  ① `python scripts/ledger.py merge --session {ledger_dir} --dir {ledger_dir}` —— 必须看到"新增 claim N 条"与子 Agent 自报数**吻合**；
+     若出现"拒收 N 条"，按 stderr 点名的文件名修形状后重跑（merge 幂等，重复 merge 只会去重），别放着不管；
+  ② `status --session {ledger_dir}` → 处理 conflict → 按档 A/档 B 判据把达标 claim 升级 verified → 生成 outline
 - **证据账本目录约定**：`{workspace}/.research/{session_id}/ledger/`
 
 ### Phase 3: Synthesize（合成）— 结构化报告
@@ -487,13 +523,16 @@ python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger \
 
 | 骨架里已有的 | 来源 |
 |--------------|------|
-| 按主题分好组的 claim 清单（verified 直述、conflict/待核带 ⚠️） | `ledger.jsonl` 的 claim + status |
+| 按主题分好组的 claim 清单（verified 直述、conflict 带 ⚠️ 待裁决、未验证带 ⚠️ 仅作线索） | `ledger.jsonl` 的 claim + status |
 | 每条 claim 后面的 `[N]` 引用编号 | source 的 `primary_index`（与校验门同一套编号） |
 | 附录来源登记表 `| [N] | Tier | 标题 | URL |` | source 条目全量 |
-| 「claims/verified/来源/独立域名」四个事实数字 | 账本统计 |
+| 「claims/verified/仅作线索/冲突/来源/独立域名」这些事实数字 | 账本统计 |
 
-Lead 只写机器写不了的三处：执行摘要、调研方法、结论与建议——以及把 ⚠️ 待核项补证据或降级。
-这三处脚本会留 `【待写】` 标记。
+Lead 只写机器写不了的四段：执行摘要、调研方法、结论与建议，以及**每条冲突的裁决**——
+这四处脚本会留 `【待写】` 标记。未验证的 claim 不再逐条留标记（v6.15）：
+它们渲染成 `⚠️ 仅作线索`，写正文时不得升级为结论即可。
+一次 60 条 claim 曾逼出 40 处 `【待写】`，逐条处置在一轮里做不到，
+最后只会拿模板句把标记刷没——那正是骨架要避免的。
 
 > **为什么留标记**：上一轮实跑就是"deep 档写不完 → 落一份带占位内容的 report.md → 声称过了校验门"。
 > 现在 `【待写】` 是校验门的**硬失败项**（见 Phase 5 表），骨架不写掉标记就永远盖不了戳——
@@ -548,7 +587,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 └── report.html        # 交付物（--format html 时）
 ```
 
-**落盘顺序**：`skeleton.py` 出骨架（引用与登记表自动来）→ Lead 写掉三处 `【待写】` →
+**落盘顺序**：`skeleton.py` 出骨架（引用与登记表自动来）→ Lead 写掉那几处 `【待写】` →
 `validate_report.py --stamp`（过门即盖戳）→
 `--verify-stamp` 复核 → 才回复用户。**报告里那句"校验 passed"必须有戳背书**；
 没有戳就写"未过门：<issue 列表>"，不许凭自述交付。
@@ -1177,9 +1216,20 @@ python "${SKILL_DIR}/scripts/research.py" "大模型微调成本" --plan-only --
 # 2. 子 Agent 编排 + 证据账本落盘（并行派发时每个子 Agent 用自己的 --ledger 目录）
 python "${SKILL_DIR}/scripts/research.py" "子主题A" --ledger .research/session/ledger --perspectives domain_expert
 
-# 3. 证据账本管理
-python "${SKILL_DIR}/scripts/ledger.py" status --session .research/session/ledger     # 统计/证据充分性
-python "${SKILL_DIR}/scripts/ledger.py" export --session .research/session/ledger --format md
+# 3. 证据账本（写命令签名照抄，不必再跑 --help）
+python "${SKILL_DIR}/scripts/ledger.py" init --session <ledger目录>
+python "${SKILL_DIR}/scripts/ledger.py" add-claim --session <dir> --text "<claim>" \
+    [--topic <t>] [--status pending|verified|conflict] [--perspective <p>] \
+    [--confidence <0-1>] [--id <id>] [--note <n>]
+python "${SKILL_DIR}/scripts/ledger.py" add-source --session <dir> --claim-id <id> --url <绝对URL> \
+    [--title <t>] [--tier <1-4>] [--craap <分数>]        # tier 不传则按域名自动判定
+python "${SKILL_DIR}/scripts/ledger.py" set-status --session <dir> --claim-id <id>[,<id>...] \
+    [--status <s>] [--note <n>] [--text "<就地更正后的原文>"]   # 只给 --text 时状态不动
+python "${SKILL_DIR}/scripts/ledger.py" verify-primary --session <dir> --claim-id <id>[,<id>...] \
+    --check-url <同一制品的另一通道URL> [--check-title <t>] [--method <手段>]
+python "${SKILL_DIR}/scripts/ledger.py" merge --session <dir> --dir <分片所在目录>
+python "${SKILL_DIR}/scripts/ledger.py" status --session <dir> [--topic <t>]
+python "${SKILL_DIR}/scripts/ledger.py" export --session <dir> --format json|md [--out <path>]
 
 # 4. 专家团评审清单生成（供主 Agent 消化执行）
 python "${SKILL_DIR}/scripts/panel.py" perspectives                                   # 列出 5 内置角色
@@ -1188,7 +1238,8 @@ python "${SKILL_DIR}/scripts/panel.py" review-outline --input outline.md --roles
 # 5. 来源 Tier 分级（独立工具）
 python "${SKILL_DIR}/scripts/tier.py" "https://www.gov.cn/x"                          # → Tier 1
 
-# 6. 报告骨架（v6.14）：引用编号 + 来源登记表由账本直出，Lead 只补【待写】段落
+# 6. 报告骨架（v6.14）：引用编号 + 来源登记表由账本直出，Lead 只补带【待写】标记的段落
+#    （v6.15：未验证 claim 渲染成 ⚠️ 仅作线索，不再逐条留待写标记）
 python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger -o report.md --title "报告标题"
 
 # 7. 发布前校验门（exit 0=通过）+ 防伪戳
@@ -1306,7 +1357,8 @@ scripts/
 - ❌ **禁止无戳硬闯收尾**（插件壳 Stop 门）— 装了插件后，本轮会话写了 report.md 又声称交付/带戳，而指纹复核不过时，Stop 钩子会 exit 2 把话挡回去并点名报告路径。真没过门就照实写"未过门：<issue>"；要留着继续写，把 report.md 首行写成 `DRAFT:` 开头（这是明示"还没交付"的逃生口，不是绕过门）
 - ❌ **禁止把搜索结果当结论**（v6.10）— `--ledger` 只登记证据；claim 必须用 `add-claim` 显式立论并挂来源。要沿用旧行为得自己加 `--auto-claim` 并说明理由
 - ❌ **禁止把 MCP 的"配置就绪"当"连上了"**（v6.9）— 只有 `--probe`/`--mcp-check` 真握手拿到结果才算这个源存在；握手超时要先预热（首次 npx/uvx 下包），别静默丢掉这个源
-- ❌ **禁止探索性空转** — 不 `ls` skill 目录、不读脚本源码、不跑 `--help`；文档即接口
+- ❌ **禁止探索性空转** — 不 `ls` skill 目录、不读脚本源码；文档即接口（签名见十四节）。
+  文档没写的参数用 `--help` 查一次，别猜
 - ❌ **禁止只跑不落地** — 每个阶段都要落盘（账本/大纲/报告），中断必须留得下可续用的产物
 
 ---

@@ -528,6 +528,10 @@ def cmd_plan_only(args):
     print(f"  子问题（共 {len(plan.unanswered_questions)} 个待执行主题）:")
     for i, q in enumerate(plan.unanswered_questions, 1):
         print(f"    {i}. {q}")
+    if plan.dropped_dimensions:
+        # 丢弃告警原先只在 stderr：Lead 只看 stdout（或 `| tail`）就会以为维度齐了
+        print(f"  ⚠️ 被档位上限丢弃的维度（{len(plan.dropped_dimensions)} 个）："
+              f"{'、'.join(plan.dropped_dimensions)} —— 需要它们就提高 --effort/--depth")
     print("  提示: 可增删子问题、调整 --depth/--effort/--breadth/--perspectives，批准后再执行搜索。")
 
     # 保存计划
@@ -985,13 +989,23 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
     """输出结果（v6.0：options/ledger 透传到报告生成）"""
     format = args.format
 
+    def emit(text: str):
+        """文本产物一律认 -o：以前只有 html 认，`--format json -o x.json` 会静默不落盘。"""
+        if args.output:
+            Path(args.output).write_text(text, encoding='utf-8')
+            print(f'💾 {format} 输出已保存: {args.output}', file=sys.stderr)
+        else:
+            print(text)
+
     if format == 'json':
-        print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+        emit(json.dumps(data, ensure_ascii=False, indent=2, default=str))
         return
 
     if format == 'csv':
         import csv
-        writer = csv.writer(sys.stdout)
+        import io
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator='\n')
         writer.writerow(['title', 'url', 'source', 'craap_total', 'craap_grade', 'published_date'])
         for r in (results or data.get('results', [])):
             craap = r.craap_score if hasattr(r, 'craap_score') else r.get('craap_score', {}) or {}
@@ -1003,6 +1017,7 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
                 craap.get('grade', '') if isinstance(craap, dict) else '',
                 r.published_date if hasattr(r, 'published_date') else r.get('published_date', ''),
             ])
+        emit(buf.getvalue())
         return
 
     if format == 'markdown':
@@ -1011,18 +1026,19 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
             reporter = ReportGenerator()
             md = reporter.generate(plan, results, verification, reflections,
                                    format='markdown', ledger=ledger, options=options)
-            print(md)
+            emit(md)
         else:
             # 简单 markdown（无 plan 时）
-            print(f"# {data['query']}\n")
+            lines = [f"# {data['query']}\n"]
             for r in data.get('results', []):
-                print(f"## {r.get('title', '')}")
-                print(f"URL: {r.get('url', '')}")
-                print(f"来源: {r.get('source', '')}")
+                lines.append(f"## {r.get('title', '')}")
+                lines.append(f"URL: {r.get('url', '')}")
+                lines.append(f"来源: {r.get('source', '')}")
                 craap = r.get('craap_score', {}) or {}
                 if craap:
-                    print(f"CRAAP: {craap.get('total', 0)}/100 ({craap.get('grade', '-')})")
-                print(f"\n{r.get('content', '')}\n")
+                    lines.append(f"CRAAP: {craap.get('total', 0)}/100 ({craap.get('grade', '-')})")
+                lines.append(f"\n{r.get('content', '')}\n")
+            emit('\n'.join(lines))
         return
 
     if format == 'html':
@@ -1046,7 +1062,7 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
         return
 
     # 默认 JSON
-    print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+    emit(json.dumps(data, ensure_ascii=False, indent=2, default=str))
 
 
 def _generate_simple_html(data, results, verification=None):
