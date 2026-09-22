@@ -51,16 +51,26 @@ JSON 解析失败也回话（原先坏文件读成 0 条，一声不响）。
 别把"指定引擎没结果"当成"这个主题没资料"。第 14 条（覆盖率 39%）的根因指向 1、4，
 本轮修复后学术类 claim 的升级路径才真正存在；探针按主题探活的代码实现仍未做。
 
-**测试**：新增 `tests/test_v615_dogfood.py` 17 项（重填已有 URL 不升级、arXiv 四种表示算同一制品、
+**⑤ 顺手挖到的现场根因：curl_cffi 没装，且退得看不见**（第 5 条的定位过程）：
+查第 5 条时实测 arXiv——长查询、短查询、加引号、加字段前缀、甚至空查询，全部 HTTP 406，
+换 User-Agent、换 `Accept` 一律 406，响应头 `via: varnish` 说明是 arXiv 边缘节点直接拒；
+本机 `getproxies()` 为空，排除本地代理。真原因是 `_http_get` 依赖的 curl_cffi（TLS/JA3 指纹伪装）
+没装，代码 `except ImportError: pass` 一声不响地退回 urllib——Lead 于是拿一套没有指纹的传输层
+去判"这个源不行"。现在缺依赖会在第一次请求时说一次（含 `pip install curl_cffi`），
+`--probe` 输出顶部即可见；六节与 5.1 的说明同步改成实情：
+`arxiv-fulltext` 的 `search()` 只回元数据，全文由 `download_pdf` / `fetch_latex` 按编号另取。
+**装不装由用户决定**，本轮只负责让它看得见。
+
+**测试**：新增 `tests/test_v615_dogfood.py` 18 项（重填已有 URL 不升级、arXiv 四种表示算同一制品、
 另一篇论文不算反查、GitHub API 通道升级、容器形状可收、拒收点名到文件、扁平记录仍可用、
 坏 JSON 分片回话、`-o` 落盘、`set-status` 可只改原文、参数缺失仍要点名、单引擎挂掉不吞其余引擎、
-全挂要退 1 并说明原因、未验证项不占待写）。"不同分支是不同制品"由既有测试
+全挂要退 1 并说明原因、未验证项不占待写、缺 curl_cffi 只提示一次）。"不同分支是不同制品"由既有测试
 `test_v66_fixes.py::test_different_branch_is_a_different_artifact` 守着；另有三条旧测试
 原先依赖"同一 URL 重填即可升级"这条路径，改为使用真正不同的制品表示，规则本身未放宽。
-`scripts` 332 passed，根 `tests` 45 passed。
+`scripts` 333 passed，根 `tests` 45 passed。
 
 **本轮未做，留清单**：
-第 5 条——SKILL.md 写"arXiv 全文下载 PDF/HTML/LaTeX"，实跑该引擎对搜索请求 100% HTTP 406，文档声明与实测的矛盾未处理；
+第 5 条的引擎侧仍未验：装不装 curl_cffi 由用户定，装上后 arXiv 是否真能出数据要重跑一次才算数；
 第 8 条的现场诱因（长英文查询恒 0 命中）归到第 10 条——`github-deep-search` 静默归一查询词，命中了什么不可解释；
 第 13 条——六维质量门按"报告里有没有 github.com 链接"触发，缺显式豁免声明位（本轮改测试时现场撞到一次：
 把夹具换成 GitHub 制品后被判需要许可证/最近提交/适配性）；

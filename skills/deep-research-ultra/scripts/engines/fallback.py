@@ -58,6 +58,22 @@ def _clear_http_error() -> None:
     LAST_HTTP_ERROR = ''
 
 
+# curl_cffi 提供 TLS/JA3 指纹伪装。没装就退回 urllib 本身是设计内的兼容路径，
+# 但一声不响地退不行：arXiv 与国内平台会成片回 406/403，Lead 拿这套没有指纹的
+# 传输层去判"这个源不行"，判据从源头就脏了。所以第一次请求就说清缺什么、怎么补。
+_TRANSPORT_NOTICE_SHOWN = False
+
+
+def _note_transport_degraded() -> None:
+    global _TRANSPORT_NOTICE_SHOWN
+    if _TRANSPORT_NOTICE_SHOWN:
+        return
+    _TRANSPORT_NOTICE_SHOWN = True
+    print('⚠️ curl_cffi 未安装：本次运行所有 HTTP 请求退回 urllib，没有 TLS 指纹伪装。'
+          'arXiv / 国内平台的 406、403 很可能由此起（同一 URL 浏览器打得开、这里打不开）。'
+          '补装一次即可，全部引擎共用：pip install curl_cffi', file=sys.stderr)
+
+
 def _http_get(
     url: str,
     headers: Optional[Dict] = None,
@@ -128,7 +144,7 @@ def _http_get(
         if server_responded:
             return None
     except ImportError:
-        pass  # curl_cffi 未安装，使用 urllib
+        _note_transport_degraded()  # curl_cffi 未安装，退回 urllib（说一次）
 
     # 降级到 urllib 实现（保留原有代码）
     if proxy:
@@ -223,7 +239,7 @@ def _http_post(
                     time.sleep(1.0 * (2 ** attempt))
         return None
     except ImportError:
-        pass  # curl_cffi 未安装，使用 urllib
+        _note_transport_degraded()  # curl_cffi 未安装，退回 urllib（说一次）
 
     # 降级到 urllib 实现
     if proxy:

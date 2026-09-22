@@ -272,3 +272,32 @@ def test_unverified_claims_do_not_become_placeholders(tmp_path):
                if ln.startswith('- ⚠️ 仅作线索')) == 30
     assert md.count(PLACEHOLDER) <= 5, \
         f'待写标记 {md.count(PLACEHOLDER)} 处：必须与 claim 条数解耦，只留机器写不了的几处'
+
+
+# ---------------------------------------------------------------------------
+# 传输层降级要看得见（反馈 #5 的现场根因）
+# ---------------------------------------------------------------------------
+
+def test_missing_curl_cffi_says_so_once(monkeypatch, capsys):
+    """curl_cffi 没装 → 所有引擎裸走 urllib，反爬站点的 4xx 由此而来。
+
+    静默降级等于让 Lead 拿一套没有 TLS 指纹的传输层去判"这个源不行"，
+    判据本身就脏了。缺什么、怎么补，必须在第一次请求时说一次。
+    """
+    import urllib.error
+
+    import engines.fallback as fb
+    monkeypatch.setitem(sys.modules, 'curl_cffi', None)
+    monkeypatch.setattr(fb, '_TRANSPORT_NOTICE_SHOWN', False)
+
+    class _Opener:
+        def open(self, *a, **kw):
+            raise urllib.error.URLError('no route')
+
+    monkeypatch.setattr(fb.urllib.request, 'build_opener', lambda *a, **kw: _Opener())
+
+    assert fb._http_get('https://example.invalid/q', max_retries=1) is None
+    assert fb._http_get('https://example.invalid/q2', max_retries=1) is None
+    err = capsys.readouterr().err
+    assert err.count('curl_cffi 未安装') == 1, '降级要说，但每次请求刷一行会把日志埋掉'
+    assert 'pip install curl_cffi' in err

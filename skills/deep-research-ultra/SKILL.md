@@ -630,7 +630,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 │  ├── OpenAlex            474M+ 作品，直连无需 MCP                    │
 │  ├── Semantic Scholar    200M+ 论文 + AI 引用上下文                  │
 │  ├── PubMed              36M+ 医学论文                               │
-│  ├── arXiv Fulltext      PDF/HTML/LaTeX 全文下载                     │
+│  ├── arXiv Fulltext      检索回元数据，全文按编号另取（见 6.1）       │
 │  ├── Unpaywall           DOI→合法 OA PDF                             │
 │  └── S2 Citation Graph   引用图谱 + intents + influential            │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -688,7 +688,8 @@ from curl_cffi import requests as cffi_requests
 r = cffi_requests.get(url, impersonate="chrome124")  # 伪装 Chrome 124
 ```
 
-- 未安装 curl_cffi 时自动降级到 urllib（保留兼容）
+- 未安装 curl_cffi 时退回 urllib（保留兼容），但**会在 stderr 说一次**：这一轮所有请求都没有 TLS 指纹，
+  arXiv / 国内平台的 406、403 很可能由此而来。补装：`pip install curl_cffi`
 - 支持 HTTP GET + POST，统一重试与代理
 
 ### 5.2 LayeredCrawler 四级爬取策略
@@ -739,6 +740,15 @@ latex = e.fetch_latex("2404.19756")
 - API Key：无需
 - 速率限制：3 秒/请求（官方建议）
 - 国内可用：✅
+
+**这个引擎的两条实情**（别照名字理解）：
+
+- `search()` 只回**元数据**（标题/摘要/PDF·HTML 链接），全文必须由 `download_pdf` / `fetch_latex`
+  按论文编号另取。`research.py --sources arxiv-fulltext` 走的是 `search()`，它不会下全文。
+- **主题查询常吃到 HTTP 406**：arXiv 边缘节点（响应头 `via: varnish`）会直接拒绝，本机实测换
+  User-Agent、换 `Accept`、甚至空查询都是 406 —— 不是我方请求格式的问题，也不是查询写长了。
+  探针用的是窄查询，探针 ✅ **不代表本主题到得了**。学术主题的兜底是
+  OpenAlex / Semantic Scholar / arxiv MCP / paper-search，别因为 arXiv 406 就判"这个主题没论文"。
 
 ### 6.2 Unpaywall 开放获取
 
