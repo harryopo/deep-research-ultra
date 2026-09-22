@@ -5,6 +5,32 @@
 
 ---
 
+## v6.15.1（2026-09-22）— HTTP 出口统一到带 TLS 指纹的公共通道
+
+**触发这次改动的事实**：v6.15 第 5 条把 arXiv 成片 406 归因到传输层缺 `curl_cffi`，当时只修了
+`engines/fallback._http_get` 这一条路。按同类横扫还有两个模块在自己发不带指纹的请求，
+并且失败时不保留原因：
+
+| 位置 | 症状 | 处理 |
+|------|------|------|
+| `engines/platform_engines._http_get_json`（gitee / modelscope） | 裸 `urlopen` + `except Exception: return None`，"被拒"与"服务没起来"压成同一个 None | 委托公共通道，状态码留在 `fallback.LAST_HTTP_ERROR` |
+| `search.py`（v3 兼容入口，22 个裸调用点） | 15 处 `is_available()` / `check_network()` 用空 `except:` 静默返 False，其余各自内联取页 | `_http_get` 委托公共通道 + 新增 `_reachable()`，22 个点全部收口 |
+
+`repo_health.fetch_json` **保留**自己的 urllib：它必须把 403/429/404 分开（X-D11 的修复），
+而公共通道非 200 只回 None，换过去会把状态码契约打回"一律算无法核实"。这一条写进门测试的白名单注释。
+
+**新增机械门**（`tests/test_v6151_transport.py`，6 项）：AST 扫 `scripts/` 全量，
+`urlopen` / `opener.open` / `build_opener` 只允许出现在 `engines/fallback.py` 与 `repo_health.py`；
+白名单另配正向对照（扫描器必须抓到这两个文件里的调用点），否则扫描器失效会让这条门永远绿灯。
+其余 4 项用本地真 socket 服务（200 与 403 两条路径）断言改写后的行为：失败要留下 `HTTP 403`，
+成功要真拿到 JSON。
+
+**实测**：`_http_get_json` 打一个不存在的模型 → 返回 None 且归因 `HTTP 404`（改前归因是空串）；
+`check_network()` 三个探测点与 Bing 可达性判定都在新通道上返回正常。
+`scripts` 全套 367 通过（原 361 + 新 6）。
+
+---
+
 ## v6.15.0（2026-09-22）— 实跑反馈 16 项：文档与代码口径对齐
 
 **这一轮的输入**：一次真实深度调研跑完后交回的 16 条工具反馈。前两条被判为"照着文档做会出错"，

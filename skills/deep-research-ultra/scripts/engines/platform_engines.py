@@ -14,17 +14,13 @@ platform_engines.py — 国内开源平台引擎（Gitee / ModelScope）  [v6.1 
 
 from __future__ import annotations
 
-import json
 import os
 import socket
-import urllib.request
 import urllib.parse
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from .base import SearchEngine, EngineMetadata, SearchResult
-
-_UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-       '(KHTML, like Gecko) Chrome/124.0 Safari/537.36')
+from . import fallback as _fb
 
 TIMEOUT = 8.0
 
@@ -38,13 +34,13 @@ def _host_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:
 
 
 def _http_get_json(url: str) -> Optional[Any]:
-    """GET JSON（urllib，UA 伪装，超时，容错）。"""
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': _UA, 'Accept': 'application/json'})
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            return json.loads(resp.read().decode('utf-8', errors='ignore'))
-    except Exception:
-        return None
+    """GET JSON：走带 TLS 指纹的公共通道，失败原因留在 fallback.LAST_HTTP_ERROR。
+
+    原来这里自己裸发 urllib 请求并把异常压成 None —— gitee/modelscope 都是境内站，
+    被指纹风控拒了也只留下"引擎返回 None"，Lead 分不清是拦了还是服务挂了。
+    """
+    raw = _fb._http_get(url, headers={'Accept': 'application/json'}, timeout=int(TIMEOUT))
+    return _fb._json_loads(raw) if raw is not None else None
 
 
 def _dedupe(results: List[SearchResult]) -> List[SearchResult]:

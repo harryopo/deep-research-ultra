@@ -164,49 +164,36 @@ def _cache_set(key: str, data: dict):
     cache_file.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
 
 
+from engines import fallback as _fb          # 唯一的 HTTP 出口：带 TLS 指纹、失败留状态码
+
+
 def _http_get(url: str, headers: Optional[Dict] = None,
               timeout: int = 15, max_retries: int = 3,
               proxy: Optional[str] = None) -> bytes:
+    """GET：走 engines.fallback 那条公共通道，失败时把"为什么"带在异常里。
+
+    自己裸发 urllib 请求等于放弃 TLS 指纹，百度/Bing 这类站点会成片拒；
+    拒了只剩"不可用"，分不清是被拦还是服务没起来。
     """
-    带重试的 HTTP GET 请求
+    raw = _fb._http_get(url, headers=dict(headers or {}), timeout=timeout,
+                        max_retries=max_retries, proxy=proxy or _global_proxy)
+    if raw is None:
+        raise ConnectionError(_fb.LAST_HTTP_ERROR or '传输层失败')
+    return raw
 
-    Args:
-        url: 请求 URL
-        headers: 请求头
-        timeout: 超时时间（秒）
-        max_retries: 最大重试次数
-        proxy: HTTP 代理地址（如 http://127.0.0.1:7890）
 
-    Returns:
-        响应内容（bytes），已处理 gzip 解压
-    """
-    # 使用指定代理或全局代理
-    effective_proxy = proxy or _global_proxy
+def _reachable(url: str, headers: Optional[Dict] = None, timeout: int = 5,
+               quiet: bool = False) -> bool:
+    """可达性探测：失败要能说出原因，静默 False 会把"被拦"写成"没装"。"""
+    try:
+        _http_get(url, headers=headers, timeout=timeout, max_retries=1)
+        return True
+    except Exception as e:
+        if not quiet:
+            print(f'   ⚠️  {urllib.parse.urlparse(url).netloc} 不可达：{e}', file=sys.stderr)
+        return False
 
-    # 构建 opener（支持代理）
-    if effective_proxy:
-        proxy_handler = urllib.request.ProxyHandler({'http': effective_proxy, 'https': effective_proxy})
-        opener = urllib.request.build_opener(proxy_handler)
-    else:
-        opener = urllib.request.build_opener()
 
-    last_error = None
-    for attempt in range(max_retries):
-        try:
-            req = urllib.request.Request(url, headers=headers or {})
-            with opener.open(req, timeout=timeout) as response:
-                raw_data = response.read()
-                content_encoding = response.headers.get('Content-Encoding', '')
-                if content_encoding == 'gzip':
-                    return gzip.decompress(raw_data)
-                return raw_data
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
-            last_error = e
-            if attempt < max_retries - 1:
-                delay = 1.0 * (2 ** attempt)
-                print(f"   ⏳ 重试 {attempt+1}/{max_retries}: {url[:50]}... ({delay:.1f}s)", file=sys.stderr)
-                time.sleep(delay)
-    raise last_error
 
 
 # ============================================================
@@ -408,29 +395,13 @@ def check_network() -> Dict[str, bool]:
     }
 
     # 测试 Google
-    try:
-        req = urllib.request.Request('https://www.google.com', method='HEAD')
-        req.add_header('User-Agent', 'Mozilla/5.0')
-        with urllib.request.urlopen(req, timeout=5) as response:
-            results['can_access_google'] = True
-    except:
-        pass
+    results['can_access_google'] = _reachable('https://www.google.com', timeout=5, quiet=True)
 
     # 测试 Jina
-    try:
-        req = urllib.request.Request('https://r.jina.ai', method='HEAD')
-        with urllib.request.urlopen(req, timeout=5) as response:
-            results['can_access_jina'] = True
-    except:
-        pass
+    results['can_access_jina'] = _reachable('https://r.jina.ai', timeout=5, quiet=True)
 
     # 测试 Tavily
-    try:
-        req = urllib.request.Request('https://api.tavily.com', method='HEAD')
-        with urllib.request.urlopen(req, timeout=5) as response:
-            results['can_access_tavily'] = True
-    except:
-        pass
+    results['can_access_tavily'] = _reachable('https://api.tavily.com', timeout=5, quiet=True)
 
     # 判断是否有 VPN（能访问 Google 通常意味着有 VPN）
     results['has_vpn'] = results['can_access_google']
@@ -598,15 +569,11 @@ class TavilySearch:
         }
 
         try:
-            data = json.dumps(payload).encode('utf-8')
-            req = urllib.request.Request(
-                f"{self.BASE_URL}/search",
-                data=data,
-                headers=headers,
-                method='POST'
-            )
-            with urllib.request.urlopen(req, timeout=30) as response:
-                result = json.loads(response.read().decode('utf-8'))
+            raw = _fb._http_post(f"{self.BASE_URL}/search", json_body=payload,
+                                     headers=headers, timeout=30)
+            if raw is None:
+                raise ConnectionError(_fb.LAST_HTTP_ERROR or '传输层失败')
+            result = json.loads(raw.decode('utf-8'))
 
             formatted = {
                 'source': 'tavily',
@@ -649,12 +616,7 @@ class JinaReader:
 
     def is_available(self) -> bool:
         """检查 Jina 是否可用（需要网络可达）"""
-        try:
-            req = urllib.request.Request(self.READER_URL, method='HEAD')
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return True
-        except:
-            return False
+        return _reachable(self.READER_URL, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         """使用 Jina 搜索"""
@@ -670,9 +632,7 @@ class JinaReader:
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
 
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=30) as response:
-                result = json.loads(response.read().decode('utf-8'))
+            result = json.loads(_http_get(url, headers=headers, timeout=30).decode('utf-8'))
 
             formatted = {
                 'source': 'jina-search',
@@ -710,9 +670,7 @@ class JinaReader:
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
 
-            req = urllib.request.Request(api_url, headers=headers)
-            with urllib.request.urlopen(req, timeout=30) as response:
-                return response.read().decode('utf-8')
+            return _http_get(api_url, headers=headers, timeout=30).decode('utf-8')
 
         except Exception as e:
             print(f"⚠️  Jina 读取失败: {e}", file=sys.stderr)
@@ -730,12 +688,7 @@ class SearXNGSearch:
         self.instance_url = instance_url or os.environ.get('SEARXNG_URL', 'http://localhost:8080')
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(f"{self.instance_url}/healthz")
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(f"{self.instance_url}/healthz", timeout=5)
 
     def search(self, query: str, max_results: int = 10,
                engines: str = "google,bing,duckduckgo",
@@ -756,9 +709,7 @@ class SearXNGSearch:
             }
             url = f"{self.instance_url}/search?{urllib.parse.urlencode(params)}"
 
-            req = urllib.request.Request(url)
-            with urllib.request.urlopen(req, timeout=30) as response:
-                result = json.loads(response.read().decode('utf-8'))
+            result = json.loads(_http_get(url, timeout=30).decode('utf-8'))
 
             formatted = {
                 'source': 'searxng',
@@ -802,12 +753,7 @@ class BingSearch:
 
     def is_available(self) -> bool:
         """检查 Bing 是否可访问"""
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10,
                language: str = 'zh-Hans') -> Optional[Dict]:
@@ -910,12 +856,7 @@ class BaiduSearch:
 
     def is_available(self) -> bool:
         """检查百度是否可访问"""
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         """搜索百度"""
@@ -997,12 +938,7 @@ class SoSearch:
         }
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         try:
@@ -1047,12 +983,7 @@ class SogouSearch:
         }
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         try:
@@ -1096,12 +1027,7 @@ class WechatSearch:
         }
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         try:
@@ -1149,12 +1075,7 @@ class SmSearch:
         }
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         try:
@@ -1198,12 +1119,7 @@ class BraveSearch:
         }
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         try:
@@ -1247,12 +1163,7 @@ class EcosiaSearch:
         }
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         try:
@@ -1296,12 +1207,7 @@ class StartpageSearch:
         }
 
     def is_available(self) -> bool:
-        try:
-            req = urllib.request.Request(self.BASE_URL, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except:
-            return False
+        return _reachable(self.BASE_URL, headers=self.headers, timeout=5)
 
     def search(self, query: str, max_results: int = 10) -> Optional[Dict]:
         try:
