@@ -36,6 +36,15 @@ def _allow(why: str = '') -> int:
     return 0
 
 
+def _trace(name: str, verdict: str, why: str) -> None:
+    """判过就要留痕：放行本来就是静默的，"跑了并放行"和"根本没被调起"在实跑里同形。
+
+    只写会话名 + 结论，不写报告正文——这一行会进宿主日志。
+    """
+    sys.stderr.buffer.write(
+        f'[drux gate_hook] {verdict} {name}：{why}\n'.encode('utf-8', 'replace'))
+
+
 def _block(report: Path, reason: str) -> int:
     hint = (f'[drux gate_hook] 拦住了一次自称完成但没过机器门的交付\n'
             f'  报告：{report.as_posix()}\n'
@@ -61,10 +70,25 @@ def _sessions(cwd: Path):
         yield sess.parent
 
 
+def _ledger_dir(sess: Path) -> str:
+    """账本在哪一层：MCP 直接放在会话根，CLI（research.py --ledger）放在 <会话>/ledger/。
+
+    戳里的 ledger 指纹是按盖戳那一刻传入的目录算的，指错一层就恒判"账本与戳不符"。
+    """
+    try:
+        rel = str(json.loads((sess / 'session.json')
+                             .read_text(encoding='utf-8')).get('ledger_dir') or '')
+    except Exception:
+        rel = ''
+    if rel:
+        return str((sess / rel).resolve())
+    return str(sess / 'ledger') if (sess / 'ledger' / 'ledger.jsonl').exists() else str(sess)
+
+
 def _verdict(md: str, sess: Path):
     sys.path.insert(0, str(SCRIPTS))
     from validate_report import verify_stamp
-    return verify_stamp(md, str(sess))
+    return verify_stamp(md, _ledger_dir(sess))
 
 
 def main() -> int:
@@ -95,15 +119,19 @@ def main() -> int:
         if md.startswith('\ufeff'):
             md = md.lstrip('\ufeff')
         if DRAFT_RE.match(md):
+            _trace(sess.name, '跳过', '首行标了 DRAFT，视为本轮未完成')
             continue
         if report.stat().st_mtime < _started_at(sess):
+            _trace(sess.name, '跳过', '报告早于本轮会话起点，是上一轮的遗留')
             continue
         has_stamp = bool(STAMP_RE.search(md))
         if not (has_stamp or CLAIM_RE.search(md) or CLAIM_RE.search(claim_text)):
+            _trace(sess.name, '跳过', '没有校验戳，也没有交付声明')
             continue
         ok, reason = _verdict(md, sess)
         if not ok:
             return _block(report, reason)
+        _trace(sess.name, '放行', '机器戳与正文、账本相符')
     return _allow()
 
 

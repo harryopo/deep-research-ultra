@@ -438,3 +438,40 @@ def test_skeleton_offers_the_declaration_slot_only_for_repo_reports(tmp_path):
     c2 = no_repo.add_claim('论文说这事有效', '学术', 'verified', 'general', 0.9)
     no_repo.add_source(c2['id'], 'https://arxiv.org/abs/2401.00001', tier=1)
     assert '选型调研' not in build_skeleton(str(tmp_path / 'l2')), '与仓库无关的报告别塞这行'
+
+
+# ---------------------------------------------------------------------------
+# 反馈 #15：CLI 这条链要给 Stop 钩子留下会话身份证
+# ---------------------------------------------------------------------------
+
+def test_cli_ledger_init_leaves_a_session_marker(tmp_path):
+    """钩子靠 session.json 找到会话并定位账本在哪一层；缺它则 CLI 跑一轮，钩子一条都看不见。"""
+    from datetime import datetime
+
+    sess = tmp_path / '.research' / 'drux-cli-run'
+    ResearchLedger(str(sess / 'ledger')).init()
+    marker = sess / 'session.json'
+    assert marker.exists(), 'CLI 账本 init 后没有 session.json，Stop 钩子会一条会话都找不到'
+    info = json.loads(marker.read_text(encoding='utf-8'))
+    assert info['ledger_dir'] == 'ledger', f'账本在下一层，身份证要写清：{info}'
+    assert info['session_id'] == 'drux-cli-run', f'会话名是那一轮调研，不是账本目录：{info}'
+    # 存不成时间戳就别怪钩子把整轮判成遗留
+    assert datetime.fromisoformat(info['started_at'])
+
+
+def test_re_running_init_does_not_move_the_session_start(tmp_path):
+    """init 幂等：已有身份证就不覆盖。重跑把 started_at 刷成"刚刚"，旧报告会被判成本轮新交付。
+
+    取一个远处的时间戳当锚点，而不是连着 init 两次比字符串——两次都在同一秒里，
+    覆盖与否都相等，那条断言就白给。
+    """
+    sess = tmp_path / '.research' / 'drux-cli-run'
+    (sess / 'ledger').mkdir(parents=True)
+    marker = sess / 'session.json'
+    marker.write_text(json.dumps({'session_id': 'old', 'started_at': '2020-01-01T00:00:00',
+                                  'query': '别丢掉我'}, ensure_ascii=False), encoding='utf-8')
+    L = ResearchLedger(str(sess / 'ledger')).init()
+    info = json.loads(marker.read_text(encoding='utf-8'))
+    assert info['started_at'] == '2020-01-01T00:00:00', f'重跑 init 改写了会话起点：{info}'
+    assert info['query'] == '别丢掉我', f'重跑 init 覆盖了 MCP 写的字段：{info}'
+    assert L.entries_path.exists(), '不覆盖身份证不等于跳过建账本'

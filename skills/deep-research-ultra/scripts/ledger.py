@@ -226,7 +226,25 @@ class ResearchLedger:
             d.mkdir(parents=True, exist_ok=True)
         if not self.entries_path.exists():
             self.entries_path.write_text('', encoding='utf-8')
+        self._write_session_marker()
         return self
+
+    def _write_session_marker(self) -> None:
+        """给 Stop 钩子留一张会话身份证：它靠 session.json 定位账本在哪一层、本轮何时开始。
+
+        原先只有 MCP 的 drux_session_start 写这个文件，而实跑走的是 research.py / ledger.py
+        这条 CLI 链——那条链下钩子一条会话都找不到，形同不在场（v6.15 反馈第 15 条）。
+        已存在就不覆盖：init 幂等，started_at 不能被重跑刷成"刚刚"。
+        """
+        sess = self.root.parent if self.root.name == 'ledger' else self.root
+        marker = sess / 'session.json'
+        if marker.exists():
+            return
+        marker.write_text(json.dumps({
+            'session_id': sess.name,
+            'started_at': datetime.now().isoformat(timespec='seconds'),
+            'ledger_dir': self.root.relative_to(sess).as_posix(),
+        }, ensure_ascii=False), encoding='utf-8')
 
     def require(self) -> 'ResearchLedger':
         """升/降级前置门：账本必须已存在。
