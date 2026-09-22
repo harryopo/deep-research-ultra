@@ -41,6 +41,7 @@ class SearchResult:
     published_date: str = ''         # 发布日期
     author: str = ''                 # 作者
     engine: str = ''                 # 实际使用的引擎
+    query: str = ''                  # 命中此结果实际发出去的查询（引擎改写查询时必须记，否则命中不可解释）
     raw: Dict = field(default_factory=dict)  # 原始数据（调试用）
 
     def to_dict(self) -> Dict:
@@ -55,6 +56,7 @@ class SearchResult:
             'published_date': self.published_date,
             'author': self.author,
             'engine': self.engine,
+            'query': self.query,
         }
 
 

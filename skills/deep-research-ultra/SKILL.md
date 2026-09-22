@@ -1280,6 +1280,12 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 置信度: 0.95
 ```
 
+> **github-deep-search 会改写查询词**（v6.15 起把改写说清楚）：GitHub 仓库搜索把多词按 AND 同时匹配
+> name/description/readme，> 3 词的自然语言查询恒 0 命中，所以引擎首轮就把查询压到 ≤3 个词，
+> 并在 stderr 列出**实际发出去的查询**和**被丢掉的词**。每条结果带 `query` 字段＝命中它的那条查询：
+> 判相关性时看这个字段，别看原始问题——命中是三个词捞来的，与原始问题的差距要由 Lead 认。
+> 嫌它压得太狠，就自己传 ≤3 词的短查询（引擎对短查询不动手）。
+
 **国内调研**（如 "国内 RAG 落地实践"）：
 ```
 查询类型: general（国内适配）

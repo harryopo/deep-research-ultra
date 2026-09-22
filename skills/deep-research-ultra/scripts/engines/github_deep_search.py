@@ -186,9 +186,13 @@ class GitHubDeepSearchEngine(SearchEngine):
         # 长 AND 查询必然 0 命中，那样只是把搜索配额白烧一倍。
         normalized = normalize_repo_query(query)
         if normalized != query.strip().lower():
+            kept = normalized.split()
+            dropped = [t.lower() for t in re.split(r"[\s,;|]+", query.strip())
+                       if t and t.lower() not in kept]
             print(f"\u26a0\ufe0f github-deep-search 查询已归一："
                   f"{query[:60]!r} \u2192 {normalized!r}"
-                  f"（GitHub 仓库搜索按 AND 匹配，长查询恒 0 命中）", file=sys.stderr)
+                  f"（GitHub 仓库搜索按 AND 匹配，长查询恒 0 命中）"
+                  f"被丢掉的词：{', '.join(dropped) or '（无）'}", file=sys.stderr)
             query = normalized
 
         # 分桶搜索：每桶分配 1/4 的结果配额
@@ -217,6 +221,7 @@ class GitHubDeepSearchEngine(SearchEngine):
                         # 标注分桶信息
                         r.raw['star_bucket'] = bucket_key
                         r.raw['star_bucket_label'] = bucket_label
+                        r.query = query
                         all_results.append(r)
 
             if len(all_results) >= max_results:
@@ -238,6 +243,7 @@ class GitHubDeepSearchEngine(SearchEngine):
                 if r.url not in seen_repos:
                     seen_repos.add(r.url)
                     r.raw['discovery_method'] = 'awesome_list'
+                    r.query = query
                     all_results.append(r)
 
         return all_results[:max_results] if all_results else None

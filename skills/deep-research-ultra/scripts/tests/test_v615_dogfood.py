@@ -301,3 +301,59 @@ def test_missing_curl_cffi_says_so_once(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert err.count('curl_cffi 未安装') == 1, '降级要说，但每次请求刷一行会把日志埋掉'
     assert 'pip install curl_cffi' in err
+
+
+# ---------------------------------------------------------------------------
+# 第 10 条：归一之后"命中了什么"要能解释（反馈原话：有告警行，但归一后
+# 命中的是什么已不可解释）
+# ---------------------------------------------------------------------------
+
+GH_LONG = 'LLM judge versus execution based evaluation code correctness'
+
+
+def _gh_engine(monkeypatch, captured):
+    """把桶搜索换成假实现，只留归一与记账这条真链路。"""
+    from engines.base import SearchResult
+    from engines.github_deep_search import GitHubDeepSearchEngine
+
+    def _fake_bucket(query, **kw):
+        captured.append(query)
+        return [SearchResult(title='some/repo', url='https://github.com/some/repo',
+                             content='命中', source='github-deep-search',
+                             engine='github-deep-search')]
+
+    eng = GitHubDeepSearchEngine()
+    monkeypatch.setattr(eng, '_search_bucket', _fake_bucket)
+    monkeypatch.setattr(eng, '_search_dependents', lambda *a, **k: [])
+    monkeypatch.setattr(eng, '_search_awesome', lambda *a, **k: [])
+    return eng
+
+
+def test_warning_names_the_dropped_words(monkeypatch, capsys):
+    """告警必须说清"哪些词没进查询"，否则 Lead 无从判断命中答不答得上问题。"""
+    captured = []
+    eng = _gh_engine(monkeypatch, captured)
+    eng.search(GH_LONG, max_results=8)
+    err = capsys.readouterr().err
+    effective = captured[0]
+    assert effective in err, '告警要给出实际发出去的查询'
+    for word in GH_LONG.split():
+        if word.lower() not in effective.split():
+            assert word.lower() in err, f'被丢掉的词 {word!r} 没交代'
+            break
+
+
+def test_hit_records_the_query_that_matched(monkeypatch):
+    """结果本身要带上命中用的查询词。
+
+    告警行会滚走，JSON/账本才是 Lead 事后读的东西：一条仓库记录如果说不出
+    "它是被哪三个词捞上来的"，就没法判断它跟原始问题相不相干。
+    """
+    captured = []
+    eng = _gh_engine(monkeypatch, captured)
+    results = eng.search(GH_LONG, max_results=8)
+    assert results, '假桶给了 1 条，不该空手回来'
+    effective = captured[0]
+    for r in results:
+        assert r.query == effective, f'结果没记命中查询：{r.query!r} != {effective!r}'
+        assert r.to_dict()['query'] == effective, 'to_dict 丢了 query，JSON 里看不见'
