@@ -145,6 +145,130 @@ def summarize(reports: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 # ---------------------------------------------------------------------------
+# 主题级预演：--probe 答的是"引擎今天活着吗"，本函数答的是"这个主题它到得到数据吗"
+# ---------------------------------------------------------------------------
+
+THEME_USABLE = 'usable'      # 至少一条真实查询词取到数据
+THEME_NO_HIT = 'no_hit'      # 每条都调通了，全是 0 命中
+THEME_BLOCKED = 'blocked'    # 每条都没取到数据（被拦 / 服务挂 / 异常）
+THEME_SKIPPED = 'skipped'    # 非搜索类引擎，不进预演
+
+THEME_MARKS = {THEME_USABLE: '✅', THEME_NO_HIT: '⚠️',
+               THEME_BLOCKED: '❌', THEME_SKIPPED: '⏭ '}
+
+THEME_HEADLINES = {
+    THEME_USABLE: '本主题到得了数据',
+    THEME_NO_HIT: '引擎活着，本主题一条都没命中',
+    THEME_BLOCKED: '本主题每条查询都没取到数据（通道问题，不是没资料）',
+    THEME_SKIPPED: '非搜索类引擎，未进预演',
+}
+
+
+def theme_probe(engines: List[Any], queries: List[str],
+                max_results: int = 3) -> List[Dict[str, Any]]:
+    """拿 Lead 派给子 Agent 的实际查询词逐条打一次。
+
+    探针词是登记死的通用词（'cat:cs.CL' / 'python'），它 ✅ 不代表那条长英文查询
+    打得进去——实测同一引擎探针通过、实跑每个查询都 HTTP 406，5 个子研究员里 4 个
+    被迫改道。这里把两种"没数据"分开：调通但 0 命中（词的问题）／根本没取到（通道的问题）。
+    """
+    rows: List[Dict[str, Any]] = []
+    for engine in engines:
+        name = engine.get_name()
+        if not engine.has_capability('search'):
+            rows.append({'engine': name, 'verdict': THEME_SKIPPED, 'hit': 0,
+                         'total': len(queries), 'matched': [], 'queries': [],
+                         **_meta_fields(engine)})
+            continue
+        kwargs: Dict[str, Any] = {'max_results': max_results}
+        if engine_kind(engine) == 'mcp':
+            kwargs['mcp_timeout'] = MCP_PROBE_BUDGET
+        per: List[Dict[str, Any]] = []
+        matched: List[str] = []
+        for q in queries:
+            try:
+                results = engine.search(q, **kwargs)
+            except Exception as exc:
+                per.append({'query': q, 'count': 0, 'status': STATUS_FAILED,
+                            'note': f'异常: {exc}'})
+                continue
+            status = classify_probe(results)
+            if status == STATUS_OK:
+                matched.append(q)
+                note = (results[0].title or results[0].url or '')[:60]
+            elif status == STATUS_EMPTY:
+                note = '调通了但 0 命中'
+            else:
+                note = f'未取到数据（{_failure_reason(engine)}）'
+            per.append({'query': q, 'count': len(results or []),
+                        'status': status, 'note': note})
+        if matched:
+            verdict = THEME_USABLE
+        elif any(p['status'] == STATUS_EMPTY for p in per):
+            verdict = THEME_NO_HIT
+        else:
+            verdict = THEME_BLOCKED
+        rows.append({'engine': name, 'verdict': verdict, 'hit': len(matched),
+                     'total': len(per), 'matched': matched, 'queries': per,
+                     **_meta_fields(engine)})
+    return rows
+
+
+def theme_advice_for(row: Dict[str, Any]) -> List[str]:
+    """一个预演结论 → Lead 下一步能做的动作。"""
+    if row['verdict'] == THEME_USABLE:
+        return [f"命中的查询词：{' ／ '.join(row['matched'])} —— 派单照这个形状写"]
+    if row['verdict'] == THEME_SKIPPED:
+        return ['非搜索类引擎，不能派检索任务']
+    notes = ' '.join(q['note'] for q in row['queries'])
+    lines: List[str] = []
+    if row['verdict'] == THEME_NO_HIT:
+        lines.append('引擎活着，只是这批词一条都没命中：把整句长查询拆成 2-3 个短词组'
+                     '或换分类式查询再预演一次；0 命中不等于这个主题没资料')
+    else:
+        lines.append('每条查询都没取到数据：这是通道问题（被拦/服务挂/要授权），'
+                     '不是主题没资料')
+    if any(code in notes for code in HTTP_DENY_CODES) or _transport_degraded():
+        # 裸 urllib 那轮常连状态码都留不下（实测回"依赖/服务未就绪"），
+        # 只按 4xx 判就会在最该提示的时候一声不出
+        lines.extend(_4xx_advice())
+    return lines
+
+
+def _transport_degraded() -> bool:
+    """这一轮的失败该不该算在传输层头上：curl_cffi 没装时请求全是裸 urllib 出去的。"""
+    try:
+        from engines import fallback as _fb
+        return bool(getattr(_fb, 'TRANSPORT_DEGRADED', False))
+    except Exception:
+        return False
+
+
+def _4xx_advice() -> List[str]:
+    """被拒有两种成因，指向的修复完全不同，不能一句话糊过去。"""
+    if _transport_degraded():
+        return ['本轮所有请求都没有 TLS 指纹（curl_cffi 未装）：406/403 很可能由此起，'
+                '这不是源不行。补装一次即可，全部引擎共用：pip install curl_cffi，装好重跑预演']
+    return ['已带 TLS 指纹仍被拒：这个源今天确实到不了，换同层替代源'
+            '（--list --caps 看候选），别把它记成"本主题没资料"']
+
+
+def format_theme_rows(rows: List[Dict[str, Any]]) -> List[str]:
+    """预演结果 → 可打印行（逐条查询都要看得见，命中的是哪个词得能抄进派单）。"""
+    lines: List[str] = []
+    for row in rows:
+        lines.append(f"{THEME_MARKS.get(row['verdict'], '?')} {row['engine']:<20} "
+                     f"{row['hit']}/{row['total']} 条查询出数据  "
+                     f"{THEME_HEADLINES.get(row['verdict'], row['verdict'])}")
+        for q in row['queries']:
+            lines.append(f"      · [{q['status']}] {q['query']} → "
+                         f"{q['count']} 条 ｜ {q['note']}")
+        for advice in theme_advice_for(row):
+            lines.append(f"   → {advice}")
+    return lines
+
+
+# ---------------------------------------------------------------------------
 # 启动前环境闸门（Phase 0 硬门）
 # ---------------------------------------------------------------------------
 

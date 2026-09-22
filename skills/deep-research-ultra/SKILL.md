@@ -198,16 +198,27 @@ arXiv 对部分宽查询回 HTTP 406，而它们在 `--list` 里全是 ✅。`--
 |--------|------|-----------|
 | `0` + `✅ 环境可开工` | 闸门放行 | 进 Phase 1；若同时打印了"有 N 个源没配好"，**先用 AskUserQuestion 问用户「现在配 / 就这样开跑」**，得到答复才派子 Agent |
 | `3` + `⛔ 环境不足` | 客观不够 | **停下来**：把 blockers 和逐条配置指引转述给用户，等他配好环境后重跑 `--probe`；不许硬开跑，也不许自己代答"那就继续" |
+| `4` + `⛔ 没有任何引擎对本主题到得了数据` | 引擎可能都活着，但这个主题的查询词打不进去 | **停下来改查询词或换通道**，不许写成"该主题无相关资料"（见下） |
 | `1` | 一个引擎都没出数据 | 同上，且必须先修环境 |
 
 用户明确要求带缺口开跑时才加 `--allow-degraded`（此时报告里必须写明数据源受限）；
 `--probe --sources a,b` 是局部自检，只报这几个引擎的状态，不做全局判定。
 
-> **闸门的粒度只到"引擎活着"，不到"本主题到得了"**（v6.15）：探针用的是按引擎定制的固定查询，
-> 放行不等于它对某个长英文主题出得来结果——实测 `arxiv-fulltext` 探针 ✅ 而对该主题每次 HTTP 406。
-> 所以派子 Agent 前，用 `--probe --sources <该主题要用的引擎>` 配上**实际查询词**再试一次
-> （`research.py "<查询词>" --sources <引擎> --format json --no-plan` 就是那次 dry-run）；
-> 到不了就换通道（内置 WebSearch/WebFetch、`gh api`），别把"指定引擎没结果"当成"这个主题没资料"。
+**主题级预演（v6.15 补上，`--probe --theme-query`）**：`--probe` 的粒度只到"引擎今天活着"，
+探针用的是按引擎定制的固定词，放行不等于它对某个长英文主题出得来结果——实测
+`arxiv-fulltext` 探针 ✅ 而对该主题每次 HTTP 406。所以派子 Agent 前，把**该维度真要派出去的
+查询词**逐条预演一次：
+
+```bash
+python "${SKILL_DIR}/scripts/research.py" --probe \
+  --sources arxiv-fulltext,github-code-search \
+  --theme-query "本维度实际要用的查询词" --theme-query "第二条"
+```
+
+必须配 `--sources`（预演是按真实词逐条打请求，不限范围＝全部源×全部词，白烧额度）。输出把两种
+"没数据"分开：**调通了但 0 命中**（词的形态问题：整句长查询拆成 2-3 个短词组或换分类式查询）
+与**没取到数据**（通道问题：被拦/要授权/服务挂）。到不了就换通道（内置 WebSearch/WebFetch、
+`gh api`），别把"指定引擎没结果"当成"这个主题没资料"。
 
 ```bash
 # 缺失 MCP → 一键配置（免费模式）；只测某几个引擎用 --sources a,b
@@ -1304,9 +1315,9 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 
 ```
 scripts/
-├── research.py              # 主入口（--env-check/--probe/--auto-route/--effort/--breadth/--dimensions/--ledger/--min-relevance）
+├── research.py              # 主入口（--env-check/--probe/--theme-query/--auto-route/--effort/--breadth/--dimensions/--ledger/--min-relevance）
 ├── console.py               # CLI 强制 UTF-8 输出（Windows GBK 控制台曾直接 UnicodeEncodeError）
-├── probe.py                 # 引擎功能自检（探针查询表 + ok/empty/failed 判定）
+├── probe.py                 # 引擎功能自检（探针查询表 + ok/empty/failed 判定）+ 主题级预演（按实际查询词分"活着"与"到得到数据"）
 ├── env_check.py             # 环境分级验证（minimal/opensource/academic/full）
 ├── search.py                # 引擎兼容入口（保留 --sources baidu,bing 等旧参数）
 ├── setup-mcp.sh             # MCP 一键配置脚本
@@ -1371,6 +1382,7 @@ scripts/
   `--sources` 重跑，或把相关结论降级为"待确认"；`--min-relevance`（默认 50）不是可调到 0 的装饰
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
+- ❌ **禁止拿探针的 ✅ 替主题背书**（v6.15）— `--probe` 用的是登记死的通用词，派子 Agent 前要用 `--probe --sources <引擎> --theme-query "<该维度真要用的词>"` 预演一次；预演回 0 命中/取不到数据时只能说"这批词到不了"，不许写成"该主题无相关资料"
 - ❌ **禁止越过 Phase 0 环境闸门**（v6.8）— `--probe` 退出码 3 时不许开跑，也不许自行加 `--allow-degraded`；停下来把配置指引给用户，等他配好或明确授权降级
 - ❌ **禁止把骨架当报告交**（v6.14）— 残留 `【待写】` 就是硬失败；deep 档一轮写不完时，照实说"本轮完成到哪、余下几轮"，不许砍正文凑字数、不许并多个 session 的活到一轮
 - ❌ **禁止推荐需绑卡的数据源**（v6.13.1）— 环境指引只给"注册即可用、不绑银行卡"的源；有每月免费额度但注册要绑卡的，一律不写进指引，用户主动要才提，并说清计费风险

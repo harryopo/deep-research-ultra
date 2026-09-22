@@ -63,9 +63,14 @@ def _clear_http_error() -> None:
 # 传输层去判"这个源不行"，判据从源头就脏了。所以第一次请求就说清缺什么、怎么补。
 _TRANSPORT_NOTICE_SHOWN = False
 
+# 闸门与预演要区分"源不行"与"传输层没指纹所以被拦"：裸走 urllib 发生过没有，
+# 只有事实，没有猜——所以在这里记一笔，判 4xx 时才有依据。
+TRANSPORT_DEGRADED = False
+
 
 def _note_transport_degraded() -> None:
-    global _TRANSPORT_NOTICE_SHOWN
+    global _TRANSPORT_NOTICE_SHOWN, TRANSPORT_DEGRADED
+    TRANSPORT_DEGRADED = True
     if _TRANSPORT_NOTICE_SHOWN:
         return
     _TRANSPORT_NOTICE_SHOWN = True

@@ -536,3 +536,189 @@ def test_requirements_no_longer_claims_curl_cffi_is_optional():
     req = (Path(__file__).resolve().parents[2] / 'requirements.txt').read_text(encoding='utf-8')
     assert '不影响基本功能' not in req, 'curl_cffi 缺装已被实测证伪为影响基本功能'
     assert 'curl_cffi' in req
+
+
+# ---------------------------------------------------------------------------
+# 反馈 #3：--probe 放行的是"今天有引擎出数据"，不是"本主题有引擎到得了数据"
+# 判据来自用户原话：探针 ✅，实跑时 arxiv-fulltext 对每一个查询都 HTTP 406，
+# 5 个子研究员里 4 个被迫改道。闸门对此毫无感知（第 5 条翻案后更是如此）。
+# ---------------------------------------------------------------------------
+
+from types import SimpleNamespace  # noqa: E402  （本节专用）
+
+LONG_Q = 'LLM judge versus execution based evaluation of code correctness'
+SHORT_Q = 'LLM judge code correctness'
+
+
+class _ThemeEngine:
+    """预演走的是 probe 那条分支，除 search 外还要读 metadata / is_available。"""
+
+    def __init__(self, name, answers, *, available=True, search_cap=True):
+        self.name, self._answers = name, answers
+        self._available, self._search_cap = available, search_cap
+        self.calls = []
+        self.metadata = SimpleNamespace(
+            layer=1, config_keys=[],
+            capabilities=['search'] if search_cap else ['lookup'])
+
+    def get_name(self):
+        return self.name
+
+    def has_capability(self, cap):
+        return cap == 'search' and self._search_cap
+
+    def is_available(self):
+        return self._available
+
+    def search(self, query, max_results=10, **kw):
+        self.calls.append(query)
+        kind = self._answers.get(query, self._answers.get('*'))
+        if kind is None:
+            # 预演问到计划外的词（如回落到通用探针词）就是假绿灯
+            raise AssertionError(f'问到了本主题之外的查询词：{query}')
+        if kind == 'ok':
+            return [_FakeResult(i) for i in range(min(max_results, 2))]
+        if kind == 'empty':
+            return []
+        if kind == 'none':
+            return None
+        raise RuntimeError(str(kind).split(':', 1)[1])      # 'boom:HTTP 406'
+
+
+class _ProbeRegistry:
+    def __init__(self, engines):
+        self._engines = engines
+
+    def get_all(self):
+        return list(self._engines)
+
+
+def _probe_args(**kw):
+    import argparse
+    base = dict(probe=True, probe_query=None, theme_query=None, sources=None,
+                limit=5, allow_degraded=False)
+    base.update(kw)
+    return argparse.Namespace(**base)
+
+
+_ELIST = object()          # "按引擎列表自动拼 --sources"的哨兵，别拿 None 当默认值
+
+
+def _run_probe(capsys, engines, sources=_ELIST, **kw):
+    import research
+    if sources is _ELIST:
+        sources = ','.join(e.name for e in engines)
+    args = _probe_args(sources=sources, **kw)
+    capsys.readouterr()
+    try:
+        research.cmd_probe(_ProbeRegistry(engines), args)
+        code = 0
+    except SystemExit as e:
+        code = e.code or 0
+    return code, capsys.readouterr()
+
+
+def test_theme_probe_reports_zero_hit_as_reachable_not_broken():
+    from probe import THEME_NO_HIT, theme_probe
+    eng = _ThemeEngine('arxiv-fulltext', {'*': 'empty'})
+    row = theme_probe([eng], [LONG_Q, SHORT_Q])[0]
+    assert row['verdict'] == THEME_NO_HIT
+    assert (row['hit'], row['total']) == (0, 2)
+    assert eng.calls == [LONG_Q, SHORT_Q], '要逐条拿 Lead 真实要用的查询词打请求'
+
+
+def test_theme_probe_marks_every_query_failing_as_blocked_and_keeps_reason():
+    from probe import THEME_BLOCKED, theme_probe
+    row = theme_probe([_ThemeEngine('arxiv-fulltext', {'*': 'boom:HTTP 406'})],
+                      [LONG_Q])[0]
+    assert row['verdict'] == THEME_BLOCKED
+    assert '406' in row['queries'][0]['note'], '失败原因要带上来，才分得清被拦与没数据'
+
+
+def test_theme_probe_is_usable_when_any_query_hits_and_names_that_word():
+    from probe import THEME_USABLE, theme_probe
+    row = theme_probe([_ThemeEngine('baidu-serp', {LONG_Q: 'empty', SHORT_Q: 'ok'})],
+                      [LONG_Q, SHORT_Q])[0]
+    assert row['verdict'] == THEME_USABLE
+    assert row['matched'] == [SHORT_Q], '命中的是哪个词要交回 Lead，下一维度照它写'
+
+
+def test_theme_probe_does_not_call_a_non_search_engine():
+    """lookup 类引擎被派进搜索预演，跑一次只会凭空造出一条"本主题到不了"。"""
+    from probe import THEME_SKIPPED, theme_probe
+    eng = _ThemeEngine('some-lookup', {'*': 'ok'}, search_cap=False)
+    row = theme_probe([eng], [LONG_Q])[0]
+    assert row['verdict'] == THEME_SKIPPED
+    assert eng.calls == []
+
+
+def test_theme_report_separates_engine_alive_from_theme_reachable():
+    from probe import format_theme_rows, theme_probe
+    rows = theme_probe([_ThemeEngine('arxiv-fulltext', {'*': 'empty'}),
+                        _ThemeEngine('baidu-xueshu', {'*': 'boom:HTTP 403'})], [LONG_Q])
+    text = '\n'.join(format_theme_rows(rows))
+    assert '引擎活着' in text, '两种"没数据"必须分开说，否则 Lead 照样判主题没资料'
+    assert '不等于这个主题没资料' in text
+
+
+def _theme_4xx_text(monkeypatch, degraded):
+    import probe
+    monkeypatch.setattr(probe, '_transport_degraded', lambda: degraded)
+    rows = probe.theme_probe([_ThemeEngine('baidu-xueshu', {'*': 'boom:HTTP 403'})],
+                             [LONG_Q])
+    return '\n'.join(probe.format_theme_rows(rows))
+
+
+def test_4xx_advice_blames_the_transport_only_when_it_really_is_degraded(monkeypatch):
+    """curl_cffi 装着的时候还甩锅"没装指纹"，就是把源的正确判断污蔑成配置问题。"""
+    text = _theme_4xx_text(monkeypatch, degraded=True)
+    assert 'curl_cffi' in text and 'pip install curl_cffi' in text
+
+
+def test_degraded_transport_is_flagged_even_when_the_status_code_got_lost(monkeypatch):
+    """实测：裸 urllib 那条路上 baidu-xueshu 回的是"依赖/服务未就绪"，403 根本没留在
+    note 里。只按状态码判，最需要提示的一轮反而一声不出。"""
+    import probe
+    monkeypatch.setattr(probe, '_transport_degraded', lambda: True)
+    rows = probe.theme_probe([_ThemeEngine('baidu-xueshu', {'*': 'none'})], [LONG_Q])
+    text = '\n'.join(probe.format_theme_rows(rows))
+    assert 'curl_cffi' in text, f'没指纹这轮所有失败都可能是它造成的：{text}'
+
+
+def test_4xx_advice_stops_blaming_the_transport_when_fingerprint_is_present(monkeypatch):
+    """正向对照：装了仍被拒 → 要说这个源今天确实到不了、换同层替代源，且不再提 curl_cffi。"""
+    text = _theme_4xx_text(monkeypatch, degraded=False)
+    assert 'curl_cffi' not in text, f'传输层没问题却提它，Lead 会去修不该修的东西：{text}'
+    assert '换同层替代源' in text
+
+
+def test_theme_preflight_without_sources_is_refused(capsys):
+    """预演按实际查询词逐条打真请求，不限引擎范围就是全引擎×N 条，会静默烧额度。"""
+    code, out = _run_probe(capsys, [_ThemeEngine('a', {'*': 'ok'})],
+                           sources=None, theme_query=[LONG_Q])
+    assert code == 2
+    assert '--sources' in out.err, f'拒绝时要说清缺什么：{out.err}'
+
+
+def test_theme_preflight_exits_4_when_no_engine_reaches_the_theme(capsys):
+    code, out = _run_probe(capsys, [_ThemeEngine('a', {'*': 'empty'})],
+                           theme_query=[LONG_Q])
+    assert code == 4, '全都到不了数据还退 0，Lead 就会把"到不了"读成"没资料"'
+    assert '不等于这个主题没资料' in out.out
+
+
+def test_theme_preflight_exits_0_when_an_engine_reaches_the_theme(capsys):
+    """正向对照：上面那条不许永远绿灯。"""
+    code, out = _run_probe(capsys, [_ThemeEngine('a', {'*': 'empty'}),
+                                    _ThemeEngine('b', {LONG_Q: 'ok'})],
+                           theme_query=[LONG_Q])
+    assert code == 0, out.out + out.err
+    assert LONG_Q in out.out, '逐条查询要打印出来，命中的是哪个词得看得见'
+
+
+def test_theme_preflight_names_an_unknown_engine_instead_of_skipping_it(capsys):
+    """名字打错（如 arxiv 写成 arxiv-full）静默少跑一个源，退 4 就会被读成"主题到不了"。"""
+    code, out = _run_probe(capsys, [_ThemeEngine('arxiv-fulltext', {LONG_Q: 'ok'})],
+                           sources='arxiv-fulltext,arxiv-full', theme_query=[LONG_Q])
+    assert code == 2
+    assert 'arxiv-full' in out.err, f'要点名是哪个源不认识：{out.err}'

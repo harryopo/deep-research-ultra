@@ -338,6 +338,56 @@ def filter_by_relevance(results, min_relevance: float, target_count: int):
     return list(results), 0, weak
 
 
+def _cmd_theme_preflight(registry, args):
+    """主题级预演：拿 Lead 派给子 Agent 的实际查询词逐条打一次。
+
+    --probe 用的是登记死的通用词，它 ✅ 只说明引擎今天活着。实测探针 ✅ 的
+    arxiv-fulltext 对每一条真实查询都 HTTP 406 —— 于是"指定引擎没结果"被读成
+    "这个主题没资料"。本命令在派单前先量一次到得到数据吗，并拒绝把 0 命中当结论。
+    """
+    from probe import THEME_USABLE, format_theme_rows, theme_probe
+
+    if not args.sources:
+        print("❌ 主题预演必须配 --sources：它按实际查询词逐条打真请求，"
+              "不限引擎范围＝全部源×全部词，白烧额度", file=sys.stderr)
+        print('   用法：research.py --probe --sources arxiv-fulltext,github-code-search '
+              '--theme-query "本维度要用的查询词"（可重复给多条）', file=sys.stderr)
+        sys.exit(2)
+
+    queries = [q.strip() for q in args.theme_query if q and q.strip()]
+    if not queries:
+        print("❌ --theme-query 给了空值：要预演的是 Lead 真正要派出去的那句查询",
+              file=sys.stderr)
+        sys.exit(2)
+
+    wanted = {s.strip() for s in args.sources.split(',') if s.strip()}
+    engines = [e for e in registry.get_all() if e.get_name() in wanted]
+    unknown = sorted(wanted - {e.get_name() for e in engines})
+    if unknown:
+        print(f"❌ --sources 里有引擎不存在：{', '.join(unknown)}"
+              f"（--list 看可用引擎名；少跑一个源会被读成\"本主题到不了\"）", file=sys.stderr)
+        sys.exit(2)
+
+    print("=" * 72)
+    print(f"主题级预演 — {len(engines)} 个引擎 × {len(queries)} 条实际查询词")
+    print("=" * 72)
+    rows = theme_probe(engines, queries, max_results=max(3, min(args.limit, 5)))
+    for line in format_theme_rows(rows):
+        print(line)
+
+    usable = [r for r in rows if r['verdict'] == THEME_USABLE]
+    print("-" * 72)
+    if usable:
+        print(f"✅ 可派单：{len(usable)}/{len(rows)} 个引擎对本主题到得了数据"
+              f"（{'、'.join(r['engine'] for r in usable)}）")
+        return
+    print("⛔ 没有任何引擎对本主题到得了数据 —— 这不等于主题没资料：")
+    print("   · 先换查询词形态（整句长查询拆成 2-3 个短词组／分类式查询）重跑预演")
+    print("   · 或补同层替代源（--list --caps academic,fulltext 看候选）")
+    print("   · 仍要开跑时：报告里写明本主题仅由哪几个源支撑，0 命中不得写成\"无相关文献\"")
+    sys.exit(4)
+
+
 def cmd_probe(registry, args):
     """引擎功能自检 + 环境充分性硬门（Phase 0）。
 
@@ -347,6 +397,10 @@ def cmd_probe(registry, args):
     from probe import (STATUS_EMPTY, STATUS_FAILED, STATUS_OK, STATUS_SKIPPED,
                        engine_kind, probe_engine, probeable_engines, source_gate,
                        summarize)
+
+    if getattr(args, 'theme_query', None):
+        _cmd_theme_preflight(registry, args)
+        return
 
     scoped = bool(args.sources)
     if scoped:
@@ -1238,6 +1292,9 @@ v3 兼容（自动降级到 Layer 4）:
                         help='引擎功能自检：真实发探针查询，验证引擎今天是否出得来数据')
     parser.add_argument('--probe-query', default=None,
                         help='覆盖探针查询词（默认按引擎定制，见 probe.py 的 PROBE_QUERIES）')
+    parser.add_argument('--theme-query', action='append', default=None, metavar='查询词',
+                        help='主题级预演：把 Lead 本维度真要派出去的查询词逐条打一次（可重复），'
+                             '须配 --sources；区分"引擎活着"与"对本主题到得到数据"')
     parser.add_argument('--allow-degraded', action='store_true',
                         help='--probe 环境闸门不足时仍放行（默认退出码 3 停住，先配环境再调研）')
     # v6.1: 环境分级门控
@@ -1274,7 +1331,7 @@ v3 兼容（自动降级到 Layer 4）:
         cmd_env_check(args)
         return
 
-    if args.probe:
+    if args.probe or args.theme_query:
         cmd_probe(registry, args)
         return
 
