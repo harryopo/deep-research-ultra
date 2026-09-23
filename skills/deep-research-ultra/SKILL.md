@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.15.5
+version: 6.15.6
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -140,7 +140,7 @@ python "${SKILL_DIR}/scripts/research.py" "深度调研大语言模型微调" --
 
 **步骤 0.1 判定场景 → 环境分级（profile）**
 
-| 调研场景 | profile | 必需环境 | 可选增强（缺失仅告警） |
+| 调研场景 | profile | 必需环境 | 可选增强（缺失逐条说明掉哪块能力，不说"不影响"） |
 |----------|---------|----------|------------------------|
 | 快速浏览 / 通用搜索 | `minimal` | Python + 内置引擎 + 网络 | — |
 | **开源项目调研** | `opensource` | Python + 网络（GitHub/OpenAlex 免费直连） | `GITHUB_TOKEN`、`GITEE_TOKEN`；oss-finder/agent-reach 等全局 skill |
@@ -158,6 +158,14 @@ python "${SKILL_DIR}/scripts/research.py" --probe
 ```
 
 > 脚本自身强制 UTF-8 输出，**无需**设置 `PYTHONIOENCODING` / `PYTHONUTF8` / `-X utf8`。
+
+回执把代价分成两类讲，照它们行动：
+
+- **「数据源主机不通 N 个」**——这些源现在一条也取不到，指定它们的引擎会回 0 条。这不是"主题没资料"，
+  先修网络/代理或换 profile，别急着下"查不到"的结论
+- **「缺增强 N 项」**——每条跟着"去哪拿 + 解锁什么"（`TAVILY_API_KEY` 缺 = 通用网页深搜这一族缺席，
+  不是随便少个可选项）。据此引导用户配置；用户明确说不配，才降级开跑
+- 用了 `--no-net` 时连通性根本没探，不许把回执读成"环境完全就绪"
 
 **步骤 0.3 为什么必须 --probe（不能只看 --list / --env-check）**
 

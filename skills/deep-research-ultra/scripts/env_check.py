@@ -224,6 +224,37 @@ def run_env_check(profile: str = 'full', include_net: bool = True,
     return report
 
 
+def _env_guide(name: str) -> str:
+    """缺的配置"去哪拿 + 解锁什么"。真值表在 probe.CONFIG_GUIDE，这里只借不抄。"""
+    try:
+        from probe import CONFIG_GUIDE
+    except Exception:
+        return ''
+    return CONFIG_GUIDE.get(name, '')
+
+
+def _degrade_lines(report: EnvReport) -> List[str]:
+    """可选缺失分两类各说代价：主数据源不通 ≠ 没配增强项，揉成一个 N 就没法行动。"""
+    dead = [c for c in report.warnings if c.category == 'net']
+    rest = [c for c in report.warnings if c.category != 'net']
+    lines: List[str] = []
+    if dead:
+        lines.append(f'  ⚠️ 数据源主机不通 {len(dead)} 个：'
+                     + '、'.join(c.name for c in dead))
+        lines.append('     → 这些源现在一条也取不到，指定它们的引擎会回 0 条——那不是'
+                     '"主题没资料"。先修网络/代理，或改用不依赖它们的 profile')
+    if rest:
+        lines.append(f'  ⚠️ 缺增强 {len(rest)} 项（每少一项就少一块能力）：')
+        for c in rest:
+            detail = c.detail
+            if c.category == 'env' and detail == f'缺少环境变量 {c.name}':
+                guide = _env_guide(c.name)
+                if guide:
+                    detail = f'{detail}｜去哪拿：{guide}'
+            lines.append(f'     - {c.name}：{detail}')
+    return lines
+
+
 def format_report(report: EnvReport, verbose: bool = False) -> str:
     """格式化报告（控制台友好）。"""
     lines = [f'== 环境验证报告（profile: {report.profile}）==']
@@ -244,10 +275,17 @@ def format_report(report: EnvReport, verbose: bool = False) -> str:
         for c in report.missing:
             lines.append(f'    - {c.name}: {c.detail}')
         lines.append('   修复：运行 setup 或安装对应依赖后重跑 --env-check')
-    elif report.warnings:
-        lines.append(f'✅ 就绪（可选增强项缺失 {len(report.warnings)} 项，不影响核心调研）')
     else:
-        lines.append('✅ 环境完全就绪')
+        if report.net_skipped:
+            lines.append('ℹ️ 本次 --no-net 跳过了网络探测，数据源连通性未验证')
+        degrade = _degrade_lines(report)
+        if degrade:
+            lines.append('⚠️ 就绪（核心项全过），但下面这些不是零代价：')
+            lines.extend(degrade)
+        elif report.net_skipped:
+            lines.append('✅ 就绪（核心项全过；连通性未验证）')
+        else:
+            lines.append('✅ 环境完全就绪')
     return '\n'.join(lines)
 
 
