@@ -63,15 +63,24 @@
 
 ### 方式一：解包即用（默认，零注册、零重启）
 
+拿到 `deep-research-ultra-v7.0.0.zip` 时，解压后在目录里执行这四行（不需要 git、不需要联网克隆）：
+
 ```bash
-git clone https://github.com/harryopo/deep-research-ultra.git
-cd deep-research-ultra
 pip install -r skills/deep-research-ultra/requirements.txt
 
 # 把 skill 目录放进宿主的 skills 路径即可被触发（Qoder 为例）
 cp -r skills/deep-research-ultra ~/.qoder/skills/
 
 python skills/deep-research-ultra/scripts/research.py --probe   # 自检：引擎今天真出不出数据
+```
+
+Windows 下 `cp -r` 换成 `xcopy /E /I skills\deep-research-ultra %USERPROFILE%\.qoder\skills\deep-research-ultra`。
+
+有网络时也可以直接克隆，之后步骤相同：
+
+```bash
+git clone https://github.com/harryopo/deep-research-ultra.git
+cd deep-research-ultra
 ```
 
 调用调研时对宿主**没有任何额外要求**：所有强制校验都是 `scripts/` 下的 Python 在跑。

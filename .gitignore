@@ -6,3 +6,4 @@ project_memory.md
 .research/
 hooks/.drux-hook-stop.log
 hooks/.drux-hook-stop.raw
+dist/
