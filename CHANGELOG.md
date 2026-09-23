@@ -10,7 +10,7 @@
 ## v6.16.1（2026-09-23）— 安装文档补上离线包分支
 
 - README 方式一原来只给 `git clone` 一条路，拿到 zip 包的使用方（人或 Agent）在没有网络时没法照着装。
-  现在改成：解压后四条命令即可完成安装，并给出 Windows 下的 `xcopy` 等价写法；克隆降为可选路径。
+  现在改成：解压后三条命令即可完成安装，并给出 Windows 下的 `xcopy` 等价写法；克隆降为可选路径。
 - 逐条核实文档声称的事实仍然成立：包内有 `skills/deep-research-ultra/requirements.txt`（`git ls-files` 可见），
   Qoder 落点 `~/.qoder/skills` 在本机是真实目录而非链接。
 - 跨宿主收尾结论（无代码改动）：本机 `~/.trae-cn/skills` 是指向 `~/.agents/skills` 的目录链接，

@@ -63,7 +63,7 @@
 
 ### 方式一：解包即用（默认，零注册、零重启）
 
-拿到 `deep-research-ultra-v7.0.0.zip` 时，解压后在目录里执行这四行（不需要 git、不需要联网克隆）：
+拿到 `deep-research-ultra-v7.0.0.zip` 时，解压后进入解压出的 `deep-research-ultra/` 目录，执行下面三条命令（不需要 git、不需要联网克隆）：
 
 ```bash
 pip install -r skills/deep-research-ultra/requirements.txt
