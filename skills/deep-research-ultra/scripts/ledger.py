@@ -311,10 +311,15 @@ class ResearchLedger:
     def add_source(self, claim_id: str, url: str, title: str = '',
                    tier: Optional[int] = None,
                    craap_score: Optional[float] = None) -> Dict[str, Any]:
-        """为 claim 关联一条来源（多源）。tier 缺省时自动分级。"""
+        """为 claim 关联一条来源（多源）。tier 缺省时自动分级。
+
+        可点击性闸门与 add_evidence / merge 同一条：三条写入路径漏任何一条，
+        点不开的字符串都会拿到 primary_index 编号进报告的引用登记表。
+        """
         url = str(url).strip()
-        if not url:
-            raise ValueError('source url 不能为空')
+        if not _is_traceable(url):
+            raise ValueError(f'来源 {url[:60] or "(空)"} 点不回原文，是假溯源 —— '
+                             f'只收 http(s) 绝对地址')
         t = int(tier) if tier is not None else (domain_tier(url) if domain_tier else 3)
         t = min(max(t, 1), 4)
         entry = {
@@ -736,6 +741,8 @@ def _main(argv: Optional[List[str]] = None) -> int:
                     [--perspective <p>] [--confidence <0-1>] [--id <id>] [--note <n>]
   python ledger.py add-source --session <dir> --claim-id <id> --url <u>
                     [--title <t>] [--tier <1-4>] [--craap <score>]
+                    # --url 只收 http(s) 绝对地址：站内相对链接、javascript:、
+                    # "见前面报告"这类点不回原文的一律退 2 拒收，不占引用编号
   python ledger.py status --session <dir> [--topic <t>]
                     # 无 --topic：{"topics": {主题: 明细}, "totals": {全局合计}}
                     # 有 --topic：只出该主题的明细；主题名打错会列出现有主题并退 2
@@ -787,11 +794,15 @@ def _main(argv: Optional[List[str]] = None) -> int:
         if not cid or not url:
             print('缺少 --claim-id / --url', file=sys.stderr)
             return 2
-        entry = ledger.add_source(
-            claim_id=cid, url=url, title=_opt('--title'),
-            tier=int(_opt('--tier')) if _opt('--tier') else None,
-            craap_score=float(_opt('--craap')) if _opt('--craap') else None,
-        )
+        try:
+            entry = ledger.add_source(
+                claim_id=cid, url=url, title=_opt('--title'),
+                tier=int(_opt('--tier')) if _opt('--tier') else None,
+                craap_score=float(_opt('--craap')) if _opt('--craap') else None,
+            )
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            return 2
         print(json.dumps(entry, ensure_ascii=False))
         return 0
 

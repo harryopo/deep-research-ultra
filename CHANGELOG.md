@@ -5,6 +5,44 @@
 
 ---
 
+## v6.15.5（2026-09-23）— 点不回原文的"来源"三条写入路径全封，第四条漏的那条补上
+
+清单条目 X-D16。原话是"`ledger.py export` 没有 `--filter`，取不到『仅带绝对 URL 且已挂源』的干净子集"。
+前半句对（`export` 只有 `--format` / `--out`），但实测下来该修的不是导出——**是账本根本不该收点不开的来源**。
+
+`_is_traceable()`（站内相对链接、`javascript:`、口头指代一律不算来源）是这套账本唯一的可点击性判据，
+它挂在 `add_evidence` 和 `merge` 上，**Lead 自己直写的 `add_source` 是第三条写入路径，漏了**。
+v6.15 那轮治"假溯源"时只堵了两条（`test_ledger_hygiene.py` 的开场白写的就是这个病例）。
+
+改之前真命令行跑一个会话目录（1 条 claim，挂三条 source）：
+
+    add-source --url '/link?url=abc123'  → rc=0，写进去了
+    add-source --url '见前面报告'         → rc=0，写进去了
+    status --topic 补贴  → independent_sources=3, effective_sources=3, coverage=1.0, sufficient=True
+    export --format json → urls=['/link?url=abc123', '见前面报告', 'https://gov.cn/a']
+                           primary_index=[(1,…), (2,…), (3,…)]
+
+两条点不开的记录**占了 [1] 和 [2] 号引用位**：SKILL.md §报告骨架 明写附录来源登记表来自"source 条目全量"、
+编号取 `primary_index`（和校验门同一套编号），Lead 照抄就得把 `/link?url=abc123` 列成读者的第 1 条引用。
+两条假源还把单源 claim 抬成"独立来源 3 个、充分"。发布门这边也不兜：`validate_report.py` 全文没有一处
+可点击性检查（只比 URL 字面一致、查引用编号冲突），所以这条脏数据是一路过门的。
+
+没给 `export` 加 `--filter`，两个理由：写入侧封口后 export 给的就是干净子集，加开关只是把脏数据藏起来；
+而"只留真挂源的 claim"这半边会把 `pending`（待补证据的活清单，Lead 正事就靠它）一并藏掉。
+
+- `add_source` 改走同一道 `_is_traceable` 闸门，报错点名是哪条 URL；空串并进去判（原来那句
+  『source url 不能为空』是它的一个子集，行为不变）。
+- CLI `add-source` 撞闸门退 2、原因打 stderr，不甩 traceback；`--help` 与命令表写明这条拒收。
+- SKILL.md §报告骨架 的登记表那行补上"每条都点得回原文"，说清 `source 条目全量` 里的"全量"是什么质量。
+
+**实测（先红后绿）**：改前 5 条红（相对链接 rc=0、`independent_sources=3`、export 三条编号 1/2/3 等），
+2 条正向对照本来就绿（空 URL 仍拒、真 URL 仍写）。改后同一命令行脚本：两条垃圾 rc=2 且 stdout 空、
+账本里零条源，`status` 回到 `independent_sources=1 / sufficient=False`，`export` 只发 `(1, https://gov.cn/a)`，
+`--help` 里新说明在场。`scripts` 全套 393 通过（386 + 新 7），仓库根 `tests` 49 通过。
+（`tests/test_v6155_source_traceable.py`）
+
+---
+
 ## v6.15.4（2026-09-22）— 归并回执不再把账本自己算成分片
 
 清单条目 X-D5。SKILL.md §归并 让人跑的是 `merge --session {ledger_dir} --dir {ledger_dir}`，

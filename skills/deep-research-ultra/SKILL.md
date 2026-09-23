@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.15.4
+version: 6.15.5
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -542,7 +542,7 @@ python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger \
 |--------------|------|
 | 按主题分好组的 claim 清单（verified 直述、conflict 带 ⚠️ 待裁决、未验证带 ⚠️ 仅作线索） | `ledger.jsonl` 的 claim + status |
 | 每条 claim 后面的 `[N]` 引用编号 | source 的 `primary_index`（与校验门同一套编号） |
-| 附录来源登记表 `| [N] | Tier | 标题 | URL |` | source 条目全量 |
+| 附录来源登记表 `| [N] | Tier | 标题 | URL |` | source 条目全量（每条都点得回原文，写不进去的早在 add-source/merge 被退回了） |
 | 「claims/verified/仅作线索/冲突/来源/独立域名」这些事实数字 | 账本统计 |
 
 Lead 只写机器写不了的四段：执行摘要、调研方法、结论与建议，以及**每条冲突的裁决**——
@@ -1255,6 +1255,8 @@ python "${SKILL_DIR}/scripts/ledger.py" add-claim --session <dir> --text "<claim
     [--confidence <0-1>] [--id <id>] [--note <n>]
 python "${SKILL_DIR}/scripts/ledger.py" add-source --session <dir> --claim-id <id> --url <绝对URL> \
     [--title <t>] [--tier <1-4>] [--craap <分数>]        # tier 不传则按域名自动判定
+    # 点不回原文的一律退 2 拒收（站内相对链接 /link?url=…、javascript:、"见前面报告"），
+    # 与 merge 同一道闸门：这种字符串一旦入账就占一个引用编号，报告必须列进来源登记表
 python "${SKILL_DIR}/scripts/ledger.py" set-status --session <dir> --claim-id <id>[,<id>...] \
     [--status <s>] [--note <n>] [--text "<就地更正后的原文>"]   # 只给 --text 时状态不动
 python "${SKILL_DIR}/scripts/ledger.py" verify-primary --session <dir> --claim-id <id>[,<id>...] \
