@@ -61,6 +61,18 @@ class SearchResult:
         }
 
 
+def missing_required_config(meta: 'EngineMetadata') -> List[str]:
+    """真正阻塞使用的缺失项。
+
+    requires_config=False 的引擎，config_keys 只是"配了更好"（如 S2_API_KEY 解限流、
+    UNPAYWALL_EMAIL 走默认值），缺了不算没配好——把它当阻塞项会让人去申请一个
+    根本不需要的 key。--list 与 --probe 共用这一个判据，别再各写一份。
+    """
+    if not meta.requires_config:
+        return []
+    return [k for k in meta.config_keys if not os.environ.get(k)]
+
+
 # ============================================================
 # 抽象基类
 # ============================================================
@@ -169,9 +181,7 @@ class SearchEngine(ABC):
         与 --probe 的事，同一个端点两次超时与否不该改变清单上的数字。
         """
         m = self.metadata
-        if not m.requires_config:
-            return True
-        return all(os.environ.get(k) for k in m.config_keys)
+        return not missing_required_config(m)
 
     def __repr__(self) -> str:
         m = self.metadata

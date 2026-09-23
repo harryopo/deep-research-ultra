@@ -7,6 +7,28 @@
 
 ---
 
+## v6.16.3（2026-09-23）— `--probe` 不再让连通性猜测量抢在功能探针前面
+
+- 环境闸门的短路条件从 `is_available()` 换成"必需配置齐不齐"（`missing_required_config()`，
+  与 v6.16.2 的 `--list` 共用同一个判据）。拦不住的引擎一律真探一次，失败原因取自实际
+  HTTP 状态。本机实测：`openalex` 由 `❌ 依赖/服务未就绪` 变 `✅ 5 条`——它的功能探针
+  此前被自己那次连通性超时挡在了外面；闸门"真出数据"从 7 个升到 8 个，一手制品通道
+  多出 openalex。
+- `semantic-scholar` 不再被报成"缺少配置: S2_API_KEY"。那个 key 是可选加速项
+  （`requires_config=False`），实测真实原因是 `HTTP 429 rate limited`。指引文案同步收紧：
+  可选 key 不再进入"去哪申请"清单，避免把人支去注册一个用不上的账号。
+- MCP 引擎的失败原因改由 client 提供（如"未配置 MCP server 'arxiv'（配置文件里没有，
+  或缺 command）"），不再统一糊成"依赖/服务未就绪"。
+- 新增回归 `tests/test_v6163_probe_config_gate.py`（6 项）：免配置引擎即便连通性判 False
+  也必须真跑功能探针；必需 key 缺失才报"缺少配置"且不白跑探针；可选 key 缺失既不进
+  短路也不进指引；并对真实 `SemanticScholarEngine` 复核一遍。反向验证过：把闸门退回旧写法，
+  这 6 项里 5 项转红。
+- 顺带补齐 4 处测试替身的 `requires_config` 字段（真实 `EngineMetadata` 一直有，替身漏了），
+  并让 Tavily 超时用例先把 key 配上——测的才是"会话超时"而不是"缺配置"。
+- 全量 429 项内核测试与 49 项插件壳测试通过。
+
+---
+
 ## v6.16.2（2026-09-23）— `--list` 的计数改为可复现口径
 
 - `--list` 结尾的数字换成「配置就绪」，判据是新加的 `SearchEngine.is_configured()`：只读

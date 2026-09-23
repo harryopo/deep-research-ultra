@@ -558,7 +558,7 @@ class _ThemeEngine:
         self._available, self._search_cap = available, search_cap
         self.calls = []
         self.metadata = SimpleNamespace(
-            layer=1, config_keys=[],
+            layer=1, config_keys=[], requires_config=False,
             capabilities=['search'] if search_cap else ['lookup'])
 
     def get_name(self):

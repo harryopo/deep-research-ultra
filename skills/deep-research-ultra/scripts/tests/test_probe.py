@@ -20,17 +20,22 @@ class _Meta:
     probe_query: str = ''
     layer: int = 2
     capabilities: List[str] = field(default_factory=lambda: ['search'])
+    requires_config: bool = False
 
 
 class _FakeEngine:
     def __init__(self, name='fake', results=None, available=True, capabilities=('search',),
-                 config_keys=(), probe_query='', raises=None):
+                 config_keys=(), probe_query='', raises=None, requires_config=None):
         self._name = name
         self._results = results
         self._available = available
         self._capabilities = list(capabilities)
         self._raises = raises
-        self.metadata = _Meta(list(config_keys), probe_query)
+        # 真引擎的写法是"requires_config=True 且列出 key"，替身跟着这个约定走：
+        # 给了 config_keys 就按必需项处理，除非调用方显式说明是可选加速项
+        self.metadata = _Meta(list(config_keys), probe_query,
+                              requires_config=bool(config_keys)
+                              if requires_config is None else requires_config)
         self.called_with = None
 
     def get_name(self):

@@ -43,6 +43,7 @@ class _Meta:
     probe_query: str = ''
     layer: int = 2
     capabilities: List[str] = field(default_factory=lambda: ['search'])
+    requires_config: bool = False
 
 
 class _ScriptEngine:

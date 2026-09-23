@@ -915,6 +915,7 @@ class TestMcpIsReallyProbed:
         _E.__name__ = name
         eng = _E()
         eng.metadata = SimpleNamespace(name=name, layer=1, config_keys=[],
+                                       requires_config=False,
                                        capabilities=['search'], probe_query='')
         eng.calls = {}
 
@@ -974,10 +975,15 @@ class TestMcpFailureIsNotReportedAsEmpty:
     CLASSES = ('TavilyMcpEngine', 'FirecrawlMcpEngine', 'OpenWebsearchMcpEngine',
                'ArxivMcpEngine', 'PaperSearchMcpEngine')
 
-    def _engine_with_dead_session(self, cls_name):
+    def _engine_with_dead_session(self, cls_name, monkeypatch=None):
         from engines import mcp_engines
 
         eng = getattr(mcp_engines, cls_name)()
+        if monkeypatch is not None:
+            # "会话超时"这个场景的前提是 key 已经配好——不配 key 的话闸门在配置那一关
+            # 就拦下了，根本走不到 call_tool，测的就不是超时而是缺配置
+            for key in eng.metadata.config_keys:
+                monkeypatch.setenv(key, 'probe-test-value')
         eng._client = SimpleNamespace(
             is_available=lambda: True,
             call_tool=lambda *a, **k: None,
@@ -990,17 +996,17 @@ class TestMcpFailureIsNotReportedAsEmpty:
             assert eng.search('probe query', max_results=2) is None, \
                 f'{cls_name} 把会话失败吞成了 0 结果'
 
-    def test_probe_reports_the_session_error_not_empty(self):
+    def test_probe_reports_the_session_error_not_empty(self, monkeypatch):
         import probe
-        eng = self._engine_with_dead_session('TavilyMcpEngine')
+        eng = self._engine_with_dead_session('TavilyMcpEngine', monkeypatch)
         rep = probe.probe_engine(eng, max_results=2)
         assert rep['status'] == probe.STATUS_FAILED
         assert '超时' in rep['note'], f"note 丢了失败原因：{rep['note']}"
 
-    def test_gate_prints_warmup_advice_on_real_timeout(self):
+    def test_gate_prints_warmup_advice_on_real_timeout(self, monkeypatch):
         import probe
-        rep = probe.probe_engine(self._engine_with_dead_session('ArxivMcpEngine'),
-                                 max_results=2)
+        rep = probe.probe_engine(
+            self._engine_with_dead_session('ArxivMcpEngine', monkeypatch), max_results=2)
         g = probe.source_gate([_rep('openalex', 'ok', 1, caps=['search', 'academic']),
                                _rep('pubmed', 'ok', 1, caps=['search', 'academic']),
                                _rep('gitee', 'ok', 1, caps=['search', 'opensource']), rep])

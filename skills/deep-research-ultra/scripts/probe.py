@@ -5,12 +5,21 @@
 真实故障：gitee 匿名请求恒返回 []、modelscope 搜索端点已 404，但 is_available()
 只看 socket 能否连上 443 —— --list 全绿、Phase 0 环境门放行死引擎，
 调研跑到后半程才发现没数据。
+
+反向故障（v6.16.3 修的那半）：闸门也不能让"连通性猜的 False"抢在功能探针前面。
+实测 openalex 因 is_available() 超时被记成"依赖/服务未就绪"，真正的探针根本没跑，
+环境于是少算一个源（7 而非 8）；semantic-scholar 同样超时，却因为 config_keys 里
+挂着可选的 S2_API_KEY 而被报成"缺少配置"，把用户支去申请一个不需要的 key。
+所以这里只按"必需配置齐不齐"拦人（missing_required_config），拦不住的统统真探一次，
+失败原因取自实际 HTTP 状态。
 """
 
 from __future__ import annotations
 
 import os
 from typing import Any, Dict, List, Optional
+
+from engines.base import missing_required_config
 
 STATUS_OK = 'ok'              # 探到结果
 STATUS_EMPTY = 'empty'        # 可调通但 0 结果（契约变更/需授权）
@@ -103,6 +112,7 @@ def _meta_fields(engine) -> Dict[str, Any]:
     """闸门要按层与能力判独立性、按通道说指引，报告里必须带上元数据。"""
     meta = engine.metadata
     return {'layer': meta.layer, 'config_keys': list(meta.config_keys),
+            'requires_config': meta.requires_config,
             'caps': list(meta.capabilities), 'kind': engine_kind(engine)}
 
 
@@ -120,11 +130,10 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
                 'note': '脚本层取不到数据：只有 Agent 亲自调用对应工具才有结果',
                 **_meta_fields(engine)}
 
-    if not engine.is_available():
-        missing = [k for k in meta.config_keys if not os.environ.get(k)]
-        note = f'缺少配置: {", ".join(missing)}' if missing else '依赖/服务未就绪'
-        return {'engine': name, 'status': STATUS_FAILED, 'count': 0, 'note': note,
-                **_meta_fields(engine)}
+    missing = missing_required_config(meta)
+    if missing:
+        return {'engine': name, 'status': STATUS_FAILED, 'count': 0,
+                'note': f'缺少配置: {", ".join(missing)}', **_meta_fields(engine)}
 
     q = query or resolve_probe_query(engine)
     kwargs: Dict[str, Any] = {}
@@ -349,12 +358,15 @@ def _advice_for(rep: Dict[str, Any]) -> List[str]:
     """单条不可用报告 → 可执行动作（可能多条：既缺 key 又要连服务时会同时给）。"""
     note = str(rep.get('note') or '')
     lines: List[str] = []
-    for key in rep.get('config_keys') or []:
-        if os.environ.get(key):
-            continue
-        guide = CONFIG_GUIDE.get(key)
-        lines.append(f'缺 {key}：{guide} → export {key}="<值>" 后重跑 --probe'
-                     if guide else f'缺 {key}：export {key}="<值>" 后重跑 --probe')
+    # 可选 key（requires_config=False）不参与"去申请"清单：缺它不是这个源用不了的原因。
+    # 字段缺失时按"必需"处理，兼容手工构造的报告。
+    if rep.get('requires_config', True):
+        for key in rep.get('config_keys') or []:
+            if os.environ.get(key):
+                continue
+            guide = CONFIG_GUIDE.get(key)
+            lines.append(f'缺 {key}：{guide} → export {key}="<值>" 后重跑 --probe'
+                         if guide else f'缺 {key}：export {key}="<值>" 后重跑 --probe')
     if '缺少配置' in note and lines:
         return lines
     # note 里的具体原因上面那张表已经逐行打过，这里只说"该怎么办"，才能按动作合并同源
