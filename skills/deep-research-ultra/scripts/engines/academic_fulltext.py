@@ -395,7 +395,7 @@ class UnpaywallEngine(SearchEngine):
     API Key：无需（**必需 email 参数**）
     国内可用：✅
     速率限制：100,000 calls/day
-    功能：DOI → OA PDF URL 解析 + 标题搜索
+    功能：DOI → OA PDF URL 解析（标题搜索端点已由官方下线，见 search()）
 
     API 文档：https://unpaywall.org/products/api
     """
@@ -413,7 +413,9 @@ class UnpaywallEngine(SearchEngine):
             is_async_supported=False,
             is_china_friendly=True,
             priority=43,  # 全文获取优先级最高
-            capabilities=["search", "academic", "fulltext", "oa"],
+            # 标题搜索端点 2026-09 起官方下线（实测 HTTP 410），不再声明 search，
+            # 免得路由把关键词检索派给一个恒失败的端点；DOI→OA 解析仍可用
+            capabilities=["academic", "fulltext", "oa", "lookup"],
         )
 
     def _get_email(self, **kwargs) -> Optional[str]:
@@ -472,7 +474,10 @@ class UnpaywallEngine(SearchEngine):
 
     def search(self, query: str, max_results: int = 10, **kwargs) -> Optional[List[SearchResult]]:
         """
-        标题搜索 OA 文章
+        标题搜索 OA 文章——官方端点已于 2026-09 下线，实测恒返回 HTTP 410
+
+        保留此方法只为兼容旧调用方；本引擎的可用通道是 search_by_doi。
+        metadata 已不再声明 search 能力，路由与 --probe 都不会再把它当搜索源。
 
         Args:
             query: 搜索文本（空格分隔 AND，支持 "短语"/OR/-取反）

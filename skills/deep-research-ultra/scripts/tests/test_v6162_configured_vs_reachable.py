@@ -5,9 +5,11 @@
 arxiv-fulltext / s2-citation-graph / github-deep-search）的 is_available() 没有
 配置项可查，于是发一次真实 HTTP 请求探连通性，超时即判「不可用」。
 
-边界：is_available() 一个字都不改——unpaywall / s2-citation-graph / crawl4ai 不在
-PROBE_QUERIES 里，它们的实时可达信号目前只剩这条路径。改的是**报告**：
+边界：is_available() 一个字都不改——当时 unpaywall / s2-citation-graph / crawl4ai 不在
+PROBE_QUERIES 里，那条路径是它们仅剩的实时信号。改的是**报告**：
 --list 换成确定性的 is_configured()，实时可达仍归 --probe 独家负责。
+（v6.16.5 起 s2-citation-graph 已登记进探针名单、unpaywall 撤掉 search 能力，
+ 这条边界对它们两个已不成立；crawl4ai 是 extract/crawl，本就不在搜索闸门范围内。）
 """
 
 import sys

@@ -7,6 +7,30 @@
 
 ---
 
+## v6.16.5（2026-09-23）— 能力声明对齐端点真实状态，两个源补进探针范围
+
+- `unpaywall` 的标题搜索端点已由官方下线（本机实测 `HTTP 410`，响应体写明
+  "Unpaywall title search was retired on 2026-09-…" 并指向 OpenAlex）。此前 metadata 仍声明
+  `search` 能力，路由会把关键词检索派给一个恒失败的端点。现撤掉该声明，
+  保留 `academic / fulltext / oa / lookup`；DOI→OA 解析实测正常（`search_by_doi` 返回 200），
+  `search()` 方法保留以兼容旧调用方，文档注明端点已下线。手法沿用 v6.16.0 收缩
+  ModelScope 关键词搜索的先例。
+- `s2-citation-graph` 有 `search` 能力（委托 Semantic Scholar），却从未登记进
+  `PROBE_QUERIES`，环境闸门一直没测过它。现补进探针范围，探针查询按学术词给
+  （通用词 `python` 对引用图谱会假阴性）。实测该端点活着，匿名请求被
+  `HTTP 429 rate limited`——这正是探针该报出来的状态。
+- `crawl4ai` 不补：它的 `capabilities` 是 `extract / crawl`，没有 `search`，
+  `probe_engine` 会直接判 SKIPPED，登记进探针名单没有意义。
+- 清单口径不变：32 个源、配置就绪 27 个、5 个需先配 key/服务。
+- 新增回归 `tests/test_v6165_capability_truthfulness.py`（8 项）：含两条反向保护——收缩
+  能力不得误伤 openalex / pubmed / arxiv-fulltext / semantic-scholar 这几个真搜索源，
+  也不得顺手删掉真正可用的 `search_by_doi` 通道。
+- 宣传页的测试条数由新增用例自动带出：`test_landing_page_facts` 在页面数字与仓库实际
+  收集数不一致时会直接失败（本轮就从 491 纠正到 499）。
+- 全量 450 项内核测试与 49 项插件壳测试通过。
+
+---
+
 ## v6.16.4（2026-09-23）— 点名多个数据源时，不再只搜第一个
 
 - 触发事实是一次真跑：主题"AI 编码 Agent 的证据溯源做法"，`--sources` 点名 6 个源，

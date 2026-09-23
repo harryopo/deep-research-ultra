@@ -43,6 +43,7 @@ PROBE_QUERIES: Dict[str, str] = {
     'semantic-scholar': 'retrieval augmented generation',
     'pubmed': 'diabetes',
     'arxiv-fulltext': 'cat:cs.CL',   # 宽查询（如 transformer）实测被 arXiv 判 406，探针用分类查询
+    's2-citation-graph': 'retrieval augmented generation',  # search() 委托 S2，实测匿名被 429 限流
     # Layer 1 MCP（要连 server；单次预算见 MCP_PROBE_BUDGET）
     'tavily': 'retrieval augmented generation production',
     'firecrawl': 'python web scraping framework',
