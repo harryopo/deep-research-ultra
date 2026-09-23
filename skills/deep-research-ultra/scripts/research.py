@@ -703,7 +703,12 @@ def _write_ledger(ledger, results, verification, query, auto_claim: bool = False
                 text = str(content)[:80] or '(无标题)'
             engine = (getattr(r, 'engine', '')
                       or (r.get('engine', '') if isinstance(r, dict) else '')) or ''
-            ev = ledger.add_evidence(url=url, title=title, query=query, engine=engine,
+            # 引擎改写（归一）过查询时会在结果上记下实际发出去的那条；账本要记的是它，
+            # 不是 Lead 的主题查询——记主题查询会让按账本复现检索必然复现不出来
+            hit_query = ((getattr(r, 'query', '')
+                          or (r.get('query', '') if isinstance(r, dict) else '')) or '').strip()
+            ev = ledger.add_evidence(url=url, title=title, query=hit_query or query,
+                                     engine=engine,
                                      tier=craap.get('tier'),
                                      craap_score=craap.get('total'))
             if ev is not None:
