@@ -936,7 +936,10 @@ def cmd_search(args, registry):
                 if results:
                     all_results.extend(results)
                     used_engines.append(name)
-                    if len(all_results) >= args.limit:
+                    if len(all_results) >= args.limit and not args.sources:
+                        # 没点名源时命中即停，省时间；但用户显式 --sources 点了多个源，
+                        # 要的就是多源交叉验证——第一个源填满额度就走会把其余源全挤掉
+                        # （实测：点名 6 个源只搜了 1 个，验证率 0%）
                         break
                 else:
                     empty_engines.append(name)
