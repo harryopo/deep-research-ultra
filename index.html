@@ -1,684 +1,367 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Research Ultra — 超级深度调研工具 v6.14</title>
-    <meta name="description" content="30 个搜索引擎，智能路由 + 四层架构，GitHub 深度搜索，国内内容源，推荐度评分系统。">
-    <meta name="theme-color" content="#0a0f1c">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --color-background: #0a0f1c;
-            --color-surface: #111827;
-            --color-surface-elevated: #1a2332;
-            --color-border: #1e293b;
-            --color-border-subtle: #0f172a;
-            --color-primary: #3b82f6;
-            --color-primary-hover: #2563eb;
-            --color-accent: #06b6d4;
-            --color-accent-hover: #0891b2;
-            --color-text-primary: #f1f5f9;
-            --color-text-secondary: #94a3b8;
-            --color-text-muted: #64748b;
-            --color-success: #10b981;
-            --color-warning: #f59e0b;
-            --color-error: #ef4444;
-            --font-heading: 'JetBrains Mono', 'Noto Sans SC', 'Fira Code', monospace;
-            --font-body: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-            --text-xs: 0.75rem;
-            --text-sm: 0.875rem;
-            --text-base: 1rem;
-            --text-lg: 1.125rem;
-            --text-xl: 1.25rem;
-            --text-2xl: 1.5rem;
-            --text-3xl: 1.875rem;
-            --text-4xl: 2.25rem;
-            --text-5xl: 3rem;
-            --text-6xl: 3.75rem;
-            --space-1: 0.25rem;
-            --space-2: 0.5rem;
-            --space-3: 0.75rem;
-            --space-4: 1rem;
-            --space-6: 1.5rem;
-            --space-8: 2rem;
-            --space-12: 3rem;
-            --space-16: 4rem;
-            --radius-md: 0.5rem;
-            --radius-lg: 0.75rem;
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
-            --shadow-glow: 0 0 20px rgb(59 130 246 / 0.3);
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; color-scheme: dark; }
-        body {
-            font-family: var(--font-body);
-            font-size: var(--text-base);
-            line-height: 1.6;
-            color: var(--color-text-primary);
-            background: var(--color-background);
-        }
-        h1, h2, h3 { font-family: var(--font-heading); font-weight: 600; line-height: 1.2; }
-        h1 { font-size: var(--text-5xl); }
-        h2 { font-size: var(--text-3xl); }
-        p { color: var(--color-text-secondary); }
-        a { color: var(--color-primary); text-decoration: none; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 var(--space-6); }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Research Ultra — 可溯源的超级深度调研 · v7.0.0</title>
+<meta name="description" content="32 个数据源、四层架构的深度调研编排层：证据账本溯源、来源分级、发布前校验门与环境闸门。Python 3.10+，一个第三方依赖，解包即用。">
+<meta name="theme-color" content="#0c0e10">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js')</script>
+<style>
+:root{
+  --ink:#0c0e10; --ink-2:#11151a; --ink-3:#161b21;
+  --rule:#242c34; --rule-soft:#1a2128;
+  --paper:#ece7dd; --paper-dim:#a9a49b; --paper-mute:#6e6b66;
+  --verm:#e2452a; --verm-soft:rgba(226,69,42,.14);
+  --sage:#79a98c;
+  --serif:'Noto Serif SC',Songti SC,SimSun,serif;
+  --mono:'IBM Plex Mono',SFMono-Regular,Consolas,monospace;
+  --sans:'Noto Sans SC',PingFang SC,Microsoft YaHei,sans-serif;
+  --gut:clamp(20px,5vw,72px);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;color-scheme:dark}
+body{
+  background:var(--ink);color:var(--paper);font-family:var(--sans);font-weight:300;
+  font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:2;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+::selection{background:var(--verm);color:#fff}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{font-family:var(--serif);font-weight:700;line-height:1.22;letter-spacing:-.01em}
+.mono{font-family:var(--mono);font-weight:400}
 
-        nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            background: rgba(10, 15, 28, 0.9); backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--color-border-subtle);
-        }
-        nav .container { display: flex; align-items: center; justify-content: space-between; height: 64px; }
-        .nav-brand { font-family: var(--font-heading); font-weight: 700; font-size: var(--text-lg); color: var(--color-text-primary); display: flex; align-items: center; gap: var(--space-3); }
-        .nav-links { display: flex; gap: var(--space-8); list-style: none; }
-        .nav-links a { font-size: var(--text-sm); color: var(--color-text-secondary); transition: color 0.2s; }
-        .nav-links a:hover { color: var(--color-text-primary); }
-        .nav-cta {
-            display: inline-flex; align-items: center; gap: var(--space-2);
-            padding: var(--space-2) var(--space-4); background: var(--color-primary);
-            color: white !important; font-weight: 500; border-radius: var(--radius-md);
-        }
-        .nav-cta:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-glow); }
+nav{position:fixed;inset:0 0 auto;z-index:50;transition:border-color .35s,background .35s;border-bottom:1px solid transparent}
+nav.stuck{background:rgba(12,14,16,.86);backdrop-filter:blur(14px);border-bottom-color:var(--rule)}
+.nav-in{display:flex;align-items:center;gap:28px;height:66px;padding:0 var(--gut)}
+.brand{display:flex;align-items:baseline;gap:9px;font-family:var(--mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.brand b{font-weight:600;color:var(--paper)}
+.brand i{font-style:normal;color:var(--verm)}
+.nav-links{display:flex;gap:24px;margin-left:auto;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--paper-dim)}
+.nav-links a{position:relative;padding-block:6px;transition:color .2s}
+.nav-links a:hover{color:var(--paper)}
+.dl{border:1px solid var(--verm);color:var(--verm);padding:7px 14px;font-family:var(--mono);font-size:12px;letter-spacing:.04em;transition:background .2s,color .2s}
+.dl:hover{background:var(--verm);color:#fff}
 
-        .hero { position: relative; min-height: 100vh; display: flex; align-items: center; padding-top: 64px; overflow: hidden; }
-        .hero::before {
-            content: ''; position: absolute; inset: 0;
-            background: radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.1) 0%, transparent 40%);
-            pointer-events: none;
-        }
-        .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); align-items: center; position: relative; z-index: 1; }
-        .hero-badge {
-            display: inline-flex; align-items: center; gap: var(--space-2);
-            padding: var(--space-1) var(--space-3); background: var(--color-surface);
-            border: 1px solid var(--color-border); border-radius: 9999px;
-            font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-accent); margin-bottom: var(--space-6);
-        }
-        .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--color-accent); border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .hero h1 {
-            font-size: var(--text-6xl); font-weight: 700; line-height: 1.1; margin-bottom: var(--space-6);
-            background: linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-text-secondary) 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-        }
-        .hero-description { font-size: var(--text-lg); line-height: 1.7; color: var(--color-text-secondary); margin-bottom: var(--space-8); max-width: 50ch; }
-        .hero-actions { display: flex; gap: var(--space-4); margin-bottom: var(--space-12); }
-        .btn {
-            display: inline-flex; align-items: center; gap: var(--space-2);
-            padding: var(--space-3) var(--space-6); font-family: var(--font-heading);
-            font-weight: 600; font-size: var(--text-sm); border: none; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;
-        }
-        .btn-primary { background: var(--color-primary); color: white; }
-        .btn-primary:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-glow); transform: translateY(-1px); }
-        .btn-secondary { background: transparent; color: var(--color-text-primary); border: 1px solid var(--color-border); }
-        .btn-secondary:hover { background: var(--color-surface); border-color: var(--color-text-muted); }
-        .stats-bar { display: flex; gap: var(--space-8); padding-top: var(--space-8); border-top: 1px solid var(--color-border); }
-        .stat { display: flex; flex-direction: column; }
-        .stat-value { font-family: var(--font-heading); font-size: var(--text-3xl); font-weight: 700; color: var(--color-text-primary); line-height: 1; }
-        .stat-label { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--gut)}
 
-        .terminal { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
-        .terminal-header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); background: var(--color-surface-elevated); border-bottom: 1px solid var(--color-border); }
-        .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
-        .terminal-dot:nth-child(1) { background: #ef4444; }
-        .terminal-dot:nth-child(2) { background: #f59e0b; }
-        .terminal-dot:nth-child(3) { background: #10b981; }
-        .terminal-title { flex: 1; text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
-        .terminal-body { padding: var(--space-6); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.8; }
-        .terminal-line { display: flex; gap: var(--space-3); margin-bottom: var(--space-2); }
-        .terminal-prompt { color: var(--color-accent); }
-        .terminal-command { color: var(--color-text-primary); }
-        .terminal-output { color: var(--color-text-secondary); padding-left: var(--space-6); }
-        .terminal-highlight { color: var(--color-primary); }
-        .terminal-success { color: var(--color-success); }
+/* masthead */
+header{padding:calc(66px + 8vh) 0 0;position:relative}
+header::before{
+  content:'';position:absolute;left:0;right:0;top:0;height:70vh;z-index:-1;
+  background:
+    radial-gradient(60% 50% at 82% 8%,rgba(226,69,42,.11),transparent 70%),
+    linear-gradient(180deg,var(--ink-2),transparent 78%);
+}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--paper-mute);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.eyebrow s{text-decoration:none;color:var(--rule)}
+.eyebrow em{font-style:normal;color:var(--verm)}
+h1{font-size:clamp(38px,7.2vw,86px);line-height:1.06;margin:22px 0 0;max-width:19ch}
+h1 span{display:block}
+h1 .u{position:relative;display:inline-block}
+h1 .u::after{content:'';position:absolute;left:0;bottom:.06em;width:100%;height:5px;background:var(--verm);transform:scaleX(0);transform-origin:left;animation:swipe 1s .55s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes swipe{to{transform:scaleX(1)}}
+.lede{margin-top:26px;max-width:56ch;font-size:clamp(15px,1.5vw,18px);color:var(--paper-dim);line-height:1.85}
+.lede b{color:var(--paper);font-weight:500}
+.rise{opacity:0;transform:translateY(18px);animation:rise .85s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+.acts{display:flex;flex-wrap:wrap;gap:14px;margin-top:38px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;font-family:var(--mono);font-size:13px;letter-spacing:.03em;border:1px solid var(--rule);transition:.22s}
+.btn.solid{background:var(--verm);border-color:var(--verm);color:#fff}
+.btn.solid:hover{background:#f2593d;border-color:#f2593d;transform:translateY(-2px)}
+.btn.ghost:hover{border-color:var(--paper-mute);background:var(--ink-3)}
+.meta{display:flex;flex-wrap:wrap;gap:0;margin:56px 0 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.meta div{flex:1 1 150px;padding:18px 20px;border-right:1px solid var(--rule-soft)}
+.meta div:last-child{border-right:0}
+.meta strong{display:block;font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.meta span{font-size:12.5px;color:var(--paper-mute);letter-spacing:.04em}
 
-        section { padding: var(--space-32) 0; }
-        .section-header { text-align: left; margin-bottom: var(--space-16); max-width: 600px; }
-        .section-label { display: inline-block; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 500; color: var(--color-accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--space-4); }
-        .section-header h2 { margin-bottom: var(--space-4); }
-        .section-header p { font-size: var(--text-lg); }
+/* sections */
+section{padding:clamp(72px,11vh,132px) 0;position:relative}
+.sechead{display:grid;grid-template-columns:78px 1fr;gap:0 22px;align-items:start;margin-bottom:52px}
+.num{font-family:var(--mono);font-size:12px;color:var(--verm);letter-spacing:.1em;padding-top:11px}
+.sechead h2{font-size:clamp(25px,3.4vw,38px)}
+.sechead p{margin-top:12px;max-width:62ch;color:var(--paper-dim);font-size:15.5px}
 
-        .features { background: var(--color-surface); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
-        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-8); }
-        .feature-card { padding: var(--space-8); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-lg); transition: all 0.3s; }
-        .feature-card:hover { border-color: var(--color-primary); transform: translateY(-2px); }
-        .feature-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-md); margin-bottom: var(--space-6); color: var(--color-primary); }
-        .feature-card h3 { font-size: var(--text-lg); margin-bottom: var(--space-3); }
-        .feature-card p { font-size: var(--text-sm); line-height: 1.6; }
+/* install */
+.term{border:1px solid var(--rule);background:var(--ink-2)}
+.term-top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:11.5px;color:var(--paper-mute);letter-spacing:.06em}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--rule)}
+.term-body{padding:24px 16px;font-family:var(--mono);font-size:13.5px;line-height:2.05;overflow-x:auto}
+.term-body .c{color:var(--paper-mute)}
+.term-body .k{color:var(--verm);user-select:none}
+.term-body .t{color:var(--sage)}
+.term-body i{font-style:normal;color:var(--paper-dim)}
+.note{margin-top:20px;display:grid;gap:9px;font-size:14px;color:var(--paper-mute)}
+.note p{padding-left:16px;position:relative}
+.note p::before{content:'';position:absolute;left:0;top:.75em;width:7px;height:1px;background:var(--verm)}
+.note b{color:var(--paper-dim);font-weight:500}
 
-        .engines-section { position: relative; }
-        .engines-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); margin-top: var(--space-12); }
-        .engine-group { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-6); }
-        .engine-group-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border); }
-        .engine-group-title { font-family: var(--font-heading); font-size: var(--text-sm); font-weight: 600; }
-        .engine-count { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-accent); background: rgba(6, 182, 212, 0.1); padding: var(--space-1) var(--space-2); border-radius: 4px; }
-        .engine-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
-        .engine-item { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--color-text-secondary); }
-        .engine-item::before { content: ''; width: 6px; height: 6px; background: var(--color-primary); border-radius: 50%; flex-shrink: 0; }
+/* engines */
+.layers{border-top:1px solid var(--rule)}
+.layer{display:grid;grid-template-columns:78px 1fr;gap:0 22px;padding:26px 0;border-bottom:1px solid var(--rule);transition:background .3s}
+.layer:hover{background:linear-gradient(90deg,var(--verm-soft),transparent 42%)}
+.layer .tag{font-family:var(--mono);font-size:11.5px;color:var(--paper-mute);padding-top:5px;letter-spacing:.05em}
+.layer h3{font-size:18px;font-family:var(--sans);font-weight:500;letter-spacing:0}
+.layer .cnt{font-family:var(--mono);color:var(--verm);font-size:12px;margin-left:10px;font-weight:500}
+.layer .sub{margin-top:3px;font-size:13.5px;color:var(--paper-mute)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.chip{font-family:var(--mono);font-size:11.5px;padding:4px 9px;border:1px solid var(--rule);color:var(--paper-dim);background:var(--ink-2);letter-spacing:.01em}
+.chip.key{border-style:dashed;color:var(--paper-mute)}
+.chip.key::after{content:' ·需 key';color:var(--verm);opacity:.75}
+.legend{margin-top:22px;font-size:13px;color:var(--paper-mute);font-family:var(--mono)}
 
-        .v52-features { background: var(--color-surface); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
-        .v52-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8); margin-top: var(--space-12); }
-        .v52-card { padding: var(--space-8); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
-        .v52-card h3 { font-size: var(--text-xl); margin-bottom: var(--space-4); color: var(--color-accent); }
-        .v52-card p { font-size: var(--text-sm); line-height: 1.7; margin-bottom: var(--space-4); }
-        .v52-card ul { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
-        .v52-card li { font-size: var(--text-sm); color: var(--color-text-secondary); padding-left: var(--space-4); position: relative; }
-        .v52-card li::before { content: '→'; position: absolute; left: 0; color: var(--color-primary); }
+/* rails: guardrails */
+.rail{border-top:1px solid var(--rule)}
+.row{display:grid;grid-template-columns:78px minmax(0,26ch) 1fr;gap:0 22px;padding:24px 0;border-bottom:1px solid var(--rule);align-items:start}
+.row h3{font-family:var(--sans);font-weight:500;font-size:17px;letter-spacing:0}
+.row .d{font-size:14.5px;color:var(--paper-dim)}
+.row .d em{font-style:normal;color:var(--paper);font-family:var(--mono);font-size:13px}
+.row .idx{font-family:var(--mono);font-size:11.5px;color:var(--paper-mute);padding-top:4px}
 
-        .workflow-section { position: relative; }
-        .workflow-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); margin-top: var(--space-12); }
-        .workflow-step { position: relative; padding: var(--space-6); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
-        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(59, 130, 246, 0.1); border-radius: 50%; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; color: var(--color-primary); margin-bottom: var(--space-4); }
-        .workflow-step h4 { font-size: var(--text-base); margin-bottom: var(--space-2); }
-        .workflow-step p { font-size: var(--text-sm); line-height: 1.5; }
+/* workflow */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.stage{background:var(--ink);padding:26px 22px 30px;position:relative;transition:background .3s}
+.stage:hover{background:var(--ink-2)}
+.stage .n{font-family:var(--mono);font-size:11px;color:var(--verm);letter-spacing:.12em}
+.stage h3{font-family:var(--sans);font-weight:500;font-size:16.5px;margin:14px 0 8px}
+.stage p{font-size:13.8px;color:var(--paper-mute);line-height:1.8}
 
-        .cta-section { text-align: center; padding: var(--space-32) 0; }
-        .cta-content { max-width: 600px; margin: 0 auto; }
-        .cta-content h2 { margin-bottom: var(--space-4); }
-        .cta-content p { font-size: var(--text-lg); margin-bottom: var(--space-8); }
-        .cta-actions { display: flex; justify-content: center; gap: var(--space-4); }
+/* candour */
+.bes{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.be{background:var(--ink-2);padding:24px}
+.be h4{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--verm);text-transform:uppercase;font-weight:500}
+.be p{margin-top:10px;font-size:14.3px;color:var(--paper-dim)}
 
-        footer { background: var(--color-surface); border-top: 1px solid var(--color-border); padding: var(--space-12) 0; }
-        .footer-content { display: flex; justify-content: space-between; align-items: center; }
-        .footer-brand { display: flex; align-items: center; gap: var(--space-3); font-family: var(--font-heading); font-weight: 600; }
-        .footer-links { display: flex; gap: var(--space-8); list-style: none; }
-        .footer-links a { font-size: var(--text-sm); color: var(--color-text-muted); }
-        .footer-links a:hover { color: var(--color-text-primary); }
-        .footer-copy { font-size: var(--text-sm); color: var(--color-text-muted); }
+/* download */
+.dlbox{display:grid;grid-template-columns:1.25fr 1fr;gap:0;border:1px solid var(--verm);background:linear-gradient(100deg,var(--ink-2),var(--ink))}
+.dlbox .l{padding:clamp(26px,4vw,44px)}
+.dlbox h2{font-size:clamp(23px,3vw,33px)}
+.dlbox .l p{margin-top:14px;color:var(--paper-dim);font-size:15px;max-width:44ch}
+.dlbox .r{border-left:1px solid var(--rule);padding:clamp(26px,4vw,44px);display:flex;flex-direction:column;justify-content:center;gap:12px}
+.fact{display:flex;justify-content:space-between;gap:14px;font-family:var(--mono);font-size:12.5px;padding-bottom:11px;border-bottom:1px dashed var(--rule)}
+.fact span{color:var(--paper-mute)}
+.fact b{font-weight:500;text-align:right}
 
-        @media (max-width: 1024px) {
-            .hero-grid { grid-template-columns: 1fr; gap: var(--space-12); }
-            .hero h1 { font-size: var(--text-4xl); }
-            .features-grid { grid-template-columns: repeat(2, 1fr); }
-            .engines-grid { grid-template-columns: repeat(2, 1fr); }
-            .v52-grid { grid-template-columns: 1fr; }
-            .workflow-steps { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 768px) {
-            .hero h1 { font-size: var(--text-3xl); }
-            .features-grid { grid-template-columns: 1fr; }
-            .engines-grid { grid-template-columns: 1fr; }
-            .workflow-steps { grid-template-columns: 1fr; }
-            .nav-links { display: none; }
-            .footer-content { flex-direction: column; gap: var(--space-8); text-align: center; }
-            .footer-links { flex-wrap: wrap; justify-content: center; }
-            .cta-actions { flex-direction: column; }
-        }
-    </style>
+footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
+.f{display:flex;flex-wrap:wrap;gap:18px;align-items:baseline;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--paper-mute);letter-spacing:.04em}
+.f a:hover{color:var(--paper)}
+.f .lk{display:flex;gap:18px;flex-wrap:wrap}
+
+.js [data-rv]{opacity:0;transform:translateY(16px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+.js [data-rv].in{opacity:1;transform:none}
+.toast{position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);background:var(--verm);color:#fff;font-family:var(--mono);font-size:12.5px;padding:10px 18px;opacity:0;transition:.3s;z-index:99;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:900px){
+  .nav-links{display:none}
+  .flow,.bes,.dlbox{grid-template-columns:1fr}
+  .row{grid-template-columns:44px 1fr;gap:6px 16px}
+  .row .d{grid-column:2}
+  .layer,.sechead{grid-template-columns:44px 1fr}
+  .dlbox .r{border-left:0;border-top:1px solid var(--rule)}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.js [data-rv]{opacity:1;transform:none}}
+</style>
 </head>
 <body>
-    <nav>
-        <div class="container">
-            <a href="#" class="nav-brand">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.3-4.3"></path>
-                    <path d="M11 8v6"></path>
-                    <path d="M8 11h6"></path>
-                </svg>
-                Deep Research Ultra
-            </a>
-            <ul class="nav-links">
-                <li><a href="#features">核心特性</a></li>
-                <li><a href="#v68">v6.8 新特性</a></li>
-                <li><a href="#engines">30 引擎</a></li>
-                <li><a href="#workflow">工作流</a></li>
-            </ul>
-            <a href="https://github.com/harryopo/deep-research-ultra" class="nav-cta" target="_blank">GitHub</a>
-        </div>
-    </nav>
 
-    <section class="hero">
-        <div class="container">
-            <div class="hero-grid">
-                <div class="hero-content">
-                    <div class="hero-badge">v6.14 现已发布</div>
-                    <h1>超级深度调研工具</h1>
-                    <p class="hero-description">
-                        32 个数据源四层架构，智能路由 + 证据账本溯源 + 发布前校验门 + 环境闸门。
-                        从技术选型到学术论文，从开源项目到行业趋势，让 AI 帮你完成深度调研。
-                    </p>
-                    <div class="hero-actions">
-                        <button class="btn btn-primary" onclick="document.getElementById('workflow').scrollIntoView({behavior:'smooth'})">
-                            快速开始
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M5 12h14M12 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                        <button class="btn btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
-                            了解更多
-                        </button>
-                    </div>
-                    <div class="stats-bar">
-                        <div class="stat">
-                            <span class="stat-value">32</span>
-                            <span class="stat-label">搜索引擎</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-value">4</span>
-                            <span class="stat-label">引擎架构</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-value">9</span>
-                            <span class="stat-label">查询意图</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-value">315</span>
-                            <span class="stat-label">测试通过</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="hero-visual">
-                    <div class="terminal">
-                        <div class="terminal-header">
-                            <span class="terminal-dot"></span>
-                            <span class="terminal-dot"></span>
-                            <span class="terminal-dot"></span>
-                            <span class="terminal-title">Terminal — deep-research-ultra v6.14</span>
-                        </div>
-                        <div class="terminal-body">
-                            <div class="terminal-line">
-                                <span class="terminal-prompt">$</span>
-                                <span class="terminal-command">python search.py <span class="terminal-string">"2025年LLM智能体框架对比"</span></span>
-                            </div>
-                            <div class="terminal-output">
-                                <span class="terminal-highlight">[ROUTER]</span> 智能路由 → 学术+开源+社区<br>
-                                <span class="terminal-highlight">[LAYER1]</span> MCP: Tavily + Semantic Scholar<br>
-                                <span class="terminal-highlight">[LAYER2]</span> GitHub 深度搜索（分桶+低星挖掘）<br>
-                                <span class="terminal-highlight">[LAYER2]</span> 国内源: 百度 + 搜狗知乎<br>
-                                <span class="terminal-success">[SUCCESS]</span> 找到 47 个相关项目，9 篇论文<br>
-                                <span class="terminal-success">[SUCCESS]</span> 推荐度评分完成，雷达图生成<br>
-                                <span class="terminal-success">[SUCCESS]</span> 报告已生成: report_v6.14.md
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+<nav id="nav"><div class="nav-in">
+  <a class="brand" href="#top"><i>◍</i><b>Deep Research Ultra</b></a>
+  <div class="nav-links">
+    <a href="#install">安装</a><a href="#sources">数据源</a><a href="#gates">校验</a><a href="#flow">流程</a><a href="#honest">边界</a>
+  </div>
+  <a class="dl" href="https://github.com/harryopo/deep-research-ultra/releases/latest">下载 v7.0.0</a>
+</div></nav>
 
-    <section id="features" class="features">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">核心特性</span>
-                <h2>为什么选择 Deep Research Ultra</h2>
-                <p>不只是搜索，而是智能调研编排层。Plan-Execute-Synthesize-Reflect 四阶段范式。</p>
-            </div>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"></path>
-                        </svg>
-                    </div>
-                    <h3>智能路由</h3>
-                    <p>三级级联 Rule→Semantic→LLM，自动识别 9 类查询意图，动态生成引擎链。CircuitBreaker 断路器自动降级。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                            <line x1="8" y1="21" x2="16" y2="21"></line>
-                            <line x1="12" y1="17" x2="12" y2="21"></line>
-                        </svg>
-                    </div>
-                    <h3>30 引擎四层架构</h3>
-                    <p>MCP 服务器 + 学术直连 + Skill 层 + 国内内容源 + 降级引擎。curl_cffi TLS 指纹伪装，Crawl4AI 浏览器自动化。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                        </svg>
-                    </div>
-                    <h3>GitHub 深度搜索</h3>
-                    <p>分桶搜索（旗舰≥1k/主流100-1k/小众10-99/微星<10）+ 低星挖掘 + 依赖图反向挖掘 + awesome 列表挖掘，确保不漏项目。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="2" y1="12" x2="22" y2="12"></line>
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-                        </svg>
-                    </div>
-                    <h3>国内内容源</h3>
-                    <p>百度 SERP + 搜狗微信 + 搜狗知乎 + 百度学术。国内调研最适配，覆盖微信公众号、知乎、百度学术等本土平台。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 20V10"></path>
-                            <path d="M18 20V4"></path>
-                            <path d="M6 20v-4"></path>
-                        </svg>
-                    </div>
-                    <h3>推荐度评分</h3>
-                    <p>GitHub 8 维评分 + 论文 5 维评分 + 分组排序 + 雷达图可视化。Adopt/Trial/Assess/Hold 推荐等级。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                            <polyline points="14,2 14,8 20,8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                        </svg>
-                    </div>
-                    <h3>学术全文检索</h3>
-                    <p>arXiv PDF/LaTeX 下载 + Unpaywall OA 解析 + Semantic Scholar 引用图谱。474M+ 作品，200M+ 论文。</p>
-                </div>
-            </div>
-        </div>
-    </section>
+<header id="top"><div class="wrap">
+  <div class="eyebrow rise" style="animation-delay:.05s">
+    <span>调研编排层</span><s>/</s><span>Agent Skill + MCP + Hook</span><s>/</s><em>MIT</em>
+  </div>
+  <h1>
+    <span class="rise" style="animation-delay:.16s">把一次调研，</span>
+    <span class="rise" style="animation-delay:.27s">做成<span class="u">能溯源</span>的档案</span>
+  </h1>
+  <p class="lede rise" style="animation-delay:.4s">
+    Lead Agent 并行派发子 Agent 检索 <b>32 个数据源</b>，每条结论落成 claim 挂上一手来源与 Tier 分级；
+    发布前过机器校验门并盖防伪戳——<b>没戳就等于没校验</b>。环境不足时硬停并给出配置指引，不静默降级开跑。
+  </p>
+  <div class="acts rise" style="animation-delay:.5s">
+    <a class="btn solid" href="https://github.com/harryopo/deep-research-ultra/releases/latest">下载安装包 · 800 KB</a>
+    <button class="btn ghost" data-copy>复制三条安装命令</button>
+    <a class="btn ghost" href="https://github.com/harryopo/deep-research-ultra">查看源码</a>
+  </div>
+  <div class="meta rise" style="animation-delay:.6s">
+    <div><strong>32</strong><span>数据源 · 四层</span></div>
+    <div><strong>4</strong><span>阶段范式 PESR</span></div>
+    <div><strong>462</strong><span>项测试，解包后实测</span></div>
+    <div><strong>1</strong><span>个第三方依赖（ddgs）</span></div>
+    <div><strong>3.10+</strong><span>Python 版本要求</span></div>
+  </div>
+</div></header>
 
-    <section id="v68" class="v52-features">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">v6.8 新特性</span>
-                <h2>从「搜得到」到「可溯源」</h2>
-                <p>证据账本 + 分级来源 + 发布前校验门 + 环境闸门：结论必须能回指到一手来源，环境不足就先停。</p>
-            </div>
-            <div class="v52-grid">
-                <div class="v52-card">
-                    <h3>🧾 证据账本（claim → source）</h3>
-                    <p>每条结论落成 claim，挂上来源与 Tier，可反查可更正。</p>
-                    <ul>
-                        <li>来源 Tier 1-4 分级，转载指纹去重算独立来源</li>
-                        <li>两档 verified 判据：跨域三角（A）/ 一手来源+逐字反查（B）</li>
-                        <li>矛盾记 conflict 并留处置，不静默丢弃</li>
-                        <li>就地更正 claim 原文，附 amended_at 留痕</li>
-                    </ul>
-                </div>
-                <div class="v52-card">
-                    <h3>🛡 发布前校验门</h3>
-                    <p>主指标是引用-证据对齐，而不是漂亮的覆盖率数字。</p>
-                    <ul>
-                        <li>被引用立论的 claim 必须已 verified 或已 conflict</li>
-                        <li>引用编号不得在登记表里指向不同来源（防串号）</li>
-                        <li>全量覆盖率降为告警：分母含未写进报告的过程记录</li>
-                        <li>正文标 ⚠️ 的降级引用只告警，不阻断交付</li>
-                        <li>防伪戳：过门后 --stamp 盖上正文/账本指纹，交付前 --verify-stamp 复核——没戳＝未校验</li>
-                        <li>下载的 PDF/LaTeX 先验魔数、篇幅、完整性与论文 ID——HTML 报错页不算下载成功</li>
-                        <li>仓库扫描分五态：429/403 限流判 UNKNOWN 并让配 GITHUB_TOKEN，不冒充仓库高风险</li>
-                    </ul>
-                </div>
-                <div class="v52-card">
-                    <h3>🛑 Phase 0 环境闸门</h3>
-                    <p>环境不足即硬停，把缺项与配置方法交给用户。</p>
-                    <ul>
-                        <li>--probe 实测每个引擎今天出不出得来数据（杜绝 --list 假绿）</li>
-                        <li>出数据 &lt;3 个 / 覆盖 &lt;2 层 / 无一手制品通道 → 退出码 3</li>
-                        <li>逐条打印去哪申请、解锁什么、export 哪个变量</li>
-                        <li>--allow-degraded 才允许带缺口开跑，并强制声明数据源受限</li>
-                        <li>5 个 MCP 源也进闸门：真起进程握手才算连上，超时给预热指引（v6.9）</li>
-                    </ul>
-                </div>
-                <div class="v52-card">
-                    <h3>🤝 Lead 内联编排</h3>
-                    <p>主 Agent 当 Lead，一次性并行派发子 Agent。</p>
-                    <ul>
-                        <li>Plan-Execute-Synthesize-Reflect 四阶段，产物逐段落盘</li>
-                        <li>多视角专家团：域专家 / 怀疑者 / 实践者对抗</li>
-                        <li>相关性兜底：低相关结果不静默混过结论链</li>
-                        <li>交付契约：长报告落盘，返回值只给短摘要</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
+<section id="install"><div class="wrap">
+  <div class="sechead" data-rv><div class="num">01</div><div>
+    <h2>拿到 zip 就能装，不需要 git</h2>
+    <p>解压后三条命令完成安装。硬性校验由包内自带 Python 执行，不依赖宿主是否加载插件。</p>
+  </div></div>
+  <div class="term" data-rv id="cmdblock">
+    <div class="term-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>bash — 在解压出的 deep-research-ultra/ 目录内</span></div>
+    <div class="term-body"><pre style="font:inherit;background:none;border:0;margin:0;overflow:visible"><span class="k">$</span> pip install -r skills/deep-research-ultra/requirements.txt
+<span class="k">$</span> cp -r skills/deep-research-ultra ~/.qoder/skills/
+<span class="c"># Windows：xcopy /E /I skills\deep-research-ultra %USERPROFILE%\.qoder\skills\deep-research-ultra</span>
+<span class="k">$</span> python skills/deep-research-ultra/scripts/research.py --probe
+<span class="t">[GATE]</span> 引擎今天真出不出数据，逐项实测后打印清单</pre></div>
+  </div>
+  <div class="note" data-rv>
+    <p><b>SKILL.md 必须在顶层</b>：最终路径要是 <span class="mono">&lt;skills&gt;/deep-research-ultra/SKILL.md</span>，再深一层宿主扫不到。</p>
+    <p>宿主不限于 Qoder：Claude Code、TRAE、Codex CLI 等能读 SKILL.md 的都可以，换宿主只换落点目录。</p>
+    <p>想要 <span class="mono">drux_*</span> 工具与收尾 Stop 钩子，再把同一份目录登记为宿主插件——可选加分项。</p>
+  </div>
+</div></section>
 
-    <section id="v52" class="v52-features">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">v5.2 新特性</span>
-                <h2>深度调研能力全面升级</h2>
-                <p>从 13 引擎到 30 引擎，从平铺搜索到智能编排，从结果列表到推荐度评分。</p>
-            </div>
-            <div class="v52-grid">
-                <div class="v52-card">
-                    <h3>🔍 GitHub 深度搜索</h3>
-                    <p>解决"调研开源项目漏掉低星项目"问题。</p>
-                    <ul>
-                        <li>分桶搜索：4 档 star 范围独立搜索</li>
-                        <li>低星挖掘：确保 <10 star 项目不被遗漏</li>
-                        <li>依赖图反向挖掘：找到依赖种子项目的项目</li>
-                        <li>awesome 列表挖掘：从 curated 列表提取项目</li>
-                    </ul>
-                </div>
-                <div class="v52-card">
-                    <h3>🇨🇳 国内内容源</h3>
-                    <p>国内调研最适配，覆盖本土平台。</p>
-                    <ul>
-                        <li>百度 SERP：国内搜索主力，含知乎/CSDN/掘金</li>
-                        <li>搜狗微信：微信公众号文章搜索</li>
-                        <li>搜狗知乎：知乎问答内容检索</li>
-                        <li>百度学术：国内学术论文搜索</li>
-                    </ul>
-                </div>
-                <div class="v52-card">
-                    <h3>📊 推荐度评分系统</h3>
-                    <p>多维度评分 + 分组排序 + 雷达图可视化。</p>
-                    <ul>
-                        <li>GitHub 8 维：人气/活跃/维护/社区/文档/依赖/相关/生态</li>
-                        <li>论文 5 维：引用/时效/权威/h-index/相关</li>
-                        <li>分组排序：旗舰/主流/小众三组独立排序</li>
-                        <li>推荐等级：Adopt/Trial/Assess/Hold 四环模型</li>
-                    </ul>
-                </div>
-                <div class="v52-card">
-                    <h3>📝 报告增强</h3>
-                    <p>调研结果更结构化、可视化。</p>
-                    <ul>
-                        <li>SVG 雷达图：多维度评分对比可视化</li>
-                        <li>推荐度章节：分组对比表 + 推荐理由</li>
-                        <li>意图识别权重调整：novel_approach 提升相关性权重</li>
-                        <li>九类查询矩阵：学术/开源/社区等精准匹配</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
+<section id="sources"><div class="wrap">
+  <div class="sechead" data-rv><div class="num">02</div><div>
+    <h2>32 个数据源，按四层分级调用</h2>
+    <p>下面的清单与计数来自 <span class="mono">research.py --list</span> 的实际输出。虚线框的那批要先配 key 才解锁。</p>
+  </div></div>
+  <div class="layers" data-rv>
+    <div class="layer"><div class="tag">L1</div><div>
+      <h3>MCP 服务器 + 学术直连<span class="cnt">11 个</span></h3>
+      <div class="sub">优先走带全文与引用图谱的学术通道，同行评审论文稳定落进高 Tier</div>
+      <div class="chips">
+        <span class="chip">OpenAlex 474M+</span><span class="chip">Semantic Scholar</span><span class="chip">PubMed</span>
+        <span class="chip">arXiv 全文</span><span class="chip">Unpaywall OA</span><span class="chip">引用图谱</span>
+        <span class="chip key">Tavily</span><span class="chip key">Firecrawl</span><span class="chip">open-websearch</span>
+        <span class="chip">paper-search</span><span class="chip">arXiv 搜索</span>
+      </div>
+    </div></div>
+    <div class="layer"><div class="tag">L2</div><div>
+      <h3>Skill 层 + GitHub 深挖 + 国内平台<span class="cnt">14 个</span></h3>
+      <div class="sub">分桶搜索覆盖到 &lt;10 star 的项目；本土平台交给百度与搜狗</div>
+      <div class="chips">
+        <span class="chip">GitHub 深度搜索</span><span class="chip">GitHub Code</span><span class="chip">oss-finder</span>
+        <span class="chip">last30days</span><span class="chip">sciverse</span><span class="chip">defuddle</span><span class="chip">Context7</span>
+        <span class="chip">百度 SERP</span><span class="chip">搜狗微信</span><span class="chip">搜狗知乎</span><span class="chip">百度学术</span>
+        <span class="chip">魔搭模型卡</span><span class="chip key">Gitee</span><span class="chip">agent-reach</span>
+      </div>
+    </div></div>
+    <div class="layer"><div class="tag">L3</div><div>
+      <h3>宿主内置 + 浏览器抓取<span class="cnt">3 个</span></h3>
+      <div class="sub">宿主自带通道只在 Agent 进程里有效，路由时单列一档，不与脚本通道混算</div>
+      <div class="chips"><span class="chip">WebSearch</span><span class="chip">WebFetch</span><span class="chip key">Crawl4AI</span></div>
+    </div></div>
+    <div class="layer"><div class="tag">L4</div><div>
+      <h3>降级兜底 + 反爬<span class="cnt">4 个</span></h3>
+      <div class="sub">curl_cffi 做 TLS 指纹伪装，失败自动退避重试，最后才动 HTML 解析</div>
+      <div class="chips"><span class="chip">DuckDuckGo (ddgs)</span><span class="chip key">SearXNG</span><span class="chip">百度 HTML</span><span class="chip">Bing HTML</span></div>
+    </div></div>
+  </div>
+  <p class="legend" data-rv>32 个源里 <b>5 个</b>要先配 key 或服务，其余开箱即用。本机此刻到不到数据，用 <span class="mono">--list</span> 与 <span class="mono">--probe</span> 现测，别信静态数字。</p>
+</div></section>
 
-    <section id="engines" class="engines-section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">引擎架构</span>
-                <h2>32 个数据源，四层架构</h2>
-                <p>MCP 服务器 + 学术直连 + Skill 层 + 国内内容源 + 降级引擎，分层降级，确保可用。</p>
-            </div>
-            <div class="engines-grid">
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">Layer 1: MCP 服务器</span>
-                        <span class="engine-count">5 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">Tavily (AI 优先)</li>
-                        <li class="engine-item">Firecrawl (网页抓取)</li>
-                        <li class="engine-item">OpenWebsearch (自托管)</li>
-                        <li class="engine-item">arxiv-mcp-server</li>
-                        <li class="engine-item">paper-search-mcp</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">Layer 1: 学术直连</span>
-                        <span class="engine-count">6 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">OpenAlex (474M+ 作品)</li>
-                        <li class="engine-item">Semantic Scholar (200M+ 论文)</li>
-                        <li class="engine-item">PubMed (36M+ 医学)</li>
-                        <li class="engine-item">arXiv 全文 (PDF/LaTeX)</li>
-                        <li class="engine-item">Unpaywall (OA 解析)</li>
-                        <li class="engine-item">S2 引用图谱</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">Layer 2: Skill 层</span>
-                        <span class="engine-count">8 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">agent-reach (13 平台)</li>
-                        <li class="engine-item">oss-finder (开源搜索)</li>
-                        <li class="engine-item">last30days (近期内容)</li>
-                        <li class="engine-item">sciverse (学术论文)</li>
-                        <li class="engine-item">defuddle (内容提取)</li>
-                        <li class="engine-item">Context7 (文档)</li>
-                        <li class="engine-item">GitHub 深度搜索 ★v5.2</li>
-                        <li class="engine-item">GitHub Code Search</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">Layer 2: 国内源 ★v5.2</span>
-                        <span class="engine-count">4 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">百度 SERP</li>
-                        <li class="engine-item">搜狗微信</li>
-                        <li class="engine-item">搜狗知乎</li>
-                        <li class="engine-item">百度学术</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">Layer 3: 内置工具</span>
-                        <span class="engine-count">3 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">WebSearch</li>
-                        <li class="engine-item">WebFetch</li>
-                        <li class="engine-item">Crawl4AI (浏览器自动化)</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">Layer 4: 降级引擎</span>
-                        <span class="engine-count">4 个</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">DuckDuckGo (ddgs)</li>
-                        <li class="engine-item">Baidu HTML (最后手段)</li>
-                        <li class="engine-item">Bing HTML (最后手段)</li>
-                        <li class="engine-item">SearXNG (自建)</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">反爬虫升级</span>
-                        <span class="engine-count">curl_cffi</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">TLS/JA3 指纹伪装</li>
-                        <li class="engine-item">impersonate="chrome124"</li>
-                        <li class="engine-item">自动降级到 urllib</li>
-                        <li class="engine-item">重试 + 退避策略</li>
-                    </ul>
-                </div>
-                <div class="engine-group">
-                    <div class="engine-group-header">
-                        <span class="engine-group-title">方法论增强</span>
-                        <span class="engine-count">v5.1+</span>
-                    </div>
-                    <ul class="engine-list">
-                        <li class="engine-item">MECE 问题树 (6状态)</li>
-                        <li class="engine-item">CRAAP 评分法</li>
-                        <li class="engine-item">交叉验证</li>
-                        <li class="engine-item">多信号反思循环</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
+<section id="gates"><div class="wrap">
+  <div class="sechead" data-rv><div class="num">03</div><div>
+    <h2>四道机器门，不靠自觉</h2>
+    <p>都是包内脚本执行的硬校验，两种用法（解包 / 插件）下同样生效。</p>
+  </div></div>
+  <div class="rail" data-rv>
+    <div class="row"><div class="idx">A</div><h3>证据账本</h3><div class="d">
+      结论落成 claim，挂来源与 Tier <em>1–4</em>；转载指纹算独立来源，不重复计数。
+      归属型断言走「一手制品 + 逐字反查」，跨域三角只给多来源立论用。矛盾记 <em>conflict</em> 并留处置，就地更正附 <em>amended_at</em> 留痕。
+    </div></div>
+    <div class="row"><div class="idx">B</div><h3>发布前校验门</h3><div class="d">
+      主指标是引用—证据对齐：被引用立论的 claim 必须 <em>verified</em> 或已标冲突；引用编号不得指向不同来源。
+      全量覆盖率只告警不阻断——分母里含没写进报告的过程记录。
+    </div></div>
+    <div class="row"><div class="idx">C</div><h3>防伪戳</h3><div class="d">
+      过门后 <em>--stamp</em> 盖上正文与账本指纹，交付前 <em>--verify-stamp</em> 复核。骨架里的【待写】占位过不了门。
+    </div></div>
+    <div class="row"><div class="idx">D</div><h3>Phase 0 环境闸门</h3><div class="d">
+      <em>--probe</em> 逐项实测引擎出不出数据，出数据不足 3 个 / 覆盖不足 2 层 / 无一手制品通道 → 退出码 <em>3</em> 硬停，
+      并逐条打印去哪申请、解锁什么、配哪个变量。要带缺口开跑得显式加 <em>--allow-degraded</em>，且会强制声明数据源受限。
+    </div></div>
+  </div>
+</div></section>
 
-    <section id="workflow" class="workflow-section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label">工作流程</span>
-                <h2>Plan → Execute → Synthesize → Reflect</h2>
-                <p>四阶段深度调研范式，每一步都经过优化。</p>
-            </div>
-            <div class="workflow-steps">
-                <div class="workflow-step">
-                    <span class="step-number">01</span>
-                    <h4>Plan 规划</h4>
-                    <p>MECE 问题树分解，6 状态子问题机制作业。识别查询意图，选择最佳引擎链。</p>
-                </div>
-                <div class="workflow-step">
-                    <span class="step-number">02</span>
-                    <h4>Execute 执行</h4>
-                    <p>智能路由三级级联，并发搜索多个引擎，curl_cffi TLS 伪装，Crawl4AI 浏览器自动化。</p>
-                </div>
-                <div class="workflow-step">
-                    <span class="step-number">03</span>
-                    <h4>Synthesize 综合</h4>
-                    <p>CER 结构组织，CRAAP 评分验证，推荐度评分排序，SVG 雷达图可视化。</p>
-                </div>
-                <div class="workflow-step">
-                    <span class="step-number">04</span>
-                    <h4>Reflect 反思</h4>
-                    <p>多信号停止：边际收益递减检测，无高优先级空白自动收敛，交叉验证补充。</p>
-                </div>
-            </div>
-        </div>
-    </section>
+<section id="flow"><div class="wrap">
+  <div class="sechead" data-rv><div class="num">04</div><div>
+    <h2>Plan → Execute → Synthesize → Reflect</h2>
+    <p>主 Agent 担任 Lead，一次性并行派发子 Agent；产物逐段落盘，返回值只给短摘要。</p>
+  </div></div>
+  <div class="flow" data-rv>
+    <div class="stage"><div class="n">PHASE 1</div><h3>Plan 拆解</h3><p>MECE 问题树，6 状态子问题机。识别查询意图，按主题生成引擎链。</p></div>
+    <div class="stage"><div class="n">PHASE 2</div><h3>Execute 检索</h3><p>三级级联路由派发子 Agent 并发检索；单引擎挂掉不吞掉其余引擎的结果。</p></div>
+    <div class="stage"><div class="n">PHASE 3</div><h3>Synthesize 综合</h3><p>CER 结构组织，CRAAP 评分，推荐等级 Adopt / Trial / Assess / Hold 与雷达图。</p></div>
+    <div class="stage"><div class="n">PHASE 4</div><h3>Reflect 反思</h3><p>多信号收敛：边际收益递减即停，无高优先级缺口才交付，专家团对抗补空白。</p></div>
+  </div>
+</div></section>
 
-    <section class="cta-section">
-        <div class="container">
-            <div class="cta-content">
-                <h2>开始你的深度调研</h2>
-                <p>只需一个命令，让 AI 帮你完成从搜索到分析的全流程。</p>
-                <div class="cta-actions">
-                    <button class="btn btn-primary" onclick="navigator.clipboard.writeText('python search.py \'你的调研主题\'')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
-                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
-                        </svg>
-                        复制安装命令
-                    </button>
-                    <a href="https://github.com/harryopo/deep-research-ultra" class="btn btn-secondary" target="_blank">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
-                            <path d="M9 18c-4.51 2-5-2-7-2"></path>
-                        </svg>
-                        查看源码
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
+<section id="honest"><div class="wrap">
+  <div class="sechead" data-rv><div class="num">05</div><div>
+    <h2>它刻意不做的几件事</h2>
+    <p>这些是产品立场，不是待办。</p>
+  </div></div>
+  <div class="bes" data-rv>
+    <div class="be"><h4>不接入需绑卡的免费额度</h4><p>每月有免费量但要求绑定银行卡的数据源，一概不接入、不推荐、不在引导里出现。</p></div>
+    <div class="be"><h4>不把「宿主专属」报成可用</h4><p>只能在 Agent 进程里生效的通道标 🤖，不计进脚本侧可用数，也不进建议的 <span class="mono">--sources</span>。</p></div>
+    <div class="be"><h4>不把限流当高风险</h4><p>仓库健康度扫描分五态，429 / 403 判 UNKNOWN 并提示配 <span class="mono">GITHUB_TOKEN</span>，不冒充仓库本身有问题。</p></div>
+    <div class="be"><h4>不把下载成功当读到内容</h4><p>PDF / LaTeX 先验魔数、篇幅、完整性与论文 ID；被网络层换成报错页不算下载成功。</p></div>
+  </div>
+</div></section>
 
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.3-4.3"></path>
-                        <path d="M11 8v6"></path>
-                        <path d="M8 11h6"></path>
-                    </svg>
-                    Deep Research Ultra v6.14
-                </div>
-                <ul class="footer-links">
-                    <li><a href="#features">核心特性</a></li>
-                    <li><a href="#v68">v6.8 新特性</a></li>
-                    <li><a href="#engines">30 引擎</a></li>
-                    <li><a href="#workflow">工作流</a></li>
-                </ul>
-                <span class="footer-copy">© 2026 Deep Research Ultra. MIT License.</span>
-            </div>
-        </div>
-    </footer>
+<section id="get"><div class="wrap">
+  <div class="dlbox" data-rv>
+    <div class="l">
+      <h2>下载 v7.0.0 安装包</h2>
+      <p>一个 zip 就是全部：内核 skill、MCP 服务、Stop 钩子、四份校验脚本、462 项测试。解压后按上面三条命令安装，离线可用。</p>
+      <div class="acts" style="margin-top:28px">
+        <a class="btn solid" href="https://github.com/harryopo/deep-research-ultra/releases/latest">Releases · 下载 zip</a>
+        <a class="btn ghost" href="https://github.com/harryopo/deep-research-ultra/blob/main/README.md">读 README</a>
+      </div>
+    </div>
+    <div class="r">
+      <div class="fact"><span>文件</span><b>deep-research-ultra-v7.0.0.zip</b></div>
+      <div class="fact"><span>体积</span><b>800 KB · 112 个文件</b></div>
+      <div class="fact"><span>内核版本</span><b>6.16.1</b></div>
+      <div class="fact"><span>插件壳版本</span><b>7.0.0</b></div>
+      <div class="fact" style="border:0"><span>许可</span><b>MIT</b></div>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap f">
+  <span>◍ Deep Research Ultra · 内核 6.16.1 / 插件壳 7.0.0</span>
+  <span class="lk"><a href="https://github.com/harryopo/deep-research-ultra">GitHub</a><a href="https://github.com/harryopo/deep-research-ultra/releases">Releases</a><a href="#top">回到顶部</a></span>
+  <span>© 2026 harryopo · MIT License</span>
+</div></footer>
+
+<div class="toast" id="toast">已复制</div>
+
+<script>
+const nav=document.getElementById('nav');
+addEventListener('scroll',()=>nav.classList.toggle('stuck',scrollY>24),{passive:true});
+const rvEls=document.querySelectorAll('[data-rv]');
+if('IntersectionObserver'in window){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{rootMargin:'-8% 0px -6%'});
+  rvEls.forEach(el=>io.observe(el));
+}else rvEls.forEach(el=>el.classList.add('in'));
+const CMD=`pip install -r skills/deep-research-ultra/requirements.txt
+cp -r skills/deep-research-ultra ~/.qoder/skills/
+python skills/deep-research-ultra/scripts/research.py --probe`;
+const toast=document.getElementById('toast');
+document.querySelector('[data-copy]').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(CMD)}catch(e){
+    const ta=document.createElement('textarea');ta.value=CMD;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+  }
+  toast.classList.add('on');setTimeout(()=>toast.classList.remove('on'),1600);
+});
+</script>
 </body>
 </html>
