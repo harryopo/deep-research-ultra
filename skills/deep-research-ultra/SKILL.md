@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.15.6
+version: 6.15.7
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -372,6 +372,9 @@ Lead（主 Agent）
    （并发追加的原子性不由你保证，Lead 归并时统一 merge 收编）
 3) 每条 claim 只记录事实与来源，不做总结断言；status 一律 "pending"（verified 只能由 Lead 在
    归并阶段赋予）；发现矛盾写 "status": "conflict"
+4) 不碰任务清单：不要调用 TaskCreate / TaskUpdate / TodoWrite 之类的待办工具，也不要写计划或记忆文件。
+   那份待办列表与 Lead 共享同一份（实测子 Agent 新建的条目会直接出现在 Lead 的清单里，且不带归属人），
+   breadth 路并行各记几条就把它的进度视图刷废了。你唯一的进度出口是 {ledger_dir}/{slug}.json
 
 分片 schema（{slug} 换成你的维度代号，如 D1-gates）：
 {
@@ -1390,6 +1393,9 @@ scripts/
 - ❌ **禁止静默降级** — 数据源不可用时必须告知用户（哪个引擎、什么原因、换成了什么）
 - ❌ **禁止单源结论** — 关键结论需 ≥2 独立来源
 - ❌ **禁止递归调用本 skill** — 子 Agent 的 prompt 中不得包含"深度调研"、"帮我研究"、"全面分析"等触发词
+- ❌ **禁止让子 Agent 碰任务清单** — 派发给子 Agent 的 prompt（含补查、临时派发，不走上面那份模板时也要带上）
+  必须写明不得调用待办/任务类工具（TaskCreate / TaskUpdate / TodoWrite）：那份列表与 Lead 共享同一份，
+  实测子 Agent 新建的任务会直接出现在 Lead 的清单里且不带归属人，breadth 路并行会把它的进度视图刷废
 - ❌ **禁止使用 HTML regex 解析** — 已弃用，改用 MCP 或 defuddle 或 Crawl4AI
 - ❌ **禁止遗漏低星项目** — 开源调研必须使用 GitHub 深度搜索（分桶+低星+依赖图+awesome）
 - ❌ **禁止结论无账本引用** — 复杂调研（effort ≥ standard）结论必须带 [N] 编号并过发布前校验门
