@@ -5,6 +5,47 @@
 
 ---
 
+## v6.16.0（2026-09-23）— 脚本层取不到数据的一批源，不再被报成"坏了"，也不再被报成"可用"
+
+清单条目 X-D1 + X-D2，两条是同一个根。**X-D1 原来的说法在这里作废**：
+原话是"`--probe` 的 ✅ 只证明 Lead 那个进程里能用，子 Agent 另起进程不一定"。
+实测派子 Agent（就是 skill 真正用的 `subagent_type=general-purpose`）跑同一条 `--probe`，
+逐项与 Lead 这边一致——`--probe` 本来就跑在 `research.py` 这个子进程里，谁派的都是同一个形状。
+真正的分界是 **脚本进程 vs Agent 进程**：全局 skill 封装（oss-finder / agent-reach / last30days /
+sciverse / context7 / defuddle）与宿主内置（websearch / webfetch）的数据只有 Agent 亲自调工具才拿得到，
+`search()` 在脚本层写死返回 `None`。这一档先前没被建模，于是同一个事实被报错了两次、方向相反：
+
+    改前  research.py --probe --sources websearch,webfetch,oss-finder
+          ❌ oss-finder  0 条  引擎返回 None（依赖/服务未就绪）
+          ❌ websearch    0 条  引擎返回 None（依赖/服务未就绪）
+          ❌ 没有任何引擎通过功能自检 —— 不要开始调研          rc=1   ← 假红，拦停一轮
+    改前  research.py "开源向量数据库选型" --route
+          1. ✅ oss-finder（is_available() 恒 True），建议命令 --sources oss-finder,github-deep-search,…
+                                                                    ← 假绿，照跑就是 0 条
+
+新增 🤖 一档（`STATUS_AGENT_ONLY` / `THEME_AGENT_ONLY`），判定按实现模块（与既有 `engine_kind` 同一手法，
+`skill_engines` / `builtin` 两层的 `search()` 就是恒 `None` 的基类）：
+
+- `--probe`：🤖 不再调用 `search()`（本来也拿不到），不计入"不可用"，
+  也不再因为它们凑出 rc=1；范围内**只剩**🤖 时明说"脚本层探不了，别据此说引擎坏了"后正常退出。
+  混合范围照旧拦：gitee 缺 `GITEE_TOKEN` + websearch 那组仍 rc=1（有测试钉住，防止这次改成放水）
+- `--route`：这类源显示 🤖 并附一行说明；**建议的 `--sources` 命令里不再出现它们**，
+  另起一行点名"这几个要由 Agent 直接调工具，不写进 --sources"
+- 环境闸门 guidance：🤖 不再被列进"这些源没配好"（它们不缺配置，缺的是调用方）
+- 主题预演 `--theme-query`：同样判 🤖，不再写"通道问题"（脚本层就没有通道可言）
+- 顺带修一处串台：`LAST_HTTP_ERROR` 是模块全局，上一台引擎的 429 会挂到下一台身上
+  （实测 `oss-finder` 被报成"HTTP 429 rate limited"，而它根本没发请求）。
+  现在每个引擎开探前清台，且只报它自己踩到的错
+
+**实测（先红后绿）**：新 10 条里 6 条改前红（🤖 档不存在、`--probe` rc=1、`--route` 打 ✅、
+建议命令含 oss-finder、guidance 里点名、失败原因串台），4 条正向对照本来就绿
+（截出来的是真模板／脚本层引擎照常判 OK／能探的引擎真坏了仍 rc=1／引擎自己踩的 429 仍报得出来）。
+改后同一命令行走一遍：A 条 rc=0 + `🤖 需 Agent 调用 2`、"不要开始调研"消失；
+B 条 oss-finder/agent-reach 变 🤖，建议命令只剩 `github-deep-search,gitee,modelscope,arxiv,openalex`。
+`scripts` 全套 413 通过（403 + 新 10），仓库根 `tests` 49 通过。（`tests/test_v6160_agent_only_channel.py`）
+
+---
+
 ## v6.15.7（2026-09-23）— 子 Agent 不再往 Lead 那份待办列表里写条目
 
 清单条目 X-D13。这条的前提是量出来的，不是猜的：

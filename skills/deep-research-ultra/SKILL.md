@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.15.7
+version: 6.16.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -211,6 +211,15 @@ arXiv 对部分宽查询回 HTTP 406，而它们在 `--list` 里全是 ✅。`--
 
 用户明确要求带缺口开跑时才加 `--allow-degraded`（此时报告里必须写明数据源受限）；
 `--probe --sources a,b` 是局部自检，只报这几个引擎的状态，不做全局判定。
+
+**🤖 那一档＝脚本层根本取不到数据的一批源**（全局 skill 封装的 oss-finder / agent-reach / last30days /
+sciverse / context7 / defuddle，以及宿主内置 WebSearch / WebFetch）：它们的数据只有 **Agent 亲自调用对应
+工具**才拿得到，`research.py` 这个进程跑它们必返 0 条——跟"哪个 Agent 派的"无关，Lead 和子 Agent 一样。
+照它们行动：
+
+- `--probe` 判不了它们，也不会再因为它们被判"引擎坏了"而拦停整轮调研
+- `--route` 给它们的 ✅ 会显示成 🤖，且**不写进建议的 `--sources`**；要用就在派单里让子 Agent 直接调那个工具
+- 主题预演同样判不了它们：🤖 不等于"这个主题查不到"
 
 **主题级预演（v6.15 补上，`--probe --theme-query`）**：`--probe` 的粒度只到"引擎今天活着"，
 探针用的是按引擎定制的固定词，放行不等于它对某个长英文主题出得来结果——实测

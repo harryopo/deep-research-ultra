@@ -16,6 +16,7 @@ STATUS_OK = 'ok'              # 探到结果
 STATUS_EMPTY = 'empty'        # 可调通但 0 结果（契约变更/需授权）
 STATUS_FAILED = 'failed'      # 引擎不可用或抛异常
 STATUS_SKIPPED = 'skipped'    # 非搜索类引擎（lookup/详情）
+STATUS_AGENT_ONLY = 'agent_only'  # 脚本层根本取不到数据，只有 Agent 调工具才有
 
 # 探针查询：按引擎定制（学术/医学引擎用通用词会假阴性），同时充当"可探针注册表"
 # —— 不在此表里的引擎（MCP/全局 skill 封装）由各自的 is_available() 负责。
@@ -25,6 +26,8 @@ STATUS_SKIPPED = 'skipped'    # 非搜索类引擎（lookup/详情）
 # 但 skill 封装类（last30days/oss-finder/agent-reach/sciverse/context7/defuddle）
 # 与内置类（websearch/webfetch）**不能登记**：它们的 search() 在脚本层恒返回 None
 # （数据只有 Lead 调 Skill/内置工具才拿得到），探它们＝往闸门里灌假失败。
+# 这类引擎由 agent_invoked() 单独认档（🤖），--sources 点名它们也不判"坏了"——
+# 实测未分档前，--probe --sources websearch,oss-finder 回的是 rc=1「不要开始调研」。
 PROBE_QUERIES: Dict[str, str] = {
     # Layer 1 学术直连
     'openalex': 'retrieval augmented generation',
@@ -76,6 +79,26 @@ def classify_probe(results: Optional[list]) -> str:
     return STATUS_OK if results else STATUS_EMPTY
 
 
+# 数据只有 Agent 亲自调工具才拿得到的引擎：skill 封装层 + 宿主内置层。按实现模块判
+# （与 engine_kind 同一手法）——这两层的 search() 写死返回 None，探它们等于把
+# "脚本看不见" 报成 "引擎坏了"。
+AGENT_ONLY_MODULES = ('skill_engines', 'builtin')
+
+
+def agent_invoked(engine) -> bool:
+    return any(m in (type(engine).__module__ or '') for m in AGENT_ONLY_MODULES)
+
+
+def _reset_http_error() -> None:
+    """每个引擎开探前清台：LAST_HTTP_ERROR 是模块全局，不清就会把上一个引擎的
+    429/406 安到下一个（实测 oss-finder 被报成 HTTP 429 rate limited）。"""
+    try:
+        from engines import fallback as _fb
+        _fb._clear_http_error()
+    except Exception:
+        pass
+
+
 def _meta_fields(engine) -> Dict[str, Any]:
     """闸门要按层与能力判独立性、按通道说指引，报告里必须带上元数据。"""
     meta = engine.metadata
@@ -92,6 +115,11 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
         return {'engine': name, 'status': STATUS_SKIPPED, 'count': 0,
                 'note': '非搜索类引擎（lookup/详情）', **_meta_fields(engine)}
 
+    if agent_invoked(engine):
+        return {'engine': name, 'status': STATUS_AGENT_ONLY, 'count': 0,
+                'note': '脚本层取不到数据：只有 Agent 亲自调用对应工具才有结果',
+                **_meta_fields(engine)}
+
     if not engine.is_available():
         missing = [k for k in meta.config_keys if not os.environ.get(k)]
         note = f'缺少配置: {", ".join(missing)}' if missing else '依赖/服务未就绪'
@@ -103,6 +131,7 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
     if engine_kind(engine) == 'mcp':
         # MCP 走 npx/uvx 冷启动，不给预算就能把整轮自检拖死
         kwargs['mcp_timeout'] = MCP_PROBE_BUDGET
+    _reset_http_error()
     try:
         results = engine.search(q, max_results=max_results, **kwargs)
     except Exception as exc:          # 引擎异常不得当成"可用"
@@ -152,15 +181,18 @@ THEME_USABLE = 'usable'      # 至少一条真实查询词取到数据
 THEME_NO_HIT = 'no_hit'      # 每条都调通了，全是 0 命中
 THEME_BLOCKED = 'blocked'    # 每条都没取到数据（被拦 / 服务挂 / 异常）
 THEME_SKIPPED = 'skipped'    # 非搜索类引擎，不进预演
+THEME_AGENT_ONLY = 'agent_only'  # 脚本层取不到数据，预演判不了它
 
 THEME_MARKS = {THEME_USABLE: '✅', THEME_NO_HIT: '⚠️',
-               THEME_BLOCKED: '❌', THEME_SKIPPED: '⏭ '}
+               THEME_BLOCKED: '❌', THEME_SKIPPED: '⏭ ',
+               THEME_AGENT_ONLY: '🤖'}
 
 THEME_HEADLINES = {
     THEME_USABLE: '本主题到得了数据',
     THEME_NO_HIT: '引擎活着，本主题一条都没命中',
     THEME_BLOCKED: '本主题每条查询都没取到数据（通道问题，不是没资料）',
     THEME_SKIPPED: '非搜索类引擎，未进预演',
+    THEME_AGENT_ONLY: '脚本层取不到数据（要 Agent 亲自调工具），预演判不了它',
 }
 
 
@@ -177,6 +209,11 @@ def theme_probe(engines: List[Any], queries: List[str],
         name = engine.get_name()
         if not engine.has_capability('search'):
             rows.append({'engine': name, 'verdict': THEME_SKIPPED, 'hit': 0,
+                         'total': len(queries), 'matched': [], 'queries': [],
+                         **_meta_fields(engine)})
+            continue
+        if agent_invoked(engine):
+            rows.append({'engine': name, 'verdict': THEME_AGENT_ONLY, 'hit': 0,
                          'total': len(queries), 'matched': [], 'queries': [],
                          **_meta_fields(engine)})
             continue
@@ -364,7 +401,7 @@ def source_gate(reports: List[Dict[str, Any]], min_sources: int = 3,
 
     unavailable = []
     for r in reports:
-        if r.get('status') in (STATUS_OK, STATUS_SKIPPED):
+        if r.get('status') in (STATUS_OK, STATUS_SKIPPED, STATUS_AGENT_ONLY):
             continue
         unavailable.append({'engine': r['engine'], 'status': r['status'],
                             'note': r.get('note', ''),

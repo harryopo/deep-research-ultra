@@ -237,13 +237,23 @@ def cmd_route(args, registry):
 
     # 推荐引擎链
     print("🔗 推荐引擎链（按优先级）:")
+    from probe import agent_invoked
     available_engines = registry.get_available()
     available_names = {e.get_name() for e in available_engines}
+    # skill 封装与宿主内置的 is_available() 恒 True，但脚本层 search() 恒返 None：
+    # 光看 is_available 会给它们打 ✅，照建议命令跑就是白跑一路（实测 oss-finder 排第一）。
+    agent_only = {e.get_name() for e in registry.get_all() if agent_invoked(e)}
     for i, eng_name in enumerate(decision.engine_chain, 1):
-        status = "✅" if eng_name in available_names else "❌"
+        if eng_name in agent_only:
+            status = "🤖"
+        else:
+            status = "✅" if eng_name in available_names else "❌"
         engine = registry.get(eng_name)
         desc = engine.metadata.description[:50] if engine else "(未注册)"
         print(f"   {i}. {status} {eng_name:<20} {desc}")
+    if agent_only & set(decision.engine_chain):
+        print("   🤖 ＝数据只有 Agent 亲自调用对应工具才拿得到，"
+              "research.py（脚本层）跑它必返 0 条")
     print()
 
     # 断路器过滤后的可用引擎链
@@ -259,10 +269,16 @@ def cmd_route(args, registry):
         print(f"   {decision.reasoning}")
         print()
 
+    runnable = [n for n in filtered if n not in agent_only]
     print("💡 使用以下命令执行调研:")
-    print(f"   python research.py \"{args.query}\" --sources {','.join(filtered[:5])}")
+    if runnable:
+        print(f"   python research.py \"{args.query}\" --sources {','.join(runnable[:5])}")
     print(f"   或直接运行（自动路由）:")
     print(f"   python research.py \"{args.query}\" --auto-route")
+    dropped = sorted(agent_only & set(filtered))
+    if dropped:
+        print(f"   🤖 {', '.join(dropped)} 不写进 --sources：脚本层取不到，"
+              f"要由 Lead/子 Agent 直接调用对应 skill 或内置工具")
 
 
 # ============================================================
@@ -394,9 +410,9 @@ def cmd_probe(registry, args):
     --list 的 ✅ 只代表配置就绪；本命令才代表"这个引擎今天真的能用"。
     环境不足时退出码非 0（3）——Lead 看到 0 就会直接进 Phase 1 开跑。
     """
-    from probe import (STATUS_EMPTY, STATUS_FAILED, STATUS_OK, STATUS_SKIPPED,
-                       engine_kind, probe_engine, probeable_engines, source_gate,
-                       summarize)
+    from probe import (STATUS_AGENT_ONLY, STATUS_EMPTY, STATUS_FAILED, STATUS_OK,
+                       STATUS_SKIPPED, engine_kind, probe_engine, probeable_engines,
+                       source_gate, summarize)
 
     if getattr(args, 'theme_query', None):
         _cmd_theme_preflight(registry, args)
@@ -416,7 +432,8 @@ def cmd_probe(registry, args):
     print(f"Deep Research Ultra v{skill_version()} — 引擎功能自检（{scope}）")
     print("=" * 72)
 
-    marks = {STATUS_OK: '✅', STATUS_EMPTY: '⚠️', STATUS_FAILED: '❌', STATUS_SKIPPED: '⏭ '}
+    marks = {STATUS_OK: '✅', STATUS_EMPTY: '⚠️', STATUS_FAILED: '❌',
+             STATUS_SKIPPED: '⏭ ', STATUS_AGENT_ONLY: '🤖'}
     reports = []
     for engine in engines:
         rep = probe_engine(engine, query=args.probe_query or '',
@@ -428,7 +445,16 @@ def cmd_probe(registry, args):
     counts = summarize(reports)
     print("-" * 72)
     print(f"功能正常 {counts.get(STATUS_OK, 0)} ｜ 0 结果 {counts.get(STATUS_EMPTY, 0)} ｜ "
-          f"不可用 {counts.get(STATUS_FAILED, 0)} ｜ 跳过 {counts.get(STATUS_SKIPPED, 0)}")
+          f"不可用 {counts.get(STATUS_FAILED, 0)} ｜ 跳过 {counts.get(STATUS_SKIPPED, 0)}"
+          f" ｜ 🤖 需 Agent 调用 {counts.get(STATUS_AGENT_ONLY, 0)}")
+    judged = [r for r in reports
+              if r['status'] not in (STATUS_AGENT_ONLY, STATUS_SKIPPED)]
+    if not counts.get(STATUS_OK) and not judged:
+        # --sources 只点了脚本层取不到数据的引擎：这是"看不见"，不是"坏了"。
+        # 判成 rc=1「不要开始调研」会把一轮正常调研拦停在假红上（实测）。
+        print("🤖 这一轮点的引擎都得由 Agent 亲自调工具才有数据，脚本层探不了它们。")
+        print("   别据此说引擎坏了，也别用 --probe 判它们；要探的是脚本层那批源。")
+        return
     if not counts.get(STATUS_OK):
         print("❌ 没有任何引擎通过功能自检 —— 不要开始调研，先按上面的缺项修环境", file=sys.stderr)
         sys.exit(1)
