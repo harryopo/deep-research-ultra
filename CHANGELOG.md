@@ -7,6 +7,19 @@
 
 ---
 
+## v7.0.0（2026-09-23）— 离线安装包与宣传页
+
+- 打包：`git archive` 产出 `dist/deep-research-ultra-v7.0.0.zip`（112 个文件）。从解压出的目录里实跑，
+  `skills/deep-research-ultra/scripts/tests` 413 项与根目录 `tests` 49 项全绿——校验脚本与测试都在包内，
+  安装不需要网络，也不需要 git。
+- 宣传页 `index.html` 重写。数据源清单、四层计数与"需配置"标记改为逐项对照 `research.py --list` 的实际输出：
+  32 个源、四层 11 / 14 / 3 / 4、其中 5 个需要先配 key。新增下载入口与三条安装命令的一键复制。
+- 宣传页的滚动渐显改成仅在 JavaScript 可用时启用。脚本未执行或浏览器不支持 `IntersectionObserver` 时
+  内容直接可见，不会出现整页空白。
+- 版本号口径不变：内核 `SKILL.md` 为 6.16.1，插件壳 `plugin.json` 为 7.0.0。
+
+---
+
 ## v6.16.1（2026-09-23）— 安装文档补上离线包分支
 
 - README 方式一原来只给 `git clone` 一条路，拿到 zip 包的使用方（人或 Agent）在没有网络时没法照着装。
