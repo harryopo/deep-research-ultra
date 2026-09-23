@@ -7,6 +7,28 @@
 
 ---
 
+## v6.16.2（2026-09-23）— `--list` 的计数改为可复现口径
+
+- `--list` 结尾的数字换成「配置就绪」，判据是新加的 `SearchEngine.is_configured()`：只读
+  `metadata.config_keys` 对应的环境变量，不发任何网络请求。实测连跑三次同为
+  `32 个引擎，配置就绪 27 个（5 个需先配 key/服务）`，四层 9 / 13 / 2 / 3。
+- 改前这个数会动：它取的是 `is_available()`，而 openalex / semantic-scholar / pubmed /
+  arxiv-fulltext / s2-citation-graph / github-deep-search 这 6 个免配置引擎没有配置项可查，
+  于是 `is_available()` 发一次真实 HTTP 请求探连通性，超时即判不可用。本机实测出现过
+  19 与 20 两个结果；把网络出口换成受控桩后，同一次运行内"通/不通"两态给出 22 与 14。
+- `--list` 的逐源 ✅/❌、降级链、四层计数一并改用同一确定性判据；`--list` 不再打网络，
+  单次耗时从等超时的量级降到 4~6 秒。
+- `SKILL.md` 步骤 0.3 一直写着「`--list` 的 ✅ 只代表依赖与配置就绪」，此前实现与该句
+  不符，现已对齐；`is_available()` 与 `--probe` 的口径不变，某源此刻能否出数据仍由
+  `--probe` 实测（`--probe` 的短路条件保留 `is_available()`：unpaywall / s2-citation-graph /
+  crawl4ai 不在 `PROBE_QUERIES` 内，这条路径是它们仅剩的实时信号）。
+- 新增回归 `tests/test_v6162_configured_vs_reachable.py`（10 项）：把 6 个引擎模块的网络出口
+  换成必炸函数后逐个问 32 个引擎"配置齐不齐"，证明判据零网络；再断言网络通与不通两次
+  `--list` 输出逐字节相同。全量 423 项内核测试与 49 项插件壳测试通过。
+- 宣传页数据源一节同步口径：27 个开箱即用为定数，实时可达指向 `--probe`。
+
+---
+
 ## v7.0.0（2026-09-23）— 离线安装包与宣传页
 
 - 打包：`git archive` 产出 `dist/deep-research-ultra-v7.0.0.zip`（112 个文件）。从解压出的目录里实跑，

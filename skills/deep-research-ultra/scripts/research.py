@@ -306,7 +306,7 @@ def cmd_list(registry):
         print(f"┌─ {layer_names[layer]}")
         for engine in engines:
             m = engine.metadata
-            status = "✅" if engine.is_available() else "❌"
+            status = "✅" if engine.is_configured() else "❌"
             caps = ", ".join(m.capabilities) if m.capabilities else "-"
             config_hint = ""
             if m.requires_config:
@@ -318,18 +318,21 @@ def cmd_list(registry):
         print("└─")
         print()
 
-    # 降级链
-    chain = registry.get_fallback_chain()
+    # 降级链（配置就绪顺序；实时可达由 --probe 判）
+    chain = registry.get_configured_chain()
     print("降级链（按优先级）：")
     print("  " + " → ".join(e.get_name() for e in chain))
     print()
 
     summary = registry.summary()
-    print(f"总计: {summary['total']} 个引擎，{summary['available']} 个可用")
-    print(f"  Layer 1: {summary['by_layer'][1]}  Layer 2: {summary['by_layer'][2]}  "
-          f"Layer 3: {summary['by_layer'][3]}  Layer 4: {summary['by_layer'][4]}")
+    print(f"总计: {summary['total']} 个引擎，配置就绪 {summary['configured']} 个"
+          f"（{summary['needs_config']} 个需先配 key/服务）")
+    layers = summary['configured_by_layer']
+    print(f"  Layer 1: {layers[1]}  Layer 2: {layers[2]}  "
+          f"Layer 3: {layers[3]}  Layer 4: {layers[4]}")
     print()
-    print("ℹ️  ✅ 仅表示依赖/配置就绪（功能真实性请用 --probe 验证）")
+    print("ℹ️  ✅ ＝配置就绪（免配置，或所需 key 已给），与本机能连上吗无关；"
+          "某源此刻出不出数据请用 --probe 实测")
 
 
 def filter_by_relevance(results, min_relevance: float, target_count: int):

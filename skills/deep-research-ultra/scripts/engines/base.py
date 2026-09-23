@@ -5,6 +5,7 @@ Deep Research Ultra v4.0 — 搜索引擎抽象基类
 实现统一的多源并发调度与降级策略。
 """
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Any
@@ -160,6 +161,18 @@ class SearchEngine(ABC):
         """检查是否具备某项能力"""
         return capability in self.metadata.capabilities
 
+    def is_configured(self) -> bool:
+        """配置就绪：只查环境变量，绝不发网络请求。
+
+        与 is_available() 的分工——本方法回答"这个源要不要你先配什么、配齐了没有"，
+        答案只随 env 变，所以清单计数可复现；"此刻能不能出数据"是 is_available()
+        与 --probe 的事，同一个端点两次超时与否不该改变清单上的数字。
+        """
+        m = self.metadata
+        if not m.requires_config:
+            return True
+        return all(os.environ.get(k) for k in m.config_keys)
+
     def __repr__(self) -> str:
         m = self.metadata
         return f"<{self.__class__.__name__} name={m.name} layer={m.layer} available={self.is_available()}>"
@@ -243,12 +256,34 @@ class EngineRegistry:
     def __contains__(self, name: str) -> bool:
         return name in self._engines
 
+    def get_configured(self) -> List[SearchEngine]:
+        """获取所有配置就绪的引擎（纯 env 判据，不发网络请求）"""
+        return [e for e in self._engines.values() if e.is_configured()]
+
+    def get_configured_chain(self) -> List[SearchEngine]:
+        """配置就绪引擎按（层，优先级）排序 —— 给清单类报告用，结果可复现"""
+        engines = self.get_configured()
+        engines.sort(key=lambda e: (e.get_layer(), e.metadata.priority))
+        return engines
+
     def summary(self) -> Dict:
-        """返回引擎注册表摘要"""
+        """返回引擎注册表摘要
+
+        available＝实时判据（可能触发网络探测，随网络状态浮动）；
+        configured＝配置就绪（只看 env，同一台机器上必然复现）。
+        清单类报告必须用 configured，否则两次运行给出两个数。
+        """
         available = self.get_available()
+        configured = self.get_configured()
         return {
             "total": len(self._engines),
             "available": len(available),
+            "configured": len(configured),
+            "needs_config": len(self._engines) - len(configured),
+            "configured_by_layer": {
+                layer: len([e for e in configured if e.get_layer() == layer])
+                for layer in (1, 2, 3, 4)
+            },
             "by_layer": {
                 1: len([e for e in available if e.get_layer() == 1]),
                 2: len([e for e in available if e.get_layer() == 2]),
@@ -256,4 +291,5 @@ class EngineRegistry:
                 4: len([e for e in available if e.get_layer() == 4]),
             },
             "available_names": [e.get_name() for e in available],
+            "configured_names": [e.get_name() for e in configured],
         }

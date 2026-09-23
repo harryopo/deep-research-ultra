@@ -193,14 +193,14 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
     发布前过机器校验门并盖防伪戳——<b>没戳就等于没校验</b>。环境不足时硬停并给出配置指引，不静默降级开跑。
   </p>
   <div class="acts rise" style="animation-delay:.5s">
-    <a class="btn solid" href="https://github.com/harryopo/deep-research-ultra/releases/latest">下载安装包 · 800 KB</a>
+    <a class="btn solid" href="https://github.com/harryopo/deep-research-ultra/releases/latest">下载离线安装包</a>
     <button class="btn ghost" data-copy>复制三条安装命令</button>
     <a class="btn ghost" href="https://github.com/harryopo/deep-research-ultra">查看源码</a>
   </div>
   <div class="meta rise" style="animation-delay:.6s">
     <div><strong>32</strong><span>数据源 · 四层</span></div>
     <div><strong>4</strong><span>阶段范式 PESR</span></div>
-    <div><strong>462</strong><span>项测试，解包后实测</span></div>
+    <div><strong>472</strong><span>项测试，解包后实测</span></div>
     <div><strong>1</strong><span>个第三方依赖（ddgs）</span></div>
     <div><strong>3.10+</strong><span>Python 版本要求</span></div>
   </div>
@@ -263,7 +263,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
       <div class="chips"><span class="chip">DuckDuckGo (ddgs)</span><span class="chip key">SearXNG</span><span class="chip">百度 HTML</span><span class="chip">Bing HTML</span></div>
     </div></div>
   </div>
-  <p class="legend" data-rv>32 个源里 <b>5 个</b>要先配 key 或服务，其余开箱即用。本机此刻到不到数据，用 <span class="mono">--list</span> 与 <span class="mono">--probe</span> 现测，别信静态数字。</p>
+  <p class="legend" data-rv>32 个源里 <b>5 个</b>要先配 key 或服务，其余 <b>27 个</b>开箱即用——这个分配只取决于配置，用 <span class="mono">--list</span> 查一次就是定数。至于某个源此刻到底还出不出数据，那是 <span class="mono">--probe</span> 的实测范围，别拿静态数字当结论。</p>
 </div></section>
 
 <section id="gates"><div class="wrap">
@@ -320,7 +320,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
   <div class="dlbox" data-rv>
     <div class="l">
       <h2>下载 v7.0.0 安装包</h2>
-      <p>一个 zip 就是全部：内核 skill、MCP 服务、Stop 钩子、四份校验脚本、462 项测试。解压后按上面三条命令安装，离线可用。</p>
+      <p>一个 zip 就是全部：内核 skill、MCP 服务、Stop 钩子、校验脚本与全部测试。解压后按上面三条命令安装，离线可用。</p>
       <div class="acts" style="margin-top:28px">
         <a class="btn solid" href="https://github.com/harryopo/deep-research-ultra/releases/latest">Releases · 下载 zip</a>
         <a class="btn ghost" href="https://github.com/harryopo/deep-research-ultra/blob/main/README.md">读 README</a>
@@ -328,8 +328,8 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
     </div>
     <div class="r">
       <div class="fact"><span>文件</span><b>deep-research-ultra-v7.0.0.zip</b></div>
-      <div class="fact"><span>体积</span><b>800 KB · 112 个文件</b></div>
-      <div class="fact"><span>内核版本</span><b>6.16.1</b></div>
+      <div class="fact"><span>内容</span><b>源码 + 校验脚本 + 全量测试</b></div>
+      <div class="fact"><span>内核版本</span><b>6.16.2</b></div>
       <div class="fact"><span>插件壳版本</span><b>7.0.0</b></div>
       <div class="fact" style="border:0"><span>许可</span><b>MIT</b></div>
     </div>
@@ -337,7 +337,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
 </div></section>
 
 <footer><div class="wrap f">
-  <span>◍ Deep Research Ultra · 内核 6.16.1 / 插件壳 7.0.0</span>
+  <span>◍ Deep Research Ultra · 内核 6.16.2 / 插件壳 7.0.0</span>
   <span class="lk"><a href="https://github.com/harryopo/deep-research-ultra">GitHub</a><a href="https://github.com/harryopo/deep-research-ultra/releases">Releases</a><a href="#top">回到顶部</a></span>
   <span>© 2026 harryopo · MIT License</span>
 </div></footer>
