@@ -68,6 +68,46 @@ PROBE_QUERIES: Dict[str, str] = {
 # MCP 引擎走 npx/uvx 冷启动，不给预算就能把整轮自检拖死（实测旧实现单次调用 60s 起）
 MCP_PROBE_BUDGET = 25
 
+# 查详情类引擎的功能探针：{引擎名: (方法名, 已知 id)}。
+# 它们没有 search 能力，走上面那张表会被一律判 SKIPPED——实测 32 个源里真盲区就是这 2 个
+# （另有 8 个是 agent_invoked() 认档的 🤖 封装源，1 个要先配 key，都不算盲区）。
+# 不登记就等于闸门对"这两个源今天出不导出数据"完全没有观测；登记了就得真发一次请求，
+# 所以参数用的是查得到、且不会随时间失效的固定 id。
+LOOKUP_PROBES: Dict[str, Tuple[str, str]] = {
+    'unpaywall': ('search_by_doi', '10.1038/nature12373'),   # Nature 经典 DOI
+    'modelscope': ('search', 'Qwen/Qwen2-7B-Instruct'),      # 模型卡详情（无关键词搜索端点）
+}
+
+
+def probe_lookup(engine) -> Dict[str, Any]:
+    """对查详情类引擎发一次"给已知 id 应当回数据"的真实请求。"""
+    name = engine.get_name()
+    method_name, arg = LOOKUP_PROBES[name]
+    call = getattr(engine, method_name, None)
+    if call is None:
+        return {'engine': name, 'status': STATUS_FAILED, 'count': 0,
+                'note': f'登记表要求调 {method_name}()，引擎上没有这个方法',
+                **_meta_fields(engine)}
+    try:
+        out = call(arg)
+    except Exception as e:
+        return {'engine': name, 'status': STATUS_FAILED, 'count': 0,
+                'note': f'{method_name}() 抛异常: {e}', **_meta_fields(engine)}
+    if out is None:
+        return {'engine': name, 'status': STATUS_FAILED, 'count': 0,
+                'note': f'{method_name}({arg!r}) 没取到数据（通道问题，不是"查无此项"）',
+                **_meta_fields(engine)}
+    count = len(out) if isinstance(out, (list, tuple)) else (1 if out else 0)
+    first = ''
+    if isinstance(out, (list, tuple)) and out:
+        first = str(getattr(out[0], 'title', ''))[:60]
+    elif isinstance(out, dict):
+        first = str(out.get('title') or out.get('name') or '')[:60]
+    status = STATUS_OK if count else STATUS_EMPTY
+    return {'engine': name, 'status': status, 'count': count,
+            'note': f'查详情探针 id={arg!r}' + (f'｜{first}' if first else ''),
+            'probe_query': arg, **_meta_fields(engine)}
+
 DEFAULT_PROBE_QUERY = 'python'
 
 
@@ -78,8 +118,9 @@ def resolve_probe_query(engine) -> str:
 
 
 def probeable_engines(engines: List[Any]) -> List[Any]:
-    """默认探针范围＝PROBE_QUERIES 登记过的引擎（脚本层真能出数据的那批）。"""
-    return [e for e in engines if e.get_name() in PROBE_QUERIES]
+    """默认探针范围＝PROBE_QUERIES（关键词检索）+ LOOKUP_PROBES（查详情）登记过的引擎。"""
+    covered = set(PROBE_QUERIES) | set(LOOKUP_PROBES)
+    return [e for e in engines if e.get_name() in covered]
 
 
 def classify_probe(results: Optional[list]) -> str:
@@ -123,8 +164,11 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
     meta = engine.metadata
 
     if not engine.has_capability('search'):
+        if name in LOOKUP_PROBES:
+            return probe_lookup(engine)
         return {'engine': name, 'status': STATUS_SKIPPED, 'count': 0,
-                'note': '非搜索类引擎（lookup/详情）', **_meta_fields(engine)}
+                'note': '非搜索类引擎（lookup/详情），未登记查详情探针',
+                **_meta_fields(engine)}
 
     if agent_invoked(engine):
         return {'engine': name, 'status': STATUS_AGENT_ONLY, 'count': 0,

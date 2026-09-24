@@ -435,10 +435,12 @@ class UnpaywallEngine(SearchEngine):
         """
         检查 Unpaywall API 是否可达
 
-        用已知 DOI 做一次轻量连通性测试。
+        用已知 DOI 做一次轻量连通性测试。邮箱必须与 search_by_doi() 同源（_get_email）：
+        原先这里写死 test@example.com，服务方对假地址回 HTTP 422，
+        于是"引擎可达吗"被自检自己编的坏参数答成"不可达"。
         """
         try:
-            email = os.environ.get('UNPAYWALL_EMAIL', 'test@example.com')
+            email = self._get_email()
             url = f"{self.BASE_URL}/10.1038/nature12373?email={urllib.parse.quote(email)}"
             raw = _http_get(url, timeout=10, max_retries=1)
             return raw is not None

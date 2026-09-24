@@ -7,6 +7,39 @@
 
 ---
 
+## v6.18.0（2026-09-24）— 查详情类源补上功能探针
+
+- 先量盲区再动手（不是照旧假设办事）：32 个源里探针登记 21 个；剩下的 11 个中
+  1 个（`crawl4ai`）本来就要先配 key，8 个是 `agent_invoked()` 认档的 🤖 封装源
+  （脚本层 search() 恒返 None，探它们等于灌假失败）——**真盲区只有 2 个**：
+  `unpaywall`（DOI→OA 解析）与 `modelscope`（模型卡详情）。此前它们没有 `search` 能力，
+  一律被判 SKIPPED，闸门对"今天出不导出数据"零观测。
+- 新增 `LOOKUP_PROBES` 登记表与 `probe_lookup()`：对登记的引擎真发一次
+  "给已知 id 应当回数据"的请求（unpaywall 用 Nature 经典 DOI、modelscope 用 Qwen 模型卡），
+  按返回值分 成功 / 0 结果 / 没取到数据 三档，笔记里带上取回的标题。
+  默认探针范围 `probeable_engines()` 同时纳入两张表。
+- 未登记的查详情源继续如实跳过，并把原因写成"未登记查详情探针"——
+  不为清零跳过数去瞎猜参数。
+- 实测：`--probe --sources unpaywall,modelscope` 两源均 ✅ 1 条，
+  分别取回《Nanometre-scale thermometry in a living cell》与「千问2-7B-Instruct」。
+- 新增回归 `tests/test_v6180_lookup_probe.py`（4 项，含"未登记仍跳过""取不到数据要报 failed"两条反向保护）。
+
+---
+
+## v6.17.5（2026-09-24）— 连通性自检不再用写死的假邮箱
+
+- `UnpaywallEngine.is_available()` 里写死 `email=test@example.com`，服务方对假地址回
+  HTTP 422，于是"引擎可达吗"被自检自己编的坏参数答成"不可达"；同一个类里真正干活的
+  `search_by_doi()` 走 `_get_email()`（kwargs > 环境变量 > 默认值），实测返回 200。
+  同一个参数两条路两套值，自检那条还是错的。
+- 现让自检与真实调用同源。修复后实测 `is_available()` 由 False 变 True。
+- 同类横扫"写死的占位凭据"：全仓两处 `example.com`，另一处（`crawl4ai_engine.py`）
+  在 docstring 的用法示例里，不是活代码，未改。
+- 新增回归 `tests/test_v6175_unpaywall_probe_email.py`（3 项）：默认值与真实调用同源、
+  配了环境变量时自检要走配置、以及反向保护"别把连通性测试改成不查任何东西的空壳"。
+
+---
+
 ## v6.17.4（2026-09-24）— 把"两层判据一致"写成锁，并撤回一条没量的推断
 
 - 接 v6.17.3：验证层新加了 `normalize_work_title`（精确归一），账本/覆盖面层用
