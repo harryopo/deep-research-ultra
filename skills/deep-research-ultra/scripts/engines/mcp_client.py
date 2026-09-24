@@ -304,6 +304,67 @@ class McpSession:
 # MCP 客户端
 # ============================================================
 
+def _rpc_error_text(err: Any) -> str:
+    """JSON-RPC 层报错（-32603 之类）→ 一行可读原因。"""
+    if isinstance(err, dict):
+        msg = str(err.get('message') or err.get('error') or '').strip()
+        code = err.get('code')
+        return f'{msg} (code {code})' if msg else f'JSON-RPC 错误 code {code}'
+    return str(err or 'JSON-RPC 错误').strip()
+
+
+def _first_text(result: Any) -> str:
+    """取工具响应里第一段 text（MCP 的 content[].text）。"""
+    if not isinstance(result, dict):
+        return ''
+    parts = result.get('content')
+    if isinstance(parts, list):
+        for part in parts:
+            if isinstance(part, dict) and str(part.get('text') or '').strip():
+                return str(part['text']).strip()
+    return ''
+
+
+def _error_detail(text: str) -> str:
+    """server 把原因写成 JSON（{"status":"error","message":...}）时取 message，否则取首行。"""
+    text = (text or '').strip()
+    if not text:
+        return '工具返回错误但没给原因'
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return text.splitlines()[0][:200]
+    if isinstance(parsed, dict):
+        for key in ('message', 'error', 'detail'):
+            val = parsed.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()[:200]
+    return text.splitlines()[0][:200]
+
+
+def _tool_error_text(result: Any) -> str:
+    """工具自己报的错（isError 或 {"status":"error"}）→ 原因；没报错返回 ''。
+
+    实测两种上游错误都长这样（arXiv 限流时 arxiv / paper-search 两个 server 的原样响应）：
+      {"content":[{"text":"{\\"status\\": \\"error\\", \\"message\\":
+        \\"arXiv API HTTP error (HTTP 406)\\"}"}], "isError": true}
+    以前不看 isError，直接把这段错误文本塞进解析器，条目一条也没有，
+    自检于是报"可调通但 0 结果"——把端点故障说成了"这个主题没资料"。
+    """
+    if not isinstance(result, dict):
+        return ''
+    text = _first_text(result)
+    if result.get('isError'):
+        return _error_detail(text)
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return ''
+    if isinstance(parsed, dict) and str(parsed.get('status', '')).strip().lower() == 'error':
+        return _error_detail(text)
+    return ''
+
+
 class McpClient:
     """
     MCP 服务器客户端
@@ -489,10 +550,17 @@ class McpClient:
             self.last_error = f"{self.server_name}: {error or 'tools/call 无响应'}"
             return None
         if 'error' in response:
-            self.last_error = f"{self.server_name}: {error}"
-            return {'error': response['error']}
+            self.last_error = f"{self.server_name}: {_rpc_error_text(response['error'])}"
+            return None
+        result = response.get('result')
+        reason = _tool_error_text(result)
+        if reason:
+            # 工具自己报错＝这个源此刻取不到数据。报成"0 结果"会诱导 Lead 去改查询词，
+            # 而真正该做的是等上游限流过去或换通道。
+            self.last_error = f"{self.server_name}: {reason}"
+            return None
         self.last_error = ''
-        return response.get('result')
+        return result
 
     # ------------------------------------------------------------
     # 便捷方法

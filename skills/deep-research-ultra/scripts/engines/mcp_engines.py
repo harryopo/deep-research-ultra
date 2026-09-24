@@ -26,61 +26,88 @@ from .mcp_client import McpClient
 # 通用辅助函数
 # ============================================================
 
-def _parse_mcp_result(result: Optional[Dict]) -> List[Dict]:
-    """
-    解析 MCP 工具调用的返回结果
-
-    MCP 返回格式：
-    {
-        "content": [
-            {"type": "text", "text": "..."},
-            {"type": "text", "text": "..."}
-        ]
-    }
-
-    或一些 MCP 直接返回结构化数据。
-
-    Returns:
-        解析后的字典列表
-    """
-    if not result:
-        return []
-    # 错误响应
-    if "error" in result:
-        return []
-    # content 字段
-    content = result.get("content", [])
-    if isinstance(content, list):
-        parsed_items = []
-        for item in content:
-            if not isinstance(item, dict):
-                continue
-            text = item.get("text", "")
-            if not text:
-                continue
-            # 尝试解析为 JSON
-            try:
-                parsed = json.loads(text)
-                if isinstance(parsed, list):
-                    parsed_items.extend(parsed)
-                elif isinstance(parsed, dict):
-                    # 可能是单个结果或包含 results 字段
-                    if "results" in parsed:
-                        parsed_items.extend(parsed["results"])
-                    else:
-                        parsed_items.append(parsed)
-                else:
-                    parsed_items.append({"text": text})
-            except json.JSONDecodeError:
-                # 纯文本
-                parsed_items.append({"text": text})
-        return parsed_items
-    # 直接返回字典
-    if isinstance(content, dict):
-        return [content]
-    return []
-
-
+_JSON_SCAN_LIMIT = 8      # 抬头散文里也可能有花括号，最多试这么多个候选起点
+
+
+def _loads_loose(text: str) -> Any:
+    """整段不是 JSON 时，从文本里找出真正可解析的那段 JSON。
+
+    实测形态：paper-search 的 search_papers 返回 `"Found 10 papers.\n\n[ ... ]"`——
+    散文抬头 + JSON 数组。只做整段 json.loads 会把这种响应当成纯文本，条目全丢，
+    一个当天正常出数据的好源就被判成"查询词无命中"。解析不出来返回 None。
+    """
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    tried = 0
+    for i, ch in enumerate(text):
+        if ch not in '[{':
+            continue
+        tried += 1
+        if tried > _JSON_SCAN_LIMIT:
+            return None
+        try:
+            return json.loads(text[i:])
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+def _items_from_parsed(parsed: Any) -> List[Dict]:
+    """把解析出来的 JSON 归一成条目列表（数组直接用，单对象或带 results 的展开）。"""
+    if isinstance(parsed, list):
+        return [x for x in parsed if isinstance(x, dict)]
+    if isinstance(parsed, dict):
+        inner = parsed.get("results")
+        if isinstance(inner, list):
+            return [x for x in inner if isinstance(x, dict)]
+        return [parsed]
+    return []
+
+
+def _parse_mcp_result(result: Optional[Dict]) -> List[Dict]:
+    """
+    解析 MCP 工具调用的返回结果
+
+    MCP 返回格式：
+    {
+        "content": [
+            {"type": "text", "text": "..."},
+            {"type": "text", "text": "..."}
+        ]
+    }
+
+    或一些 MCP 直接返回结构化数据。text 里既可能是纯 JSON，也可能先带一句散文抬头。
+
+    Returns:
+        解析后的字典列表
+    """
+    if not result:
+        return []
+    # 错误响应
+    if "error" in result:
+        return []
+    # content 字段
+    content = result.get("content", [])
+    if isinstance(content, list):
+        parsed_items = []
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text", "")
+            if not text:
+                continue
+            items = _items_from_parsed(_loads_loose(text))
+            # 一条都没解析出来才退回纯文本，不拿它冒充结果条目
+            parsed_items.extend(items) if items else parsed_items.append({"text": text})
+        return parsed_items
+    # 直接返回字典
+    if isinstance(content, dict):
+        return [content]
+    return []
+
+
 def _build_search_result(item: Dict, source: str, engine: str) -> SearchResult:
     """从字典构建 SearchResult"""
     return SearchResult(

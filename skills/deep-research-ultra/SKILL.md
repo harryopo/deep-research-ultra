@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.21.0
+version: 6.22.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -230,8 +230,14 @@ python "${SKILL_DIR}/scripts/research.py" --probe
 
 `--list` 的 ✅ 只代表「依赖与配置就绪」，`--env-check` 只探测「域名是否连通」——两者都会
 给死引擎开绿灯。实测：Gitee 匿名搜索端点静默返回 `[]`、ModelScope 关键词搜索端点已 404、
-arXiv 对部分宽查询回 HTTP 406，而它们在 `--list` 里全是 ✅。`--probe` 用按引擎定制的探针
+arXiv 对关键词式查询回 HTTP 406（分类式能通），而它们在 `--list` 里全是 ✅。`--probe` 用按引擎定制的探针
 查询实测，输出四级判定：
+
+> **v6.22：「上游拒了」和「查到了但没命中」从此分开**。此前两种真实响应都会被读成
+> ⚠️ 0 结果：① paper-search 返回「`Found 10 papers.` + JSON 数组」，旧解析整段 `json.loads`
+> 失败就把条目全丢了（实测该源当天正常出 10 条）；② server 明确回 `isError: true` +
+> `arXiv API HTTP error (HTTP 406)`。现在 ① 能解析出来、② 归入 ❌ 并带上上游原话——
+> 判成"0 结果"会诱导人去换查询词，而那两条的正确动作分别是修解析和等限流过去。
 
 > **v6.9：5 个 MCP 源也进闸门**。`--probe` 会对它们真起进程、真握手、真调一次工具，
 > 不再只看配置文件在不在——实测有用户 5 个 MCP 一个没连上，`--list` 与旧闸门却全绿。
@@ -922,10 +928,13 @@ latex = e.fetch_latex("2404.19756")
 
 - `search()` 只回**元数据**（标题/摘要/PDF·HTML 链接），全文必须由 `download_pdf` / `fetch_latex`
   按论文编号另取。`research.py --sources arxiv-fulltext` 走的是 `search()`，它不会下全文。
-- **主题查询常吃到 HTTP 406**：arXiv 边缘节点（响应头 `via: varnish`）会直接拒绝，本机实测换
-  User-Agent、换 `Accept`、甚至空查询都是 406 —— 不是我方请求格式的问题，也不是查询写长了。
-  探针用的是窄查询，探针 ✅ **不代表本主题到得了**。学术主题的兜底是
-  OpenAlex / Semantic Scholar / arxiv MCP / paper-search，别因为 arXiv 406 就判"这个主题没论文"。
+- **HTTP 406 取决于查询形态与频率，不是"这个主题没论文"**（2026-09-24 逐发隔离实测）：
+  同一台机器、同一个裸 urllib 请求，`search_query=cat:cs.CL` 单发回 200（带不带 `sortBy` 都一样），
+  而 `all:electron` / `ti:electron` / `abs:...` / 多词 AND **单发也恒回 406**；
+  连发 4 发以上（间隔 ≤6s）时连分类式都被打成 406。所以 406 有两因：查询形态、请求频率。
+  处置顺序：① 隔 ≥90 秒单发重跑；② arXiv 查询改分类式（`cat:cs.CL`），别用裸关键词整句；
+  ③ 两条都试过再换 OpenAlex / Semantic Scholar / paper-search。**探针 ✅ 只代表分类式那一刻能通，
+  不代表本主题的关键词查询到得了**。
 
 ### 6.2 Unpaywall 开放获取
 

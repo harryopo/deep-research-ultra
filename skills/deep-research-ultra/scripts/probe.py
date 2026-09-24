@@ -48,7 +48,7 @@ PROBE_QUERIES: Dict[str, str] = {
     'tavily': 'retrieval augmented generation production',
     'firecrawl': 'python web scraping framework',
     'open-websearch': 'python packaging',
-    'arxiv': 'retrieval augmented generation survey',
+    'arxiv': 'cat:cs.CL',   # 必须分类式：裸关键词查询实测单发也被 arXiv 判 406
     'paper-search': 'graph neural network',
     # Layer 2 平台 / GitHub / 国内源
     'gitee': 'vector database',
@@ -386,6 +386,16 @@ CONFIG_GUIDE: Dict[str, str] = {
 MCP_NOTE_KEYS = ('MCP', '未连接')
 NETWORK_NOTE_KEYS = ('服务未就绪', '探针异常', 'HTTP', 'None', 'URLError')
 HTTP_DENY_CODES = ('HTTP 406', 'HTTP 403', 'HTTP 429', 'HTTP 401')
+# 上游按「查询形态 / 请求频率」拒答的这一类：实测 arXiv 对裸关键词查询（all:electron）
+# 恒回 406，对分类式查询（cat:cs.CL）单发能通；连发 4 发以上时连能通的查询也一起打成 406。
+# 既不是源没配好，也不是「这个主题没资料」——所以先重跑/改形态，再谈换源。
+UPSTREAM_REFUSAL_CODES = ('HTTP 406', 'HTTP 429')
+UPSTREAM_REFUSAL_ADVICE = (
+    '上游 API 拒了这一发查询（406/429）：多半是请求频率，不是这个源没配好，'
+    '也不是「该主题无资料」。先单发重跑，两次之间间隔 ≥90 秒'
+    '（连发会把本来能通的查询也打成 406）；重跑照拒，再换同层替代源')
+ARXIV_REFUSAL_STEP = ('arXiv 另有一条：search_query 要用分类式（如 cat:cs.CL）——'
+                      '实测裸关键词与多词 AND 单发也被恒判 406，改查询形态才通')
 SUBSTITUTE_ADVICE = ('改用同层替代源：arXiv 全文 → arxiv.org/abs 页；国内学术 → '
                      'openalex/pubmed；HTML 降级搜索 → MCP/直连层，别把降级链当兜底')
 
@@ -421,13 +431,19 @@ def _advice_for(rep: Dict[str, Any]) -> List[str]:
         lines.append(f'MCP server 在 {MCP_PROBE_BUDGET}s 预算内没答完：npx/uvx 首次要下载包，'
                      '先手动预热（`bash scripts/setup-mcp.sh --core` 后直接跑一次该 MCP 的工具），'
                      '或干脆改用已连上的 MCP 工具 / 直连引擎')
+    elif any(code in note for code in UPSTREAM_REFUSAL_CODES):
+        lines.append(UPSTREAM_REFUSAL_ADVICE)
+        if 'arxiv' in str(rep.get('engine') or '').lower():
+            lines.append(ARXIV_REFUSAL_STEP)
     elif any(k in note for k in MCP_NOTE_KEYS) or rep.get('kind') == 'mcp':
         lines.append('需在当前会话连上对应 MCP server（`research.py --mcp-check` 看连接态，'
                      '缺的用 `scripts/setup-mcp.sh --core` 配），没连上就等于没有这个源')
     elif any(k in note for k in NETWORK_NOTE_KEYS):
         lines.append('直连端点今天出不来数据（网络被拦/反爬/契约变更）：'
                      '可加 --proxy、换同层替代源，或在规划里排除它')
-    if any(code in note for code in HTTP_DENY_CODES):
+    if any(code in note for code in HTTP_DENY_CODES) and \
+            not any(code in note for code in UPSTREAM_REFUSAL_CODES):
+        # 406/429 上面已经给了"先重跑、再改查询形态"的动作，这里再催换源会把顺序颠倒
         lines.append(SUBSTITUTE_ADVICE)
     return lines or [f'未通过功能自检（{note or "原因未知"}）—— 规划时排除该源']
 
