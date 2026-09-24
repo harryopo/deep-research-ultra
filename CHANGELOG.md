@@ -7,6 +7,24 @@
 
 ---
 
+## v6.23.1（2026-09-25）— MCP 握手预算按实测放宽，超时报错说清卡在哪一段
+
+`--probe --sources open-websearch` 实测 11 秒就回"超时：整场会话 25s 预算内没等到 initialize 的响应"。
+两处都对不上：真正生效的限额是握手段的 `min(INIT_TIMEOUT=10s, 25s)`＝10 秒，不是 25 秒；
+而 10 秒对 npx 起的 server 本来就不够。逐发放开预算实测冷启动握手耗时：
+**open-websearch 19.2s、paper-search 10.1s、arxiv 1.3s**。
+
+- `McpClient.INIT_TIMEOUT` 10 → 30 秒，`MCP_PROBE_BUDGET` 25 → 45 秒。代价说清楚：
+  五个 MCP 全部挂死时自检最长约 3.75 分钟（此前 1 分钟出头）——换回来的是
+  不再把配好的源稳定误判成"今天没有"。
+- `McpSession` 记住当前生效的是哪一段预算，超时报错按段说话（"握手 Xs 预算内"／"整场会话 Xs 预算内"）。
+  指错旋钮的报错比不报错更费时间：写 25s 会让人去调 `--timeout`，而该动的是 `INIT_TIMEOUT`。
+- 超时提示同步改写：先 `setup-mcp.sh --core` 配好、再跑 `--mcp-check` 让包下完（等于预热），
+  照旧超才是这台机器到不了该源。
+- 实测改判：open-websearch 从 `❌ 超时` → **`✅ 10 条`**；paper-search 此前是 10.1s 卡在 10s 限额上
+  的掷硬币（这也是"可用源数量会浮动"的一个来源），现在稳定通过。
+- 回归测试 +3 项（握手超时点名握手预算、慢 server 放宽后能连上、工具调用超时仍报整场预算）。
+
 ## v6.23.0（2026-09-25）— setup-mcp.sh 不再要求宿主装 Claude Code CLI
 
 `--probe` 的提示写着"缺 MCP 就用 `bash scripts/setup-mcp.sh --core` 配"，但该脚本原先把五个 server

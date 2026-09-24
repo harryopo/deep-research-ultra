@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.23.0
+version: 6.23.1
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -241,8 +241,12 @@ arXiv 对关键词式查询回 HTTP 406（分类式能通），而它们在 `--l
 
 > **v6.9：5 个 MCP 源也进闸门**。`--probe` 会对它们真起进程、真握手、真调一次工具，
 > 不再只看配置文件在不在——实测有用户 5 个 MCP 一个没连上，`--list` 与旧闸门却全绿。
-> 每个 MCP 单次预算 25 秒（`MCP_PROBE_BUDGET`）：首次 `npx`/`uvx` 要下包，超时是预期的，
-> 提示会让你先 `bash scripts/setup-mcp.sh --core` 预热再重跑；不预热就当"这个源今天没有"。
+> 每个 MCP 单次预算 45 秒（`MCP_PROBE_BUDGET`），其中握手最多 30 秒（`INIT_TIMEOUT`）——
+> 本机实测冷启动握手：open-websearch **19.2s**、paper-search **10.1s**、arxiv 1.3s。
+> 这两个数不是拍的：预算原先是 25s／握手 10s，于是把两个**已经配好的 npx 源**稳定判成"超时"，
+> 而报错还写着"整场会话 25s 预算内"（真正卡住的是 10s 那段握手），用户照着去调错的旋钮。
+> 首次 `npx`/`uvx` 要下包，超时仍是预期的，提示会让你先 `bash scripts/setup-mcp.sh --core`
+> 配好再跑一次 `--mcp-check` 把包下完；不预热就当"这个源今天没有"。
 
 | 判定 | 含义 | Lead 动作 |
 |------|------|-----------|

@@ -155,6 +155,9 @@ class McpSession:
         self._proc: Optional[subprocess.Popen] = None
         self._lines: Optional[queue.Queue] = None
         self._deadline = time.time() + budget
+        # 报错要说"真正卡住的那一个数"：握手用 handshake_budget，其余用整场 budget
+        self._active_limit = budget
+        self._in_handshake = False
         self.stderr_tail = ''
         self.error = ''
         self._last_method = ''
@@ -197,6 +200,7 @@ class McpSession:
 
         saved = self._deadline
         self._deadline = min(saved, time.time() + self.handshake_budget)
+        self._in_handshake, self._active_limit = True, self.handshake_budget
         self._last_method = 'initialize'
         resp = self.request('initialize', {
             'protocolVersion': '2024-11-05',
@@ -204,6 +208,7 @@ class McpSession:
             'clientInfo': {'name': 'deep-research-ultra', 'version': '4.0.0'},
         })
         self._deadline = saved
+        self._in_handshake, self._active_limit = False, self.budget
         if not resp or 'result' not in resp:
             self.error = self.error or '握手失败：initialize 没有返回 result'
             return False
@@ -288,7 +293,8 @@ class McpSession:
         while True:
             left = self._remaining()
             if left <= 0:
-                self.error = (f'超时：整场会话 {self.budget:g}s 预算内没等到 '
+                where = '握手' if self._in_handshake else '整场会话'
+                self.error = (f'超时：{where} {self._active_limit:g}s 预算内没等到 '
                               f'{method} 的响应')
                 return None
             try:
@@ -395,8 +401,9 @@ class McpClient:
     - call_tool(): 调用特定工具
     """
 
-    # 初始化超时（秒）
-    INIT_TIMEOUT = 10
+    # initialize 握手预算（秒）。本机实测冷启动握手耗时：
+    # open-websearch 19.2s、paper-search 10.1s、arxiv 1.3s——顶在 10s 会把前两个必判"超时"
+    INIT_TIMEOUT = 30
     # 工具调用超时（秒）
     CALL_TIMEOUT = 60
 

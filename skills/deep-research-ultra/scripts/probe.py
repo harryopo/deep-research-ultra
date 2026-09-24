@@ -66,7 +66,10 @@ PROBE_QUERIES: Dict[str, str] = {
 }
 
 # MCP 引擎走 npx/uvx 冷启动，不给预算就能把整轮自检拖死（实测旧实现单次调用 60s 起）
-MCP_PROBE_BUDGET = 25
+# 单个 MCP 源整场会话预算（握手 + 一次工具调用）。本机实测冷启动握手：
+# open-websearch 19.2s、paper-search 10.1s、arxiv 1.3s；再加一次真实搜索的耗时，
+# 25s 会把已经配好的 npx 源判成"超时"——这不是源坏了，是预算比真实启动还短。
+MCP_PROBE_BUDGET = 45
 
 # 查详情类引擎的功能探针：{引擎名: (方法名, 已知 id)}。
 # 它们没有 search 能力，走上面那张表会被一律判 SKIPPED——实测 32 个源里真盲区就是这 2 个
@@ -428,9 +431,10 @@ def _advice_for(rep: Dict[str, Any]) -> List[str]:
     if rep.get('status') == STATUS_EMPTY:
         lines.append('可调通但 0 结果：查询词无命中或端点契约变更/需授权 —— 不得当可用源用')
     elif '超时' in note:
-        lines.append(f'MCP server 在 {MCP_PROBE_BUDGET}s 预算内没答完：npx/uvx 首次要下载包，'
-                     '先手动预热（`bash scripts/setup-mcp.sh --core` 后直接跑一次该 MCP 的工具），'
-                     '或干脆改用已连上的 MCP 工具 / 直连引擎')
+        lines.append(f'MCP server 在 {MCP_PROBE_BUDGET}s 内没答完（上一行 note 里说的是真正'
+                     '卡住的那一段：握手还是工具调用）。npx/uvx 首次要下载包，'
+                     '先 `bash scripts/setup-mcp.sh --core` 配好、再跑一次 `--mcp-check` 让它把包下完'
+                     '（等于预热）；照旧超就是这台机器到不了该源，改用已连上的 MCP 工具 / 直连引擎')
     elif any(code in note for code in UPSTREAM_REFUSAL_CODES):
         lines.append(UPSTREAM_REFUSAL_ADVICE)
         if 'arxiv' in str(rep.get('engine') or '').lower():

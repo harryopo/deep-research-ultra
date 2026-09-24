@@ -1064,9 +1064,11 @@ class TestMcpCheckReallyConnects:
         assert 'tavily' in out
 
     def test_configured_engine_gets_a_real_handshake(self, capsys):
+        from probe import MCP_PROBE_BUDGET
         mcp, client = self._mcp('tavily', tools=[{'name': 'a'}, {'name': 'b'}])
         out = self._run([mcp], capsys)
-        assert client.calls == [25], '没连过就报"可用"是假绿'
+        # 断的是"真连过一次、用的是探针预算"，不是某个具体秒数（预算会随实测调整）
+        assert client.calls == [MCP_PROBE_BUDGET], '没连过就报"可用"是假绿'
         assert '2 个工具' in out
 
     def test_handshake_failure_shows_the_reason(self, capsys):
