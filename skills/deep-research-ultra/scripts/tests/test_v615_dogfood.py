@@ -170,6 +170,11 @@ class _FakeRegistry:
     def get_fallback_chain(self):
         return list(self._engines)
 
+    def get_configured_chain(self):
+        # v6.17.1 起 cmd_search 取"配置就绪"链（实时行不行由 search() 报），
+        # 本桩不按可用性过滤，两个名字给同一批引擎
+        return list(self._engines)
+
     def get_engine(self, name):
         return next(e for e in self._engines if e.name == name)
 

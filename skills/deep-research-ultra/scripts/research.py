@@ -744,6 +744,39 @@ def _write_ledger(ledger, results, verification, query, auto_claim: bool = False
     return written
 
 
+def _parse_source_queries(items):
+    """解析 --source-query 引擎名=查询词，返回 {引擎名: 查询词}。
+
+    相关性打分是字面词覆盖，中文提问打到英文库必然判成噪声（实测同一批切题论文
+    中文 23.6/34.5/28.6、英文 29.2/58.3/47.5）。词典翻译兜不住专业词，
+    所以由 Lead 按语料语言给词：学术库给英文，国内平台给中文。
+    """
+    out = {}
+    for it in items or []:
+        if '=' not in it:
+            print(f"⚠️ --source-query 写法应为 引擎名=查询词，已忽略：{it!r}",
+                  file=sys.stderr)
+            continue
+        name, q = it.split('=', 1)
+        name, q = name.strip(), q.strip()
+        if not name or not q:
+            print(f"⚠️ --source-query 引擎名或查询词为空，已忽略：{it!r}", file=sys.stderr)
+            continue
+        out[name] = q
+    return out
+
+
+def _stamp_lead_query(results, lead_query):
+    """把 Lead 下发给这个引擎的查询词记到没自报查询的命中上。
+
+    引擎自己改写过查询的（如 github-deep-search 归一）以引擎记录为准——那才是真正
+    上线的字符串；没记的说明原样发出了，两者都该由账本承接，否则按账本复现不出检索。
+    """
+    for r in results:
+        if not (getattr(r, 'query', '') or '').strip():
+            r.query = lead_query
+
+
 def cmd_search(args, registry):
     """v4 搜索模式"""
     from cache import LRUCache
@@ -762,6 +795,7 @@ def cmd_search(args, registry):
     # 1. 缓存检查（v6.3：key 含 ledger/effort/breadth/perspectives/reflect 参数，
     #    防止带账本的二跑命中旧缓存导致账本为空）
     cache = LRUCache()
+    source_queries = _parse_source_queries(getattr(args, 'source_query', None))
     cache_key = LRUCache.make_key(
         args.query, sources=args.sources,
         language=args.language, region=args.region,
@@ -769,6 +803,8 @@ def cmd_search(args, registry):
         ledger=bool(args.ledger), effort=args.effort,
         breadth=args.breadth, perspectives=getattr(args, 'perspectives', None),
         reflect_rounds=args.reflect_rounds,
+        # 专用查询词变了就是另一次检索，不得复用上一跑的缓存
+        source_queries=';'.join(f'{k}={v}' for k, v in sorted(source_queries.items())),
     )
     if not args.no_cache:
         cached = cache.get(cache_key)
@@ -819,12 +855,17 @@ def cmd_search(args, registry):
         print(f"📒 证据账本已初始化: {args.ledger}", file=sys.stderr)
 
     # 3. 执行搜索（按降级链）
-    chain = registry.get_fallback_chain()
+    #    候选集取"配置就绪"而不是"实时探测可用"：后者对每个引擎现发一次网络请求，
+    #    探测一失败该源就从链里消失——实测 --sources openalex 两跑之间就这样变成
+    #    "❌ 未找到结果"，把"你的源此刻探测失败"说成了"这个主题没资料"。
+    #    真出不出数据由下面那次 search() 如实报（None→没取到数据，[]→调通但 0 结果）
+    chain = registry.get_configured_chain()
     if not chain:
-        print("❌ 无可用引擎！请运行 --mcp-check 检查配置", file=sys.stderr)
+        print("❌ 没有配置就绪的引擎！请运行 --probe 检查配置", file=sys.stderr)
         sys.exit(1)
 
     all_results = []
+    score_queries = []      # 与 all_results 同序：Lead 下发给该引擎的查询词，用于打分
     used_engines = []
     empty_engines = []      # 调通但 0 结果
     unavailable = []        # 返回 None / 抛异常
@@ -842,7 +883,7 @@ def cmd_search(args, registry):
                 'duckduckgo': 'duckduckgo',
             }
             mapped = [v3_to_v4.get(s, s) for s in source_names]
-            chain = [e for e in registry.get_fallback_chain() if e.get_name() in mapped]
+            chain = [e for e in registry.get_configured_chain() if e.get_name() in mapped]
             if chain:
                 print(f"⚠️ v3 引擎名自动映射到 v4 Layer 4（建议配置 MCP）", file=sys.stderr)
                 print(f"💡 运行 setup-mcp.sh --core 配置免费 MCP", file=sys.stderr)
@@ -894,6 +935,14 @@ def cmd_search(args, registry):
         except Exception:
             pass
 
+    # 专用查询词点名了不在本次引擎链里的源＝写错了引擎名。不吭声的话，那个源照旧
+    # 收主题查询，看上去"搜过了"，实际换词没生效
+    chain_names = {e.get_name() for e in chain}
+    for bogus in sorted(set(source_queries) - chain_names):
+        print(f"⚠️ --source-query 点名的引擎 {bogus!r} 不在本次检索链里，"
+              f"该查询词不会生效（引擎名对不对？有没有被 --sources 排除？）",
+              file=sys.stderr)
+
     if args.all:
         # 搜索所有可用引擎
         for engine in chain:
@@ -904,15 +953,18 @@ def cmd_search(args, registry):
                 print(f"⚡ 断路器 OPEN，跳过: {name}", file=sys.stderr)
                 continue
             print(f"🔍 搜索中: {name}...", file=sys.stderr)
+            q = source_queries.get(name) or args.query
             try:
-                results = engine.search(args.query, max_results=args.limit)
+                results = engine.search(q, max_results=args.limit)
                 if results is None:
                     # 基类契约：None = 引擎没取到数据（依赖/鉴权/契约变更）
                     _breaker_record(name, False)
                     unavailable.append(name)
                 elif results:
                     _breaker_record(name, True)
+                    _stamp_lead_query(results, q)
                     all_results.extend(results)
+                    score_queries.extend([q] * len(results))
                     used_engines.append(name)
                 else:
                     _breaker_record(name, True)
@@ -931,15 +983,18 @@ def cmd_search(args, registry):
                 print(f"⚡ 断路器 OPEN，跳过: {name}", file=sys.stderr)
                 continue
             print(f"🔍 搜索中: {name}...", file=sys.stderr)
+            q = source_queries.get(name) or args.query
             try:
-                results = engine.search(args.query, max_results=args.limit)
+                results = engine.search(q, max_results=args.limit)
                 if results is None:
                     _breaker_record(name, False)
                     unavailable.append(name)
                     continue
                 _breaker_record(name, True)
                 if results:
+                    _stamp_lead_query(results, q)
                     all_results.extend(results)
+                    score_queries.extend([q] * len(results))
                     used_engines.append(name)
                     if len(all_results) >= args.limit and not args.sources:
                         # 没点名源时命中即停，省时间；但用户显式 --sources 点了多个源，
@@ -968,11 +1023,12 @@ def cmd_search(args, registry):
 
     print(f"📊 找到 {len(all_results)} 条结果（来自 {len(used_engines)} 个引擎）", file=sys.stderr)
 
-    # 4. CRAAP 评分
+    # 4. CRAAP 评分：按**各家自己的检索词**判相关性。相关性打分是字面词覆盖，
+    #    用中文主题去判英文库的命中必然判成噪声（实测同一篇切题论文 28.0 vs 76.7）
     scorer = CraapScorer()
-    for r in all_results:
+    for r, rq in zip(all_results, score_queries):
         try:
-            r.craap_score = scorer.score(r, query=args.query, enable_llm=args.llm_score)
+            r.craap_score = scorer.score(r, query=rq, enable_llm=args.llm_score)
         except Exception as e:
             print(f"⚠️ CRAAP 评分失败: {e}", file=sys.stderr)
 
@@ -1292,6 +1348,11 @@ v3 兼容（自动降级到 Layer 4）:
     # 数据源
     parser.add_argument('--sources', '-s',
                         help='指定数据源，逗号分隔（v3 引擎名自动映射到 Layer 4）')
+    parser.add_argument('--source-query', action='append', metavar='引擎名=查询词',
+                        help='给指定引擎换检索词，可重复；未点名的引擎仍用主题查询。'
+                             '英文学术库（arxiv/openalex/semantic-scholar）给英文词，'
+                             '国内平台（baidu-xueshu/sogou-weixin）给中文词——'
+                             '相关性打分按字面词覆盖算，跨语言必然判成噪声')
     parser.add_argument('--all', '-a', action='store_true',
                         help='搜索所有可用引擎（聚合模式）')
     parser.add_argument('--no-plan', action='store_true',

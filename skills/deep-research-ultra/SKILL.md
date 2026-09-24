@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.16.6
+version: 6.17.1
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -244,6 +244,37 @@ python "${SKILL_DIR}/scripts/research.py" --list           # 配置态清单（�
 python "${SKILL_DIR}/scripts/research.py" --probe --sources openalex,baidu-serp
 ```
 
+#### 检索词要按语料语言给（`--source-query`）
+
+相关性打分算的是**字面词覆盖**。把一句中文主题原样发给 arXiv/OpenAlex/Semantic Scholar，
+命中的英文论文必然被判成噪声——实测同一批人工确认切题的论文，中文提问下 relevance
+23.6/34.5/28.6，换英文提问 29.2/58.3/47.5；按 relevance<50 的规则，中文提问时 3/3 全成噪声，
+这就是"验证率 0%"的来路。内置词典（`router.py` 的 `zh_to_en`，34 个通用词）翻不动
+证据/溯源/可追溯/引用/幻觉 这类专业词，**翻译这件事由 Lead 做**。
+
+派单前把每个引擎该收的词写清楚，未点名的引擎仍收主题查询：
+
+```bash
+python "${SKILL_DIR}/scripts/research.py" "AI 编码 Agent 的证据溯源做法" \
+  --sources arxiv-fulltext,openalex,baidu-xueshu \
+  --source-query "arxiv-fulltext=LLM agent hallucination source attribution" \
+  --source-query "openalex=claim source attribution agentic coding" \
+  --source-query "baidu-xueshu=AI 编码智能体 证据溯源 引用对齐"
+```
+
+英文学术库给英文词，国内平台（baidu-xueshu / sogou-weixin / baidu-serp）给中文词。
+每个引擎的相关性按**它自己收到的词**判，账本也记这条词（`evidence.jsonl` 的 `query`），
+所以按账本重跑能复现出同一批命中。`--source-query` 里写错引擎名会直接告警——
+不吭声的话那个引擎照旧收中文主题词，看起来搜过了，实际换词没生效。
+
+⚠️ 换词只保证"命中随词变"，不保证你换到的是切题的词。实测 OpenAlex、同一主题四种给法：
+十个词堆成一句的关键词沙拉 relevance 均值 28.6，带回的是医学 AI 论文；缩成术语对 37.2、
+短短语 42.1——但短语那次分高是因为 `language model` 这类通用词撞上了《A Survey of Large
+Language Models》和 "Negation in English"，**分数升了、主题反而更偏**。所以三条要一起做到：
+① 给 2-4 个贴术语的短词，不要堆词；② 派单前用 `--probe --sources <引擎> --theme-query "<候选词>"`
+预演，看首条标题像不像本题的东西；③ 相关度只是过滤器，切不切题由你读过内容判定，
+**不许拿 relevance 升高当证据质量达标的凭据**。
+
 > 缺哪个变量、去哪申请、解锁什么，`--probe` 会按引擎逐条打印（同一个动作自动合并成一行），
 > 不需要背配置表；配好后重跑直到闸门放行为止。
 
@@ -376,6 +407,9 @@ Lead（主 Agent）
 1) 检索：python "{SKILL_DIR}/scripts/research.py" "{subtopic}" --no-cache --format json --no-plan
    （需要限定引擎时加 --sources {engines}。`--format json --no-plan` 是子 Agent 唯一可消费的
    输出——默认输出是整页 HTML 报告，读进上下文只会占位不占脑。检索结果只当判断材料，不转手登记）
+   ⚠️ 派单时必须带上 `{query_per_engine}`：英文学术库给英文检索词、国内平台给中文检索词
+   （用 --source-query 引擎名=查询词，见「检索词要按语料语言给」）。一句中文主题发给全部引擎
+   会把切题的英文命中全判成噪声——这条不是建议，验证率直接受它决定）
 2) 落盘：把你的全部产物写进一个文件 {ledger_dir}/{slug}.json，形状照下面的 schema 抄。
    除这个文件外不写任何东西，尤其**不要跑 ledger.py add-claim 直写共享 ledger.jsonl**
    （并发追加的原子性不由你保证，Lead 归并时统一 merge 收编）
@@ -1343,7 +1377,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 
 ```
 scripts/
-├── research.py              # 主入口（--env-check/--probe/--theme-query/--auto-route/--effort/--breadth/--dimensions/--ledger/--min-relevance）
+├── research.py              # 主入口（--env-check/--probe/--theme-query/--auto-route/--effort/--breadth/--dimensions/--ledger/--min-relevance/--source-query）
 ├── console.py               # CLI 强制 UTF-8 输出（Windows GBK 控制台曾直接 UnicodeEncodeError）
 ├── probe.py                 # 引擎功能自检（探针查询表 + ok/empty/failed 判定）+ 主题级预演（按实际查询词分"活着"与"到得到数据"）
 ├── env_check.py             # 环境分级验证（minimal/opensource/academic/full）
@@ -1411,6 +1445,9 @@ scripts/
 - ❌ **禁止跳过专家团** — effort ≥ deep 的调研必须过专家团评审（域专家/怀疑者/实践者）
 - ❌ **禁止忽略相关性告警** — 搜索输出「⚠️ N 条与查询词几乎无重叠」时，必须换查询词/补
   `--sources` 重跑，或把相关结论降级为"待确认"；`--min-relevance`（默认 50）不是可调到 0 的装饰
+- ❌ **禁止一句主题词发给所有引擎**（v6.17）— 相关性打分算字面词覆盖，中文主题发给英文学术库
+  会把切题命中全判成噪声（实测 3/3）。派单时用 `--source-query 引擎名=查询词` 给学术库英文词、
+  国内平台中文词；内置词典只 34 个通用词，翻不动专业词，翻译是 Lead 的活
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
 - ❌ **禁止拿探针的 ✅ 替主题背书**（v6.15）— `--probe` 用的是登记死的通用词，派子 Agent 前要用 `--probe --sources <引擎> --theme-query "<该维度真要用的词>"` 预演一次；预演回 0 命中/取不到数据时只能说"这批词到不了"，不许写成"该主题无相关资料"
