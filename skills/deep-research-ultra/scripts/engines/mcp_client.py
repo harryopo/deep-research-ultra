@@ -57,31 +57,50 @@ def _get_mcp_config_paths() -> List[Path]:
     ]
 
 
-def load_mcp_config() -> Dict[str, Dict]:
-    """
-    加载 MCP 配置
+def _load_mcp_sources() -> List[Tuple[Path, Dict[str, Dict]]]:
+    """逐个读 MCP 配置文件，返回 [(路径, 该文件的 server 表)]，顺序即优先级。
 
-    Returns:
-        Dict[server_name, server_config]
-        server_config 包含 command, args, env 等字段
+    坏 JSON 或读不动的文件不进合并，但它照样出现在"查过哪里"的清单里。
     """
+    sources: List[Tuple[Path, Dict[str, Dict]]] = []
     for config_path in _get_mcp_config_paths():
         if not config_path.exists():
             continue
         try:
             data = json.loads(config_path.read_text(encoding='utf-8'))
-            # 兼容两种格式：
-            # 1. {"mcpServers": {...}}
-            # 2. {server_name: {...}}
-            if "mcpServers" in data:
-                return data["mcpServers"]
-            return data
         except (json.JSONDecodeError, OSError):
             continue
-    return {}
+        if not isinstance(data, dict):
+            continue
+        # 兼容两种格式：{"mcpServers": {...}} 与直接 {server_name: {...}}
+        inner = data.get('mcpServers')
+        table = inner if isinstance(inner, dict) else data
+        sources.append((config_path,
+                        {k: v for k, v in table.items() if isinstance(v, dict)}))
+    return sources
 
 
-# ============================================================
+def load_mcp_config() -> Dict[str, Dict]:
+    """合并所有存在的 MCP 配置文件，同名 server 按优先级取项目级那份。
+
+    旧实现读到第一个存在的文件就直接 return：项目里只要放一个只含部分 server 的
+    `.mcp.json`，用户级配置里那批就整体消失，自检随之报"未配置"——
+    配置明明在，只是没被看见。实测同一个 `--probe` 换个 cwd 跑就时好时坏。
+    """
+    merged: Dict[str, Dict] = {}
+    for _path, table in _load_mcp_sources():
+        for name, cfg in table.items():
+            merged.setdefault(name, cfg)
+    return merged
+
+
+def describe_mcp_config_search() -> str:
+    """把"查过哪些配置文件"写成一句人话，供未配置提示点名路径（"有"＝该文件存在）。"""
+    found = {str(p) for p, _ in _load_mcp_sources()}
+    return '、'.join(f'{p}（有）' if str(p) in found else str(p)
+                     for p in _get_mcp_config_paths()) or '（无候选路径）'
+
+
 # stdio 会话
 # ============================================================
 
@@ -402,7 +421,8 @@ class McpClient:
         command = self.get_command()
         if not command:
             self.last_error = (f"未配置 MCP server '{self.server_name}'"
-                               '（配置文件里没有，或缺 command）')
+                               '（配置文件里没有，或缺 command）'
+                               f'；查过：{describe_mcp_config_search()}')
             return None
         session = McpSession(command, self.get_env(),
                              budget or self.CALL_TIMEOUT,
