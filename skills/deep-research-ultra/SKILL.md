@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.22.1
+version: 6.23.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -204,7 +204,7 @@ python "${SKILL_DIR}/scripts/research.py" "深度调研大语言模型微调" --
 | 快速浏览 / 通用搜索 | `minimal` | Python + 内置引擎 + 网络 | — |
 | **开源项目调研** | `opensource` | Python + 网络（GitHub/OpenAlex 免费直连） | `GITHUB_TOKEN`、`GITEE_TOKEN`；oss-finder/agent-reach 等全局 skill |
 | 学术论文调研 | `academic` | Python + 网络（OpenAlex/S2/PubMed 直连） | `UNPAYWALL_EMAIL`、`GITHUB_TOKEN` |
-| 全量深度调研 | `full` | Python + 网络 + MCP（setup-mcp.sh --core） | Tavily/Firecrawl/Crawl4AI/`claude`/`npx` |
+| 全量深度调研 | `full` | Python + 网络 + MCP（setup-mcp.sh --core） | Tavily/Firecrawl/Crawl4AI/`npx`/`uvx`（`claude` 只在 `--via-claude` 路线才需要） |
 
 **步骤 0.2 两条命令并行跑完（同一个 turn 内发出）**
 
@@ -304,6 +304,8 @@ python "${SKILL_DIR}/scripts/research.py" --probe \
 
 ```bash
 # 缺失 MCP → 一键配置（免费模式）；只测某几个引擎用 --sources a,b
+# 配置写进**当前目录**的 .mcp.json（不需要宿主装 Claude Code CLI；要在当前目录跑 --probe 才看得见，
+# 换个目录请加 --out <那个目录>/.mcp.json）
 bash "${SKILL_DIR}/scripts/setup-mcp.sh" --core
 python "${SKILL_DIR}/scripts/research.py" --list           # 配置态清单（不等于功能可用）
 python "${SKILL_DIR}/scripts/research.py" --probe --sources openalex,baidu-serp
@@ -1496,7 +1498,8 @@ scripts/
 ├── probe.py                 # 引擎功能自检（探针查询表 + ok/empty/failed 判定）+ 主题级预演（按实际查询词分"活着"与"到得到数据"）
 ├── env_check.py             # 环境分级验证（minimal/opensource/academic/full）
 ├── search.py                # 引擎兼容入口（保留 --sources baidu,bing 等旧参数）
-├── setup-mcp.sh             # MCP 一键配置脚本
+├── setup-mcp.sh             # MCP 一键配置脚本（默认写当前目录 .mcp.json，--via-claude 才走宿主 CLI）
+├── mcp_config_writer.py     # .mcp.json 读写器（--server/--env/--remove/--list，宿主无关）
 ├── router.py                # 智能路由（三级级联 Rule→Semantic→LLM）
 ├── recommend.py             # 推荐度评分（GitHub/PaperRecommender + detect_intent）
 ├── tier.py                  # 来源 Tier 分级（域名校验，score/report/validate 共用）

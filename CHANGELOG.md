@@ -7,6 +7,27 @@
 
 ---
 
+## v6.23.0（2026-09-25）— setup-mcp.sh 不再要求宿主装 Claude Code CLI
+
+`--probe` 的提示写着"缺 MCP 就用 `bash scripts/setup-mcp.sh --core` 配"，但该脚本原先把五个 server
+全部写成 `claude mcp add`。本机就没有 claude 命令（Qoder 宿主）——也就是说这条指引对没装
+Claude Code CLI 的宿主必然失败，用户照着做只会撞墙。
+
+- 新增 `scripts/mcp_config_writer.py`：宿主无关地读写 `.mcp.json`（就是 McpClient 自己会读的那种格式），
+  支持 `--server/--env/--remove/--list`。已有 server 与其他顶层键一律保留，同名覆盖所以重复跑幂等；
+  目标文件不是合法 JSON 时报错退出，不改写用户配置。
+- `setup-mcp.sh`：默认走本地写入器，`--out PATH` 决定写到哪（默认当前目录），`--via-claude` 保留原来的
+  宿主 CLI 路线；前置检查里 `claude` 不再是硬依赖。五个 `setup_*` 函数改调 `register_server`。
+- 卸载不再报假成功：`remove_server` 里挂着 `|| true`，把"这个 server 根本没配过"也吞成成功，
+  于是 `--uninstall` 恒报"移除 5 个"。现按退出码决定"已移除"能不能说出口，并加了断言实际移除数的测试。
+- 收尾提示同步改：原先写"重启 Claude Code 会话"和 `python scripts/search.py --check`——前者只适用于
+  claude 路线，后者那个脚本不存在。现指向配置所在目录与 `research.py --probe`（并提醒：
+  `research.py` 按当前工作目录找 `.mcp.json`，换目录要用 `--out`）。
+- 顺带修的一处实测缺陷：`register_server` 里 `--) cmd=("$@")` 会把 `--` 本身当成启动命令，
+  写出的配置成了 `command: "--"`。这条只有真跑脚本才会暴露，单测打不到那一层，故补了一条
+  真起 bash 的端到端测试。
+- 回归测试 +10 项（写入器 6 项 + 真跑 setup-mcp.sh 4 项）。
+
 ## v6.22.1（2026-09-24）— MCP 配置跨文件合并，"未配置"要点名查过哪里
 
 实测同一条 `--probe --sources arxiv,paper-search`：在工作区目录跑两个 server 都连上，
