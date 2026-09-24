@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.20.1
+version: 6.21.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -544,6 +544,11 @@ id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_
 > |----|-----------|------|------|
 > | **A · 跨作品三角验证** | 「世界事实」类（某机制的行为、某统计数字） | **内容去重后 ≥2 条不同作品**来源（同一作品的 /abs 与 /pdf、同一篇稿的转载只算一条；三条不同 GitHub 仓库、两篇不同 DOI 的论文虽同域，也算两条不同作品——按注册域判会把它们误杀，实测 14 条栽在这条上） | `ledger.py set-status --claim-id <ids> --status verified --note "交叉验证 N 独立来源"`（发现原文写错时加 `--text` 就地更正） |
 > | **B · 一手来源 + 反查** | **归属型**（"某仓库 README 现状是 X"/"某论文原文说 Y"）——对象就是单个制品，要求第二个域名来验证它自身是判据错配 | 反查 URL 与既有来源指向**同一制品**。三族入口由代码归一：arXiv 按论文 ID（`/abs`＝`/pdf`＝`/html`＝`/html/<id>v5`＝ar5iv＝OAI 接口）；GitHub 按 `owner/repo@分支:路径`（blob＝raw＝REST contents，`HEAD`＝`main`＝`master`，**仓库根＝它的 README**，因为根页渲染的就是 README）；DOI 按 doi 串（`doi.org/<DOI>`＝OpenAlex 的 `works/https://doi.org/<DOI>`＝S2 的 `paper/DOI:<DOI>`）。**不同分支/不同文件仍是不同制品** | `ledger.py verify-primary --claim-id <ids> --check-url <另一通道的同一制品URL> --check-title <t> --method cross_channel` |
+>
+> 跨标识符（作者预印本号 ↔ 期刊 DOI、PMC 号 ↔ DOI）先跑一次判同拿第三方凭据：
+> `ledger.py link-identity --claim-id <ids> --anchor <账本已有来源URL> --target <反查URL>`
+> —— 它查 Semantic Scholar 的 `externalIds` 并写一条 `type=identity` 记录进账本，`verify-primary`
+> 只认已存在的记录；解析失败或记录里没有那个标识符一律不绑，口头声明"它们是一篇"不作数。
 >
 > 档 B 的**已知反查不出通道**（实测撞到的，别当没看见）：出版方落地页与 DOI 的同一性要解析才知道，URL 文本推不出（19 条卡在这）；文档站渲染页与其 `.md` 源、官方 API 视图、以及 `/en-us/`↔`/zh-cn/` 语言段也未归一；Wayback 在部分网络环境整机不可达。这些 claim 按规则只能保持 pending，报告里渲染为「⚠️ 仅作线索」——**不要为了过门把它们记成已验证**。
 >

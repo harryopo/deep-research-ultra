@@ -175,6 +175,82 @@ def _se_key(url: str) -> str:
 
 
 
+_ID_KINDS = {'doi': 'DOI', 'arxiv': 'arXiv', 'pmcid': 'PMCID', 'pmid': 'PMID'}
+_EXT_TO_KIND = {'DOI': 'doi', 'ArXiv': 'arxiv', 'PubMedCentral': 'pmcid', 'PubMed': 'pmid'}
+
+
+def _ids_of(url: str) -> dict:
+    """从网址里能确定的作品标识符：doi / arxiv / pmcid。
+
+    跨标识符判同（期刊 DOI ↔ 作者预印本 arXiv 号）不能靠网址文本互推，
+    必须先各自取出标识符，再交给书目记录去认。取不到就是空 dict——
+    判同环节拿空集去比自然会被拒，不会误放行。
+    """
+    u = _clean_url(url)
+    out = {}
+    d = _doi_of(u) or _doi_from_path(u)
+    if d:
+        out['doi'] = d.lower()
+    if 'arxiv' in u.lower():
+        m = _ARXIV_ID_RE.search(u)
+        if m:
+            out['arxiv'] = m.group(1)
+    m = re.search(r'(PMC\d{5,})', u, re.I)
+    if m:
+        out['pmcid'] = m.group(1).upper()
+    return out
+
+
+def _s2_record(url: str) -> dict:
+    """用 Semantic Scholar 把锚点网址解析成一条书目记录（含 externalIds）。
+
+    免费、不用 key。任何失败都回 None：判同不许"取不到就当通过"。
+    传输必须走 engines/fallback 的公共通道（带 TLS 指纹、失败留状态码）——
+    自己裸发 urlopen 会被 test_v6151_transport 按同类缺陷拦下（v6.15 就是为这个加的）。
+    """
+    ids = _ids_of(url)
+    for kind in ('doi', 'arxiv', 'pmcid', 'pmid'):
+        if kind not in ids:
+            continue
+        api = ('https://api.semanticscholar.org/graph/v1/paper/'
+               + _ID_KINDS[kind] + ':' + ids[kind] + '?fields=title,externalIds')
+        try:
+            from engines.fallback import _http_get
+            raw = _http_get(api, timeout=30, max_retries=2)
+        except Exception as e:
+            print(f'S2 解析失败（{kind}）：{str(e)[:70]}', file=sys.stderr)
+            return None
+        if not raw:
+            print(f'S2 没给出记录（{kind}={ids[kind]}）：判同不成立', file=sys.stderr)
+            return None
+        try:
+            rec = json.loads(raw.decode('utf-8', 'replace'))
+        except (ValueError, UnicodeDecodeError):
+            print(f'S2 返回体不是 JSON（{kind}）：判同不成立', file=sys.stderr)
+            return None
+        if isinstance(rec, dict) and rec.get('externalIds'):
+            rec['record_url'] = api
+            return rec
+        return None
+    return None
+
+
+
+def _same_id_val(kind: str, a, b) -> bool:
+    """标识符比对要忽略写法差：S2 把 PubMedCentral 存成裸数字，网址里写的是 PMC10424704。
+
+    不归一就会把"同一篇"判成"对不上"——实跑 c-d7-09 第一次就被这个差异挡下。
+    只对 pmcid 放开前缀，其余类型必须严格相等（放开的口径越窄，误绑的可能越小）。
+    """
+    sa, sb = str(a).strip().lower(), str(b).strip().lower()
+    if sa == sb:
+        return True
+    if kind == 'pmcid':
+        cut = lambda s: s[3:] if s.startswith('pmc') else s
+        return bool(cut(sa)) and cut(sa) == cut(sb)
+    return False
+
+
 def _artifact_key(url: str) -> str:
     """制品指纹 = 注册域族 + 去掉浏览态路径段的路径。
 
@@ -556,6 +632,73 @@ class ResearchLedger:
             os.replace(tmp, self.entries_path)
         return changed
 
+    def link_identity(self, claim_ids, anchor_url, target_url, resolver=None) -> int:
+        """把"锚点来源"与"反查网址"绑成同一作品，凭据落账（档 B 的跨标识符通道）。
+
+        实跑剩下 6 条卡在这里：反查打在作者预印本 `arxiv.org/abs/2005.10732`，
+        账本来源是期刊 DOI `doi.org/10.1162/qss_a_00112`——同一篇论文的两个标识符，
+        从网址文本互推不出来。判据取 Semantic Scholar 的 externalIds：以账本已有
+        来源为锚查一次，返回里就写着 ArXiv 字段。
+
+        三条不许绕过的地方：① 锚点必须是该 claim 已有的来源（否则拿别人的记录背书）；
+        ② 目标标识符必须真的出现在那条记录的 externalIds 里；③ 解析失败一律不绑。
+        成功时写一条 identity 记录（含 record_url 与 corpus_id），事后能查是谁把
+        哪两个标识符绑在一起的。
+        """
+        wanted = {c.strip() for c in claim_ids if c and c.strip()}
+        if not wanted:
+            return 0
+        t_ids = _ids_of(target_url)
+        if not t_ids:
+            print(f"拒绝 link-identity：反查网址 {target_url} 里取不出任何标识符，"
+                  f"没法与书目记录比对", file=sys.stderr)
+            return 0
+        entries = list(_iter_entries(self.entries_path))
+        src_urls = {}
+        for e in entries:
+            if e.get('type') == 'source' and e.get('claim_id'):
+                src_urls.setdefault(e['claim_id'], []).append(str(e.get('url', '')))
+        linked = {(e.get('claim_id'), e.get('target'))
+                  for e in entries if e.get('type') == 'identity'}
+        resolve = resolver or _s2_record
+        rec = resolve(anchor_url)
+        ext = (rec or {}).get('externalIds') or {}
+        if not ext:
+            print("拒绝 link-identity：书目记录没返回 externalIds（解析失败或未收录），"
+                  "跨标识符判同不许凭猜测成立", file=sys.stderr)
+            return 0
+        a_key = _artifact_key(anchor_url)
+        done = 0
+        for cid in wanted:
+            if a_key not in {_artifact_key(u) for u in src_urls.get(cid, [])}:
+                print(f"拒绝 link-identity：锚点 {anchor_url} 不是 claim {cid} 已有的来源",
+                      file=sys.stderr)
+                continue
+            hit = ''
+            for kind, val in t_ids.items():
+                for ek, ev in ext.items():
+                    if _EXT_TO_KIND.get(str(ek)) == kind and _same_id_val(kind, ev, val):
+                        hit = f'{kind}:{val}'
+                        break
+                if hit:
+                    break
+            if not hit:
+                print(f"拒绝 link-identity：记录 externalIds 里没有 claim {cid} 反查目标的"
+                      f"标识符（{sorted(t_ids)}），不绑", file=sys.stderr)
+                continue
+            if (cid, _clean_url(target_url)) in linked:
+                continue
+            _atomic_append(self.entries_path, json.dumps({
+                'type': 'identity', 'claim_id': cid, 'anchor': anchor_url,
+                'target': _clean_url(target_url), 'matched': hit,
+                'corpus_id': ext.get('CorpusId'), 'record_url': (rec or {}).get('record_url', ''),
+                'created_at': _now(),
+            }, ensure_ascii=False))
+            done += 1
+        return done
+
+
+
     def verify_primary(self, claim_ids: List[str], check_url: str,
                        check_title: str = '', method: str = '') -> int:
         """档 B 验证：一手来源 + Lead 反查，用于归属型 claim。
@@ -601,10 +744,13 @@ class ResearchLedger:
                       f"（同一篇论文的 /pdf、/html、OAI 接口，或同一文件的 raw / "
                       f"REST API）再报", file=sys.stderr)
                 continue
-            if check_host not in hosts:
+            if check_host not in hosts and _clean_url(check_url) not in {
+                    e.get('target') for e in entries
+                    if e.get('type') == 'identity' and e.get('claim_id') == cid}:
                 print(f"拒绝 verify-primary：claim {cid} 的反查制品 "
-                      f"{check_host!r} 不在其来源制品 {sorted(hosts)} 内 —— "
-                      f"反查必须打在同一个制品上（不同分支/不同文件算不同制品）",
+                      f"{check_host!r} 不在其来源制品 {sorted(hosts)} 内，"
+                      f"也没有 link-identity 判同记录 —— 反查必须打在同一个制品上"
+                      f"（跨标识符先跑 link-identity 拿第三方凭据）",
                       file=sys.stderr)
                 continue
             targets.append(cid)
@@ -960,6 +1106,21 @@ def _main(argv: Optional[List[str]] = None) -> int:
             return 2
         print(json.dumps(entry, ensure_ascii=False))
         return 0
+
+    if cmd == 'link-identity':
+        try:
+            ledger.require()
+        except FileNotFoundError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        ids = [i.strip() for i in _opt('--claim-id').split(',') if i.strip()]
+        n = ledger.link_identity(ids, _opt('--anchor'), _opt('--target'))
+        if n:
+            print(f"判同 {n} 条 claim：{ids} —— 凭据已落账（type=identity），"
+                  f"现在可以对目标 URL 跑 verify-primary")
+            return 0
+        print("判同 0 条：没写任何 identity 记录（原因见上方拒绝信息）", file=sys.stderr)
+        return 1
 
     if cmd == 'verify-primary':
         try:
