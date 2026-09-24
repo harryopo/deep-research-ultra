@@ -101,6 +101,80 @@ def _clean_url(url: str) -> str:
     return u.strip()
 
 
+# 落地页里直接写着完整 DOI 的出版方（路径段形态：/article/10.1007/xxxx）
+# 左边界允许 `/`（DOI 常接在路径段后），但拒绝被更长的数字或版本号裹住
+_DOI_IN_PATH_RE = re.compile(r'(?<![\w.-])(10\.\d{4,9}/[^\s?#/]+(?:/[^\s?#]+)?)')
+# 页面 ID 就是 DOI 后缀的站点：前缀是出版方公告的常量，不是我们猜的规律
+DOI_HOST_PREFIX = {'aclanthology.org': '10.18653/v1/'}
+
+
+def _doi_from_path(url: str) -> str:
+    """网址路径里写着完整 DOI 时取出来（Springer 等出版方的落地页形态）。
+
+    实跑 2026-09-24：14 条内容已跨通道复核通过的 claim 升不了档，因为
+    `link.springer.com/article/10.1007/s11192-013-1089-2` 与
+    `doi.org/10.1007/s11192-013-1089-2` 按 host+path 判等成了两个制品。
+    同一性既然抄得出来，就没有理由不认。
+    只认"整段就是 DOI"的形态：注册者号后必须带后缀，纯版本号/目录号不算。
+    """
+    path = re.sub(r'^https?://[^/]+', '', str(url or ''))
+    path = path.split('?')[0].split('#')[0]
+    m = _DOI_IN_PATH_RE.search(path)
+    if not m:
+        return ''
+    cand = m.group(1).strip('/').rstrip('.')
+    tail = cand.split('/', 1)[1] if '/' in cand else ''
+    return cand if tail and any(ch.isalnum() for ch in tail) else ''
+
+
+def _doi_from_host_prefix(url: str) -> str:
+    """已知站点：页面 ID 即 DOI 后缀（ACL Anthology = 10.18653/v1/ + 页面 ID）。
+
+    白名单制，一 site 一条常量。没进表的站点一律不猜——落地页与 DOI 的同一性
+    若靠 host 规律推断，反查凭据就成了猜测，张冠李戴也查不出来。
+    """
+    m = re.match(r'https?://([^/]+)/(.+)', str(url or ''))
+    if not m:
+        return ''
+    host, rest = m.group(1).lower(), m.group(2)
+    prefix = DOI_HOST_PREFIX.get(host) or next(
+        (v for k, v in DOI_HOST_PREFIX.items() if host.endswith(k)), None)
+    if not prefix:
+        return ''
+    ident = rest.split('?')[0].split('#')[0].strip('/').rstrip('/')
+    for suffix in ('.pdf', '.htm', '.html'):
+        if ident.lower().endswith(suffix):
+            ident = ident[:-len(suffix)]
+            break
+    return prefix + ident if ident else ''
+
+
+
+def _se_key(url: str) -> str:
+    """Stack Exchange：问题号就是身份，slug 与"网页/API 视图"的差别都是装饰。
+
+    实跑 2026-09-24 两条 claim 卡在这：来源记网页 `tex.stackexchange.com/questions/8332/<slug>`，
+    反查打在官方 API `api.stackexchange.com/2.3/questions/8332?site=tex`。SE 自己保证两条
+    通道等价（换任意 slug 都会 302 回规范地址），判不成同一制品没有道理。
+    站点名参与判等：tex 的 8332 与 apple 的 8332 是两个问题。
+    """
+    u = str(url or '')
+    m = re.match(r'https?://([^/]+)/', u)
+    if not m:
+        return ''
+    host = m.group(1).lower()
+    if not host.endswith('stackexchange.com'):
+        return ''
+    sub = host[:-len('.stackexchange.com')] if len(host) > len('stackexchange.com') else ''
+    site_m = re.search(r'[?&]site=([^&#]+)', u)
+    site = (site_m.group(1) if site_m else sub).lower()
+    if site in ('', 'api', 'www'):
+        return ''
+    num = re.search(r'/questions/(\d+)', u)
+    return f'se:{site}:q:{num.group(1)}' if num else ''
+
+
+
 def _artifact_key(url: str) -> str:
     """制品指纹 = 注册域族 + 去掉浏览态路径段的路径。
 
@@ -129,7 +203,18 @@ def _artifact_key(url: str) -> str:
             return 'arxiv:' + m.group(1)
     if host == 'github.com':
         return _github_key(u)
+    # 落地页：只认"网址里抄得出来"的同一性（放在 arXiv/GitHub 分支之后，
+    # 免得 DOI 规则把两族已有的键抢走）
+    doi = _doi_from_path(u) or _doi_from_host_prefix(u)
+    if doi:
+        return 'doi:' + doi.lower()
+
+    se = _se_key(u)
+    if se:
+        return se
     path = re.sub(r'^https?://[^/]+', '', u).lower()
+    # 同一页面的渲染态与其源文件形态（.md / .html / amp）算一份内容（实跑：智谱文档卡在这）
+    path = re.sub(r'[.](md|html|amp)$', '', path)
     return host + ':' + path.rstrip('/')
 def _github_key(u: str) -> str:
     """GitHub 同一份内容的几个入口归一到 owner/repo@ref:path。
