@@ -38,6 +38,20 @@ from urllib.parse import urlparse
 # 数据结构
 # ============================================================
 
+def normalize_work_title(title: str) -> str:
+    """论文/网页标题归一，用于判断"这两条证据是不是同一件作品"。
+
+    实测同一篇综述在 OpenAlex 里有两条记录，标题只差在弯引号与前置表情符号：
+      "Siren's Song in the AI Ocean: A Survey on Hallucination..."
+      "🧜Siren’s Song in the AI Ocean: A Survey on Hallucination..."
+    所以折叠大小写与标点、去掉非字母数字与中日韩字符后再比。
+    """
+    if not title:
+        return ''
+    t = title.lower().replace('’', "'").replace('‘', "'")
+    t = re.sub(r"[^0-9a-z\u4e00-\u9fff]+", ' ', t)
+    return ' '.join(t.split())
+
 @dataclass
 class Claim:
     """
@@ -59,12 +73,25 @@ class Claim:
         self.evidence.append(ev)
 
     def get_sources(self) -> Set[str]:
-        """获取所有证据来源的域名"""
+        """获取所有证据来源的域名（报告展示用；独立来源数别用这个）"""
         return {ev.source_domain for ev in self.evidence}
 
+    def get_work_keys(self) -> Set[str]:
+        """按**作品**去重的来源标识。
+
+        同一篇论文常有两个 URL：预印本在 arxiv.org、期刊版在 doi.org，域名不同但是一回事。
+        只按域名数独立来源，就会出现"自己引自己"凑够 min_sources 升 verified。
+        标题能归一出来就按标题，标题为空（只带 URL 的引用）才退回域名。
+        """
+        keys = set()
+        for ev in self.evidence:
+            title = normalize_work_title(ev.source_title)
+            keys.add(title or (ev.source_domain or ev.source_url))
+        return keys
+
     def get_independent_source_count(self) -> int:
-        """获取独立来源数"""
-        return len(self.get_sources())
+        """获取独立来源数（按作品去重，不是按域名）"""
+        return len(self.get_work_keys())
 
     def to_dict(self) -> Dict:
         return {
