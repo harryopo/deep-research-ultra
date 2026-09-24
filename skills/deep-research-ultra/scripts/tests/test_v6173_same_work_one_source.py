@@ -68,3 +68,36 @@ def test_same_domain_same_url_still_one():
     """原行为不回退：同 URL 重复只算一次。"""
     c = _claim(ARXIV, ARXIV)
     assert c.get_independent_source_count() == 1
+
+
+def test_verify_and_ledger_agree_on_what_counts_as_one_work():
+    """同一件作品在两层得给同一个数——把这组对照钉住。
+
+    验证层新加了 normalize_work_title（精确归一），账本/覆盖面层用
+    similarity.is_same_content（指纹比对）。实测 8 组样本两层判定一致（含 OpenAlex
+    真实返回的那对预印本/期刊版），所以暂不合并实现；但一致是**巧合还是约定**，
+    只有把它写成对照表才守得住：任一层日后放宽或收紧，这里就会红。
+
+    期望值逐条写明，不靠两层互算——先前版本写成 `assert 层A == 层B` 是空转的：
+    两边都答 2 时它同样通过，什么都没测。
+    """
+    from similarity import is_same_content
+    from verify import normalize_work_title as norm
+
+    SIREN = ("Siren's Song in the AI Ocean: A Survey on Hallucination in "
+             "Large Language Models")
+    SIREN_VARIANT = ("\U0001f9dc Siren’s Song in the AI Ocean: A Survey on "
+                     "Hallucination in Large Language Models")
+    # (标题 A, 标题 B, 两层是否都应判为"同一件作品")
+    CASES = [
+        (SIREN, SIREN_VARIANT, True),        # OpenAlex 实测返回的一对
+        (SIREN, 'Faith in AI can narrow the futures individuals perceive', False),
+        ('Code as Agent Harness', 'Code as an Agent Harness', False),
+        ('Retrieval Augmented Generation Survey',
+         'Retrieval Augmented Generation: A Survey', False),
+        ('LLM 证据溯源研究', 'LLM 证据溯源研究（下篇）', False),
+        ('A Survey of X', 'A Survey of Y', False),
+    ]
+    for a, b, same in CASES:
+        assert (norm(a) == norm(b)) is same, f'验证层判错：{a!r} vs {b!r}'
+        assert is_same_content(a, b) is same, f'账本层判错：{a!r} vs {b!r}'
