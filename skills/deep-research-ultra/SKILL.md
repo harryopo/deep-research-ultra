@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.18.0
+version: 6.18.1
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -292,6 +292,19 @@ python "${SKILL_DIR}/scripts/research.py" "AI 编码 Agent 的证据溯源做法
 派单前用 `--probe --sources <引擎> --theme-query "<候选词>"` 预演，看首条标题像不像本题的东西。
 相关度分数只当过滤器：实验里分数升高的那次（短短语 42.1）命中反而更偏，
 **不许拿 relevance 升高当证据质量达标的凭据**。
+
+🚫 **三条"让工具自动取词"的路子已实测否决，别再重做**（同一主题，逐条人工判切题）：
+
+| 路子 | 做法 | 实测结果 |
+|------|------|----------|
+| 词典翻译 | `router.py` 的 `zh_to_en` 生成变体 | 34 个通用词，专业词零覆盖；命中也是中英混排串 |
+| 引文扩引 | 锚定一篇切题论文走 OpenAlex `related_to` | 10 条全是"多学科研究团队/门诊"，precision 0/10 |
+| 取主题词 | 读锚定论文自己的 `primary_topic` / `concepts` 当查询词 | 标签是"AI in Healthcare and Education"这类宽簇名，precision 0/10 |
+
+三条输给的是同一件事：**Lead 手写的那句机制描述**（`verifying generated code citations
+against sources`）至少把种子论文与 `Citationchaser` 这类近邻工具带回来了，而机械扩出来的
+都是文献计量邻居、不是主题邻居。所以检索词的判断留给 Lead，工具只负责把词送到对的引擎、
+并按这条词打分与记账。
 
 > 缺哪个变量、去哪申请、解锁什么，`--probe` 会按引擎逐条打印（同一个动作自动合并成一行），
 > 不需要背配置表；配好后重跑直到闸门放行为止。
