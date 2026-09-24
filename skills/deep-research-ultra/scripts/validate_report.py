@@ -75,14 +75,27 @@ _CITATION = re.compile(r'\[(\d{1,3})\](?!\()(?!:)')
 _PLACEHOLDER = re.compile(r'【待写】')
 
 
-def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]]
-                    ) -> tuple:
+def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]],
+                    claims: Optional[List[Dict[str, Any]]] = None) -> tuple:
     """把正文引用映射回 claim，返回 (未标注集合, 带 ⚠️ 标注集合)。
 
     来源登记表不算立论：附录里的 `[N] https://...` 行是在列证据，
     把它当引用会让"列全了来源"反而触发拦截。同理，「## 来源」整节跳过。
+
+    归因到行（传 claims 时）：骨架把每条 claim 渲染成独立一行、行尾带该行自己的编号，
+    所以那一行的编号只代表"这一条 claim 被引用了"。只按 编号→claim 的全局映射归因，
+    会让已验证 claim 的那行替共享同一来源的未验证 claim 立论（实跑误拦 2 条：
+    c-d2-01 与 c-d2-03 共用 tex.stackexchange 那条、c-d3-03 与 c-d3-02 共用 ALCE 那篇）。
+    这种误拦 Lead 无论怎么改正文都消不掉——只能删已验证 claim 的引用，或给 verified
+    的行错加 ⚠️，两条都是往账本里灌假信息，正是本工具要防的方向。
+    不属于任何 claim 行的段落仍按全局牵连归因：那才是"拿未验证证据下结论"的真形态。
     """
     idx_to_claim = {s.get('primary_index'): s.get('claim_id') for s in sources}
+    prefixes = {}
+    for c in (claims or []):
+        text = str(c.get('text') or '').strip()
+        if len(text) >= 16 and c.get('id'):
+            prefixes.setdefault(text[:16], c['id'])
     unmarked, marked = set(), set()
     in_sources = False
     for line in report_md.split('\n'):
@@ -96,11 +109,12 @@ def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]]
         nums = [int(x) for x in _CITATION.findall(line)]
         if not nums:
             continue
-        (marked if '⚠' in line else unmarked).update(
-            idx_to_claim[n] for n in nums if idx_to_claim.get(n))
+        ids = {idx_to_claim[n] for n in nums if idx_to_claim.get(n)}
+        owner = next((cid for pref, cid in prefixes.items() if pref in line), None)
+        if owner:
+            ids = {i for i in ids if i == owner}
+        (marked if '⚠' in line else unmarked).update(ids)
     return unmarked, marked
-
-
 def registry_number_conflicts(report_md: str) -> Dict[int, List[str]]:
     """来源登记表里同一编号映射到多个不同 URL 的情况。
 
@@ -259,7 +273,7 @@ def validate_report(report_md: str,
     #   拦它等于禁止报告矛盾，方向反了）。
     # pending/supplementing 才是"还没评估完"，必须补验证或在引用处标 ⚠️ 降级，
     # 标注数量单独计数供复核——想省事只能少写结论，不能少写证据。
-    unmarked, marked = cited_claim_ids(report_md, sources)
+    unmarked, marked = cited_claim_ids(report_md, sources, claims)
     status_by_id = {c.get('id'): c.get('status') for c in claims}
     graded = ('verified', 'conflict')
     unverified_cited = sorted(

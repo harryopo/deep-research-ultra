@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
-    from ledger import ResearchLedger
+    from ledger import ResearchLedger, _one_line
 except ImportError:  # 作为包导入时
-    from scripts.ledger import ResearchLedger  # type: ignore
+    from scripts.ledger import ResearchLedger, _one_line  # type: ignore
 
 PLACEHOLDER = '【待写】'
 
@@ -67,16 +67,16 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
         for c in [x for x in claims if x['topic'] == topic]:
             cite = _citations(grouped.get(c['id'], []))
             if c['status'] == 'verified':
-                lines.append(f"- {c['text']} {cite}")
+                lines.append(f"- {_one_line(c['text'])} {cite}")
             elif c['status'] == 'conflict':
-                lines.append(f"- ⚠️ 冲突待裁决：{c['text']} {cite}")
+                lines.append(f"- ⚠️ 冲突待裁决：{_one_line(c['text'])} {cite}")
                 lines.append(f'  {PLACEHOLDER} 写清两方证据、分歧根源与本报告的取舍')
             else:
                 # 未验证项渲染成"仅作线索"，不逐条留【待写】：标准档一次 60 条 claim
                 # 会逼出几十处待写标记，逐条处置超出单轮产能，结果反而是拿模板句把标记
                 # 刷没（2026-09-22 实跑撞上：骨架 40 处【待写】）。未验证的可见性由
                 # ⚠️ 承担，validate_report 的"引用未验证 claim 必须带 ⚠️"照旧把关。
-                lines.append(f"- ⚠️ 仅作线索：{c['text']} {cite}"
+                lines.append(f"- ⚠️ 仅作线索：{_one_line(c['text'])} {cite}"
                              f"（状态 {c['status']}，未达 verified 判据）")
         lines.append('')
 

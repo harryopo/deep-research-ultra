@@ -60,6 +60,46 @@ def _registered_domain(url: str) -> str:
 
 _ARXIV_ID_RE = re.compile(r'(\d{4}\.\d{4,5})')
 
+# 仓库根页渲染的就是 README，REST /readme 返回的也是它——同一份内容的三个官方入口。
+# 只放行这一族文件名，其他文件仍算独立制品（见 _github_key）。
+_README_ALIASES = {'', 'readme', 'readme.md', 'readme.markdown', 'readme.txt', 'readme.rst'}
+
+
+def _doi_of(url: str) -> str:
+    """取 URL 里明确用来定位作品的那个 DOI，取不到回空串。
+
+    档 B 需要认得"同一篇作品的三个官方入口"：doi.org/<DOI>、OpenAlex 的
+    `works/https://doi.org/<DOI>`、Semantic Scholar 的 `paper/DOI:<DOI>`。
+    判据只认"URL 里出现 doi.org/ 或 /doi:"，所以 OpenAlex 自己的 work id
+    （`/works/W4386510404`，不含 DOI 串）不会被误归一。
+    """
+    u = str(url or '').strip()
+    lu = u.lower()
+    if 'doi.org/' not in lu and '/doi:' not in lu:
+        return ''
+    m = re.search(r'doi\.org/(10\.\d{4,9}/[^\s"\'<>]+)|/doi:(10\.\d{4,9}/[^\s"\'<>]+)',
+                  u, re.I)
+    if not m:
+        return ''
+    return (m.group(1) or m.group(2)).rstrip('/.')
+
+
+def _clean_url(url: str) -> str:
+    """判等之前先切净：回车/换行/制表符可能落在任意位置，首尾空白按 strip 处理。
+
+    实跑 2026-09-24 撞上的形态：从 CRLF 文本或剪贴板带出的 URL 尾部常藏一个回车符，
+    于是同一个 README 长出两个制品键；而回车在报错信息里渲染成一个看不见的空位，
+    Lead 从消息本身推不出原因，只能逐字猜。
+
+    两条判等通道（_artifact_key 的制品判等、_same_url 的"是不是同一条 URL"）共用这一
+    个口径：各自清洗一遍迟早长出差异，届时会出现"键说同一制品、字面说两条 URL"的
+    互相打架，拒收理由无法解释。协议与前缀大小写不在这里动——那是各判据自己的事。
+    """
+    u = str(url or "")
+    for ch in (chr(13), chr(10), chr(9)):
+        u = u.replace(ch, "")
+    return u.strip()
+
 
 def _artifact_key(url: str) -> str:
     """制品指纹 = 注册域族 + 去掉浏览态路径段的路径。
@@ -69,22 +109,28 @@ def _artifact_key(url: str) -> str:
     指纹要求反查打在**同一个制品**上：同一文件的不同检索通道（blob 页 / raw 字节流）
     指纹相同；同仓库不同分支或不同文件视为不同制品。
 
-    arXiv 单独归一到论文 ID：/abs、/pdf、/html、OAI 接口是同一篇论文的四个入口，
-    按路径判同会把"换个通道复核"这种真实反查误拒（2026-09-22 实跑撞上）。
-    版本后缀不参与判同——/abs 本就重定向到最新版，带上版本反而切出假制品。
+    三族入口在此归一（2026-09-24 实跑：33 条真反查里 17 条因未归一被误拒）：
+    - arXiv 归一到论文 ID：/abs、/pdf、/html、OAI 接口是同一篇论文的四个入口；
+      版本后缀不参与判同，/abs 本就重定向到最新版。
+    - DOI 归一到 doi 串：doi.org/<DOI> 与 OpenAlex、Semantic Scholar 的书目记录
+      是同一篇作品（见 _doi_of）。
+    - GitHub 的仓库根与它的 README 算同一制品（见 _github_key）。
+
+    入参先过 _clean_url，控制字符不参与判等。
     """
-    u = str(url or '')
+    u = _clean_url(url)
+    doi = _doi_of(u)
+    if doi:
+        return 'doi:' + doi.lower()
     host = _registered_domain(u)
     if host == 'arxiv.org':
         m = _ARXIV_ID_RE.search(u)
         if m:
-            return f'arxiv:{m.group(1)}'
+            return 'arxiv:' + m.group(1)
     if host == 'github.com':
         return _github_key(u)
     path = re.sub(r'^https?://[^/]+', '', u).lower()
-    return f'{host}:{path.rstrip("/")}'
-
-
+    return host + ':' + path.rstrip('/')
 def _github_key(u: str) -> str:
     """GitHub 同一份内容的几个入口归一到 owner/repo@ref:path。
 
@@ -107,13 +153,27 @@ def _github_key(u: str) -> str:
         ref, path = (ref.group(1) if ref else ''), '/'.join(seg[1:])
     elif host == 'raw.githubusercontent.com':
         ref, path = seg[0], '/'.join(seg[1:])
-    key_ref = ref.lower() if ref.lower() not in ('', 'main', 'master') else 'HEAD'
-    return f'github.com:{owner.lower()}/{repo.lower()}@{key_ref}:{path.lower().rstrip("/")}'
+    # 'HEAD' 是 GitHub 认的"默认分支"写法（/blob/HEAD/README.md、raw/.../HEAD/...），
+    # 与 main/master 同指一个分支；不归一会让同一个 README 长出 @HEAD 与 @head 两个键。
+    key_ref = ref.lower() if ref.lower() not in ('', 'main', 'master', 'head') else 'HEAD'
+    # 仓库根页 / REST /readme / blob README.md / raw README.md 是同一份内容：
+    # GitHub 打开仓库根渲染的就是 README。不归一的话，"来源登记成仓库根、
+    # 反查打在 README"这条文档推荐的通道就永远判成不同制品（实跑误拒 17 条）。
+    # 只折叠默认分支的 README 一族；具名分支与其余文件保持制品区分。
+    path_norm = path.lower().rstrip('/')
+    if key_ref == 'HEAD' and path_norm in _README_ALIASES:
+        path_norm = ''
+    return f'github.com:{owner.lower()}/{repo.lower()}@{key_ref}:{path_norm}'
 
 
 def _same_url(a: str, b: str) -> bool:
-    """两条 URL 是否字面同一条（只抹掉协议与尾斜杠，不做任何归一）。"""
-    f = lambda s: re.sub(r'^https?://', '', str(s or '').strip().lower()).rstrip('/')
+    """两条 URL 是不是字面同一条（清洗控制字符后，抹掉协议、大小写与尾斜杠）。
+
+    这道判等是档 B 的反自批门：把账本里已有的来源再填一遍不算任何验证动作。
+    它必须与 _artifact_key 共用 _clean_url 口径——只有一边切控制字符时，
+    「同一条 URL」与「同一制品」会各说一套，拒收理由互相打架。
+    """
+    f = lambda s: re.sub(r'^https?://', '', _clean_url(s).lower()).rstrip('/')
     return bool(f(a)) and f(a) == f(b)
 
 
@@ -121,6 +181,16 @@ def _is_traceable(url: str) -> bool:
     """能不能点回原文：站内相对链接（/link?url=…）与 javascript: 之类一律不算来源。"""
     return bool(re.match(r'^https?://[^\s/]+', str(url or '').strip()))
 
+
+def _one_line(text) -> str:
+    """压成单行：把所有空白（含换行）折叠成单个空格，并去掉首尾空白。
+
+    claim 文本与来源标题都必须单行：账本 JSONL 一行一条记录，骨架又按
+    「每条 claim 一行、行尾带编号与状态标注」渲染。文本里夹一个换行就会被切成两行，
+    标注与编号落在不同行上，发布门的行级归因认不出后半行，会把一条已标警告的
+    pending claim 误判成正文引用了却没降级（实跑撞上：分片里的转义换行原样进账）。
+    """
+    return re.sub(r'\s+', ' ', str(text or '')).strip()
 
 def _now() -> str:
     return datetime.now().isoformat(timespec='seconds')
@@ -299,7 +369,7 @@ class ResearchLedger:
         status = status if status in VALID_STATUS else 'pending'
         cid = claim_id or f'c-{uuid.uuid4().hex[:10]}'
         entry = {
-            'type': 'claim', 'id': cid, 'text': str(claim).strip(),
+            'type': 'claim', 'id': cid, 'text': _one_line(claim),
             'topic': str(topic).strip() or 'general',
             'status': status, 'perspective': perspective,
             'confidence': float(min(max(confidence, 0.0), 1.0)),
@@ -324,7 +394,7 @@ class ResearchLedger:
         t = min(max(t, 1), 4)
         entry = {
             'type': 'source', 'claim_id': claim_id, 'url': url,
-            'title': str(title).strip(), 'tier': t,
+            'title': _one_line(title), 'tier': t,
             'craap_score': float(craap_score) if craap_score is not None else None,
             'created_at': _now(),
         }
