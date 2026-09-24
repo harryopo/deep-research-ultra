@@ -97,8 +97,10 @@ class SearchEngine(ABC):
 
     调用方式：
         engine = MyEngine()
-        if engine.is_available():
-            results = engine.search("关键词")
+        results = engine.search("关键词")     # 直接调；回 None＝没取到数据，[]＝调通但 0 命中
+        # 不要拿 if engine.is_available() 当调用前的闸门：它现发一次网络探测，
+        # 一失败就把一个能出数据的源整个跳过（实测 --sources openalex 两跑之间这样变
+        # "未找到结果"）。要不要先配 key 用 is_configured()，此刻灵不灵交给 search() 报。
     """
 
     @property

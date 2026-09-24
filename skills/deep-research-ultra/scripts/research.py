@@ -238,22 +238,25 @@ def cmd_route(args, registry):
     # 推荐引擎链
     print("🔗 推荐引擎链（按优先级）:")
     from probe import agent_invoked
-    available_engines = registry.get_available()
-    available_names = {e.get_name() for e in available_engines}
+    # ✅/❌ 只回答"要不要先配 key、配齐了没有"（只看 env，可复现）。
+    # 判据与 --list 共用 v6.16.2 定下的那条：拿 is_available() 的实时探测打这个标记，
+    # 会把"此刻探测超时"印成 ❌，Lead 读成"这源坏了"就从 --sources 里划掉
+    configured_names = {e.get_name() for e in registry.get_configured()}
     # skill 封装与宿主内置的 is_available() 恒 True，但脚本层 search() 恒返 None：
-    # 光看 is_available 会给它们打 ✅，照建议命令跑就是白跑一路（实测 oss-finder 排第一）。
+    # 光看可用性会给它们打 ✅，照建议命令跑就是白跑一路（实测 oss-finder 排第一）。
     agent_only = {e.get_name() for e in registry.get_all() if agent_invoked(e)}
     for i, eng_name in enumerate(decision.engine_chain, 1):
         if eng_name in agent_only:
             status = "🤖"
         else:
-            status = "✅" if eng_name in available_names else "❌"
+            status = "✅" if eng_name in configured_names else "❌"
         engine = registry.get(eng_name)
         desc = engine.metadata.description[:50] if engine else "(未注册)"
         print(f"   {i}. {status} {eng_name:<20} {desc}")
     if agent_only & set(decision.engine_chain):
         print("   🤖 ＝数据只有 Agent 亲自调用对应工具才拿得到，"
               "research.py（脚本层）跑它必返 0 条")
+    print("   ℹ️  ✅/❌ ＝配置就绪与否，不代表此刻出得出数据；后者用 --probe 实测")
     print()
 
     # 断路器过滤后的可用引擎链
