@@ -45,12 +45,18 @@ BING_FIXTURE = '''
 '''.strip()
 
 
+def _page(html: str) -> bytes:
+    """夹具要撑到真页面的量级（百万级字节），否则会被"空壳页"判据先拦掉——那是另一条测试。"""
+    from engines.fallback import SERP_MIN_BYTES
+    return (html + '<!--' + 'x' * (SERP_MIN_BYTES + 1024) + '-->').encode('utf-8')
+
+
 @pytest.mark.parametrize('cls,fixture,expect_url', [
     (fb.BaiduHtmlEngine, BAIDU_FIXTURE, 'http://www.baidu.com/link?url=AbCdEf'),
     (fb.BingHtmlEngine, BING_FIXTURE, 'https://arxiv.org/abs/2312.10997'),
 ])
 def test_non_http_anchors_are_not_results(monkeypatch, cls, fixture, expect_url):
-    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: fixture.encode('utf-8'))
+    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: _page(fixture))
     got = cls().search('retrieval augmented generation', max_results=5) or []
     urls = [r.url for r in got]
     assert all(u.startswith('http') for u in urls), f'伪链接被当成结果：{urls}'
@@ -60,7 +66,7 @@ def test_non_http_anchors_are_not_results(monkeypatch, cls, fixture, expect_url)
 
 def test_baidu_keeps_only_the_real_result_rows(monkeypatch):
     """百度那条 /s?wd=... 站内链接也不该混进来（它是搜索页自身，不是外部来源）。"""
-    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: BAIDU_FIXTURE.encode('utf-8'))
+    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: _page(BAIDU_FIXTURE))
     urls = [r.url for r in fb.BaiduHtmlEngine().search('q', max_results=5) or []]
     assert all('baidu.com/link?url=' in u or 'arxiv.org' in u for u in urls), urls
     assert not any(u.startswith('/s?') for u in urls), urls

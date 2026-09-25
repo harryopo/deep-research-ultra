@@ -27,11 +27,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from engines import fallback as fb                      # noqa: E402
 import probe                                            # noqa: E402
 
-# 百度 SERP 改版后的页面：HTTP 200、有内容，但旧的 RESULT_PATTERN 一条都命中不了
-UNPARSEABLE_SERP = (b'<html><body><div class="new-layout">'
-                    b'<span>Something changed on this page</span>'
-                    b'</div></body></html>')
-BLOCKED_PAGE = b'<html><head><title>Verify you are human</title></head><body></body></html>'
+# 百度 SERP 改版后的页面：HTTP 成功、体积也是真页面的量级（实测 0.87M–1.4M 字节），
+# 但旧的 RESULT_PATTERN 一条都命中不了
+UNPARSEABLE_BODY = ('<html><body><div class="new-layout">'
+                    '<span>Something changed on this page</span>'
+                    '<div class="footer">' + 'y' * 1_000_000 + '</div>'
+                    '</div></body></html>')
+UNPARSEABLE_SERP = UNPARSEABLE_BODY.encode('utf-8')
+# 反爬页同样是真的取回了一整页（不是几百字节的跳转空壳——那属"通道失败"，见 v6243）
+BLOCKED_PAGE = ('<html><head><title>Verify you are human</title></head><body>'
+                + 'z' * 1_000_000 + '</body></html>').encode('utf-8')
 
 
 @pytest.fixture(autouse=True)

@@ -49,9 +49,19 @@ BING_LEGACY_FIXTURE = '''
 '''
 
 
+def _page(html: str) -> bytes:
+    """真 SERP 页面是百万级字节；夹具太短会被判成"被风控的空壳页"（那是另一条测试）。
+
+    所以这里按真实页面量级填充，让夹具代表"一次正常的抓取响应"。
+    """
+    from engines.fallback import SERP_MIN_BYTES
+    filler = '<!--' + 'x' * (SERP_MIN_BYTES + 1024) + '-->'
+    return (html + filler).encode('utf-8')
+
+
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
-    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: BING_FIXTURE.encode('utf-8'))
+    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: _page(BING_FIXTURE))
 
 
 def test_bing_parses_results_from_current_markup():
@@ -69,6 +79,6 @@ def test_bing_title_is_clean_of_entities_and_tags():
 
 def test_bing_still_parses_legacy_markup(monkeypatch):
     monkeypatch.setattr(fb, '_http_get',
-                        lambda *a, **k: BING_LEGACY_FIXTURE.encode('utf-8'))
+                        lambda *a, **k: _page(BING_LEGACY_FIXTURE))
     got = fb.BingHtmlEngine().search('q', max_results=5)
     assert got and got[0].title == '第一条结果', got

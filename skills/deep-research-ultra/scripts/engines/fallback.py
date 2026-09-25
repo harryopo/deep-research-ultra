@@ -48,6 +48,22 @@ DEFAULT_USER_AGENT = (
 LAST_HTTP_ERROR: str = ''
 
 
+SERP_MIN_BYTES = 20_000    # 真 SERP 页面实测 0.9M–1.4M 字节；被降级时实测只有 1.4KB
+
+
+def _stub_page(raw) -> bool:
+    """页面小得不像话 → 记下原因，调用方按"通道失败"返回 None。
+
+    这类响应是 200 + 几百字节的跳转/校验外壳，里面没有任何结果结构。让它落到
+    "0 结果"会误导调研（"这个主题百度没东西"），落回"依赖未就绪"又是瞎猜，
+    所以单独说一句：被风控/需验证，这一发没拿到可解析的页面。
+    """
+    if raw and len(raw) < SERP_MIN_BYTES:
+        _note_http_error(f'SERP 返回空壳页（仅 {len(raw)} 字节，真页面百万级）：'
+                         '多半被风控或需人机验证，这一发没有可解析的内容')
+        return True
+    return False
+
 def _is_http_url(url: str) -> bool:
     """SERP 解析出的链接必须是真 http(s) 地址。
 
@@ -475,7 +491,7 @@ class BaiduHtmlEngine(SearchEngine):
         url = f"{self.SEARCH_URL}?{params}"
 
         raw = _http_get(url, timeout=15, proxy=proxy)
-        if not raw:
+        if not raw or _stub_page(raw):
             return None
         html = _decode_html(raw)
 
@@ -581,7 +597,7 @@ class BingHtmlEngine(SearchEngine):
         url = f"{self.SEARCH_URL}?{params}"
 
         raw = _http_get(url, timeout=15, proxy=proxy)
-        if not raw:
+        if not raw or _stub_page(raw):
             return None
         html = _decode_html(raw)
 

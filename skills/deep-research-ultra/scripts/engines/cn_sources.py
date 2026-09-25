@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 
 from .base import SearchEngine, SearchResult, EngineMetadata
 from .fallback import (_http_get, _decode_html, DEFAULT_USER_AGENT,
-                      _is_http_url)
+                      _is_http_url, _stub_page)
 
 
 # ============================================================
@@ -113,7 +113,7 @@ class BaiduSerpEngine(SearchEngine):
         url = f"{self.SEARCH_URL}?{params}"
 
         raw = _http_get(url, timeout=15, proxy=proxy, impersonate="chrome124")
-        if not raw:
+        if not raw or _stub_page(raw):
             return None
 
         html = _decode_html(raw)
@@ -242,7 +242,7 @@ class SogouWeixinEngine(SearchEngine):
         url = f"{self.SEARCH_URL}?{params}"
 
         raw = _http_get(url, timeout=15, proxy=proxy, impersonate="chrome124")
-        if not raw:
+        if not raw or _stub_page(raw):
             return None
 
         html = _decode_html(raw)
@@ -373,7 +373,7 @@ class SogouZhihuEngine(SearchEngine):
         url = f"{self.SEARCH_URL}?{params}"
 
         raw = _http_get(url, timeout=15, proxy=proxy, impersonate="chrome124")
-        if not raw:
+        if not raw or _stub_page(raw):
             return None
 
         html = _decode_html(raw)
@@ -489,7 +489,7 @@ class BaiduXueshuEngine(SearchEngine):
         url = f"{self.SEARCH_URL}?{params}"
 
         raw = _http_get(url, timeout=15, proxy=proxy, impersonate="chrome124")
-        if not raw:
+        if not raw or _stub_page(raw):
             return None
 
         html = _decode_html(raw)
