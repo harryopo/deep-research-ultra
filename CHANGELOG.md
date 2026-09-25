@@ -11,6 +11,30 @@
 
 ---
 
+## v6.26.0（2026-09-25）— github-deep-search 的字段完整度：不知道就不写 0
+
+顺着"摘要纯度"的思路把 GitHub 链路也逐字段量了一遍（本机直连 api.github.com，
+查询词「vector database」），三处对不上：
+
+- **把"没取到"写成 0**：`_search_dependents` 走 code search 端点，它的 `items[].repository`
+  是瘦身对象，没有 `stargazers_count` / `forks_count` / `pushed_at` / `license` / `topics`。
+  旧代码用 `.get(..., 0)` 兜底，于是实测 `baidubce/app-builder` 报 ⭐0（真实 586）、
+  `prompt-security/ps-fuzz` 报 ⭐0（真实 713），`[Stars] 0` 与空的 `[Updated]` 一路能进报告。
+  现在这些字段"缺失即不写"：标题不带 ⭐、摘要不列该行、raw 里不放该键，另加 `metadata_missing` 标记。
+- **深度挖掘必然被截光**：`search(deep=True)` 先让 4 个分桶填满配额，挖掘结果排在末尾，
+  最后 `all_results[:max_results]` 一刀切。实测 deep=True 在 max_results=8 与 20 下返回的
+  8/8、20/20 条全是分桶结果，而 `_search_awesome` 单跑能出 10 条、`_search_dependents` 能出 5 条
+  ——请求发了、结果扔了。现在给挖掘结果预留 `max_results // 4`（至少 1 个）名额。
+  同时修掉一处条件写错：awesome 挖掘原本挂在 `if deep and seed_repos:` 下，只传 deep=True 时整段不跑。
+- **详情补全一直没接线**：`get_repo_details()` 的注释写着"用于推荐度评分"，但全仓库没有任何调用点，
+  所以 awesome 发现的条目只带着 3 个 raw 键就进了评分器。现在返回前按 `ENRICH_LIMIT=10` 补取详情
+  （匿名 GitHub API 只有 60 次/小时，补数据也要给正常查询留配额），补到就用真实字段重建，
+  补不到保留 `metadata_missing`。
+- 评分话术跟着改：`recommend` 遇到缺元数据的条目，不再输出"小众项目（⭐0）…⚠️ 活跃度较低"，
+  改说"未取到 star/更新等元数据，分数按缺项计，不代表这个项目没人用"。
+  分数仍按缺项计（那是机械口径），改的是别把"没查到"讲成"没人用"。
+- 测试 648 → 657。
+
 ## v6.25.3（2026-09-25）— 知乎摘要取对了节点
 
 把同一套"摘要纯度"检查扫到其他 SERP 源（Bing／搜狗微信／知乎／百度学术），

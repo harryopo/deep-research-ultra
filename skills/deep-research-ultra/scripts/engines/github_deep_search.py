@@ -227,26 +227,63 @@ class GitHubDeepSearchEngine(SearchEngine):
             if len(all_results) >= max_results:
                 break
 
-        # 深度搜索：依赖图挖掘 + awesome 列表挖掘
-        if deep and seed_repos:
-            # 依赖图挖掘
-            dep_results = self._search_dependents(seed_repos, per_bucket=per_bucket)
-            for r in dep_results:
-                if r.url not in seen_repos:
-                    seen_repos.add(r.url)
-                    r.raw['discovery_method'] = 'dependency_graph'
-                    all_results.append(r)
+        # 深度搜索：依赖图挖掘（要种子）+ awesome 列表挖掘（不要种子）
+        # 旧写法把两段一起挂在 `if deep and seed_repos:` 下 —— 只传 deep=True 时整段不跑
+        discovery: List[SearchResult] = []
+        if deep:
+            for r in self._search_dependents(seed_repos, per_bucket=per_bucket):
+                r.raw['discovery_method'] = 'dependency_graph'
+                discovery.append(r)
+            for r in self._search_awesome(query, per_bucket=per_bucket):
+                r.raw['discovery_method'] = 'awesome_list'
+                r.query = query
+                discovery.append(r)
+            # 挖掘结果排在分桶之后，不给配额就会被下面的截断全部吃掉
+            # （实测 deep=True 在 max_results=8/20 下返回的条目 100% 是分桶结果）
+            reserve = min(len(discovery), max(1, max_results // 4))
+            kept = all_results[:max(0, max_results - reserve)]
+            for r in discovery:
+                if len(kept) >= max_results:
+                    break
+                if r.url in seen_repos:
+                    continue
+                seen_repos.add(r.url)
+                kept.append(r)
+            all_results = kept
 
-            # awesome 列表挖掘
-            awesome_results = self._search_awesome(query, per_bucket=per_bucket)
-            for r in awesome_results:
-                if r.url not in seen_repos:
-                    seen_repos.add(r.url)
-                    r.raw['discovery_method'] = 'awesome_list'
-                    r.query = query
-                    all_results.append(r)
+        all_results = all_results[:max_results]
+        self._attach_missing_metadata(all_results)
+        return all_results if all_results else None
 
-        return all_results[:max_results] if all_results else None
+    # 匿名 GitHub API 只有 60 次/小时：补数据也得给正常查询留配额
+    ENRICH_LIMIT = 10
+
+    def _attach_missing_metadata(self, results: List[SearchResult]) -> None:
+        """就地给"只知道仓库名"的挖掘条目补真实元数据。
+
+        补不到就保留 metadata_missing——"没取到"与"0 星"必须能分开，
+        否则评分器会把一个 586 星的仓库按死项目评（get_repo_details 本来就写着
+        "用于推荐度评分"，但一直没有调用点）。
+        """
+        for r in results[:self.ENRICH_LIMIT]:
+            if not r.raw.get('metadata_missing'):
+                continue
+            full_name = r.raw.get('full_name', '')
+            details = self.get_repo_details(full_name) if full_name else None
+            if not details or details.get('stargazers_count') is None:
+                continue
+            fresh = self._parse_repo(details)
+            if not fresh:
+                continue
+            for key in ('discovery_method', 'depends_on', 'awesome_source',
+                        'star_bucket', 'star_bucket_label'):
+                if key in r.raw:
+                    fresh.raw[key] = r.raw[key]
+            fresh.query = r.query
+            r.title, r.url, r.content, r.score = (
+                fresh.title, fresh.url, fresh.content, fresh.score)
+            r.published_date, r.author, r.raw = (
+                fresh.published_date, fresh.author, fresh.raw)
 
     def _search_bucket(
         self,
@@ -316,8 +353,12 @@ class GitHubDeepSearchEngine(SearchEngine):
         name = item.get('name', '')
         html_url = item.get('html_url', '')
         description = item.get('description', '') or ''
-        stars = item.get('stargazers_count', 0)
-        forks = item.get('forks_count', 0)
+        # 「这条通道没返回这个字段」与「这个仓库 star 是 0」是两件事。
+        # 实测：code search 的 items[].repository 是瘦身对象（没有 stargazers_count 等），
+        # 旧写法 .get(..., 0) 把不知道写成了 0 —— app-builder 被报成 ⭐0，真实 586。
+        # 所以这些字段一律取「缺失即 None」，None 的字段不进标题、不进摘要、不进 raw。
+        stars = item.get('stargazers_count')
+        forks = item.get('forks_count')
         lang = item.get('language', '') or ''
         license_info = item.get('license', {})
         license_name = license_info.get('spdx_id', '') if license_info else ''
@@ -325,56 +366,63 @@ class GitHubDeepSearchEngine(SearchEngine):
         created_at = item.get('created_at', '')[:10]
         updated_at = item.get('updated_at', '')[:10]
         pushed_at = item.get('pushed_at', '')[:10]
-        open_issues = item.get('open_issues_count', 0)
-        watchers = item.get('watchers_count', 0)
+        open_issues = item.get('open_issues_count')
+        watchers = item.get('watchers_count')
         archived = item.get('archived', False)
         owner = item.get('owner', {})
         owner_name = owner.get('login', '') if owner else ''
 
-        # 构建内容摘要
+        # 构建内容摘要：没取到的字段就不写，写了就是编造
         content_parts = []
         if description:
             content_parts.append(description)
-        content_parts.append(f"[Stars] {stars}")
-        content_parts.append(f"[Forks] {forks}")
+        if stars is not None:
+            content_parts.append(f"[Stars] {stars}")
+        if forks is not None:
+            content_parts.append(f"[Forks] {forks}")
         if lang:
             content_parts.append(f"[Language] {lang}")
         if license_name:
             content_parts.append(f"[License] {license_name}")
         if topics:
             content_parts.append(f"[Topics] {', '.join(topics[:5])}")
-        content_parts.append(f"[Updated] {updated_at}")
+        if updated_at:
+            content_parts.append(f"[Updated] {updated_at}")
         if archived:
             content_parts.append("[Archived] ⚠️ 此仓库已归档")
         content = '\n'.join(content_parts)
 
+        raw = {
+            'full_name': full_name,
+            'name': name,
+            'description': description,
+            'language': lang,
+            'license': license_name,
+            'topics': topics,
+            'created_at': created_at,
+            'updated_at': updated_at,
+            'pushed_at': pushed_at,
+            'archived': archived,
+            'owner': owner_name,
+            'repo_type': 'github',
+        }
+        for _key, _val in (('stars', stars), ('forks', forks),
+                           ('open_issues', open_issues), ('watchers', watchers)):
+            if _val is not None:
+                raw[_key] = _val
+        if stars is None:
+            raw['metadata_missing'] = True
+
         return SearchResult(
-            title=f"{full_name} (⭐{stars})",
+            title=f"{full_name} (⭐{stars})" if stars is not None else full_name,
             url=html_url,
             content=content,
             source='github-deep-search',
-            score=float(stars),
+            score=float(stars) if stars is not None else 0.0,
             published_date=created_at,
             author=owner_name,
             engine='github-deep-search',
-            raw={
-                'full_name': full_name,
-                'name': name,
-                'description': description,
-                'stars': stars,
-                'forks': forks,
-                'language': lang,
-                'license': license_name,
-                'topics': topics,
-                'created_at': created_at,
-                'updated_at': updated_at,
-                'pushed_at': pushed_at,
-                'open_issues': open_issues,
-                'watchers': watchers,
-                'archived': archived,
-                'owner': owner_name,
-                'repo_type': 'github',
-            },
+            raw=raw,
         )
 
     def _search_dependents(self, seed_repos: List[str], per_bucket: int = 10) -> List[SearchResult]:
@@ -415,22 +463,15 @@ class GitHubDeepSearchEngine(SearchEngine):
                 if not full_name:
                     continue
 
+                # code search 的 repository 对象只给这些字段。旧写法在这里补了一堆
+                # `stargazers_count: 0 / license: None / pushed_at: ''`，等于把"不知道"写成事实
                 r = self._parse_repo({
                     'full_name': full_name,
                     'name': repo.get('name', ''),
                     'html_url': repo.get('html_url', ''),
                     'description': repo.get('description', ''),
-                    'stargazers_count': repo.get('stargazers_count', 0),
-                    'forks_count': repo.get('forks_count', 0),
-                    'language': repo.get('language', ''),
-                    'license': None,
-                    'topics': [],
                     'created_at': repo.get('created_at', ''),
                     'updated_at': repo.get('updated_at', ''),
-                    'pushed_at': '',
-                    'open_issues_count': 0,
-                    'watchers_count': 0,
-                    'archived': False,
                     'owner': repo.get('owner', {}),
                 })
                 if r:
@@ -515,6 +556,10 @@ class GitHubDeepSearchEngine(SearchEngine):
                         'full_name': repo_full_name,
                         'discovery_method': 'awesome_list',
                         'awesome_source': full_name,
+                        # 从 README 里只挖到仓库名，其余字段一概不知道：交给
+                        # _attach_missing_metadata 去 /repos 补，补不到就照实留缺字段标记
+                        'metadata_missing': True,
+                        'repo_type': 'github',
                     },
                 ))
 

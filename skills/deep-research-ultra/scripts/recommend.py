@@ -302,6 +302,11 @@ class GitHubRecommender:
         stars = repo_data.get('stars', 0)
         name = repo_data.get('full_name', repo_data.get('name', ''))
 
+        if repo_data.get('metadata_missing'):
+            # 没取到 star 与推送时间，就不能说人家"零星、不活跃"——实测这条路上站着真实 586 星的仓库
+            return (f"{name}: ⚠️ 未取到 star/更新等元数据（GitHub 详情接口没回），"
+                    '分数按缺项计，不代表这个项目没人用')
+
         reasons = []
         if group == 'flagship':
             reasons.append(f"高星项目（⭐{stars}），社区认可度高")
