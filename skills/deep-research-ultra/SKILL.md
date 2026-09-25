@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.24.1
+version: 6.24.2
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -1504,6 +1504,9 @@ scripts/
 ├── search.py                # 引擎兼容入口（保留 --sources baidu,bing 等旧参数）
 ├── setup-mcp.sh             # MCP 一键配置脚本（默认写当前目录 .mcp.json，--via-claude 才走宿主 CLI）
 ├── mcp_config_writer.py     # .mcp.json 读写器（--server/--env/--remove/--list，宿主无关）
+├── check_serp_patterns.py   # HTML 抓取类源改版预警：真取一次页面，分开报
+│                            # 「通道失败 / 页面有自然结果但解析不出条目 / 风控回外壳页」
+│                            # 出现"解析器过期"判定时退出码 2（--peek NAME 可看页面首段）
 ├── router.py                # 智能路由（三级级联 Rule→Semantic→LLM）
 ├── recommend.py             # 推荐度评分（GitHub/PaperRecommender + detect_intent）
 ├── tier.py                  # 来源 Tier 分级（域名校验，score/report/validate 共用）
