@@ -74,6 +74,26 @@ def missing_required_config(meta: 'EngineMetadata') -> List[str]:
 
 
 # ============================================================
+# 论文类结果的 raw 归一
+# ============================================================
+
+def paper_meta(item: Any, **fields: Any) -> Dict[str, Any]:
+    """学术结果的 raw：原生 payload + 下游认得的规范键。
+
+    为什么要这一层：`recommend.PaperRecommender.rank_results()` 取的是 `result.raw`，
+    评分器读 `citation_count` / `published_date` / `venue`，而各 API 的原生键名不一样
+    （OpenAlex 是 `cited_by_count`、Semantic Scholar 是 `citationCount`、PubMed 只有
+    `fulljournalname`）。实测因此出现"几千引用的论文引用维 0 分、被判 Skip"。
+    原生键一律保留（档 B 反查与账本字段靠它们），规范键只写显式给了值的。
+    """
+    meta = dict(item) if isinstance(item, dict) else {}
+    for key, value in fields.items():
+        if value is not None and value != '':
+            meta[key] = value
+    return meta
+
+
+# ============================================================
 # 抽象基类
 # ============================================================
 

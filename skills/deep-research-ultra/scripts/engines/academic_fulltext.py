@@ -31,7 +31,7 @@ import urllib.request
 from typing import Any, Dict, List, Optional
 import xml.etree.ElementTree as ET
 
-from .base import SearchEngine, SearchResult, EngineMetadata
+from .base import SearchEngine, SearchResult, EngineMetadata, paper_meta
 from .fallback import _http_get, _http_post, DEFAULT_USER_AGENT
 from .academic_engines import _decode_bytes, _json_loads
 
@@ -315,15 +315,20 @@ class ArxivFulltextEngine(SearchEngine):
                 published_date=published,
                 author=author_str,
                 engine='arxiv-fulltext',
-                raw={
-                    'paper_id': paper_id,
-                    'pdf_url': pdf_url,
-                    'html_url': html_url,
-                    'latex_url': latex_url,
-                    'doi': doi,
-                    'categories': paper_categories,
-                    'comment': comment,
-                },
+                raw=paper_meta(
+                    {
+                        'paper_id': paper_id,
+                        'pdf_url': pdf_url,
+                        'html_url': html_url,
+                        'latex_url': latex_url,
+                        'doi': doi,
+                        'categories': paper_categories,
+                        'comment': comment,
+                    },
+                    # arXiv 不给引用数（缺项，不是 0）；其余规范键供评分与账本使用
+                    title=title, abstract=summary, published_date=published,
+                    venue='arXiv', authors=authors,
+                ),
             ))
 
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
@@ -665,19 +670,23 @@ class UnpaywallEngine(SearchEngine):
             published_date=pub_date,
             author=author_str,
             engine='unpaywall',
-            raw={
-                'doi': doi,
-                'doi_url': doi_url,
-                'is_oa': is_oa,
-                'oa_status': oa_status,
-                'best_oa_location': best_oa,
-                'all_oa_locations': doi_obj.get('oa_locations', []) or [],
-                'pdf_url': pdf_url,
-                'landing_url': landing_url,
-                'version': version,
-                'license': license_str,
-                'journal': journal,
-            },
+            raw=paper_meta(
+                {
+                    'doi': doi,
+                    'doi_url': doi_url,
+                    'is_oa': is_oa,
+                    'oa_status': oa_status,
+                    'best_oa_location': best_oa,
+                    'all_oa_locations': doi_obj.get('oa_locations', []) or [],
+                    'pdf_url': pdf_url,
+                    'landing_url': landing_url,
+                    'version': version,
+                    'license': license_str,
+                    'journal': journal,
+                },
+                # Unpaywall 是元数据源，没有摘要与引用数：缺的键就不写
+                title=title, published_date=pub_date, venue=journal,
+            ),
         )
 
     def resolve_pdf_url(self, doi: str, **kwargs) -> Optional[Dict]:

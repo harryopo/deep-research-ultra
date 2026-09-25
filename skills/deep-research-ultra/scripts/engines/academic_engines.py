@@ -19,8 +19,20 @@ import os
 import urllib.parse
 from typing import Dict, List, Optional
 
-from .base import SearchEngine, SearchResult, EngineMetadata
+from .base import SearchEngine, SearchResult, EngineMetadata, paper_meta
 from .fallback import _http_get
+
+
+def _bare_doi(value) -> str:
+    """各源的 DOI 写法不一（OpenAlex 给 https://doi.org/10.x、S2 给裸 10.x）：统一成裸 DOI。
+
+    档 B 反查与跨源判等靠这个形态对齐，留着前缀就是同一条 DOI 两种写法。
+    """
+    text = str(value or '').strip()
+    for prefix in ('https://doi.org/', 'http://doi.org/', 'doi:', 'DOI:'):
+        if text.lower().startswith(prefix.lower()):
+            return text[len(prefix):].strip()
+    return text
 
 
 # ============================================================
@@ -225,7 +237,13 @@ class OpenAlexEngine(SearchEngine):
                 published_date=pub_date,
                 author=author_str,
                 engine='openalex',
-                raw=item,
+                raw=paper_meta(
+                    item, title=title, abstract=abstract, published_date=pub_date,
+                    venue=((item.get('primary_location') or {}).get('source') or {})
+                    .get('display_name', ''),
+                    citation_count=cited_by_count, doi=_bare_doi(item.get('doi')),
+                    authors=author_names,
+                ),
             ))
 
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
@@ -390,7 +408,13 @@ class SemanticScholarEngine(SearchEngine):
                 published_date=pub_date,
                 author=author_str,
                 engine='semantic-scholar',
-                raw=item,
+                raw=paper_meta(
+                    item, title=title, abstract=abstract, published_date=pub_date,
+                    venue=item.get('venue', ''), citation_count=citation_count,
+                    influential_citation_count=influential_count,
+                    doi=_bare_doi((item.get('externalIds') or {}).get('DOI')),
+                    authors=author_names,
+                ),
             ))
 
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
@@ -592,7 +616,11 @@ class PubmedEngine(SearchEngine):
                 published_date=pub_date,
                 author=author_str,
                 engine='pubmed',
-                raw=item,
+                # 不给 citation_count：PubMed 没有引用数，"缺"不等于 0（评分器会照实说明）
+                raw=paper_meta(
+                    item, title=title, abstract=abstract, published_date=pub_date,
+                    venue=journal, doi=_bare_doi(doi), authors=author_names,
+                ),
             ))
 
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用

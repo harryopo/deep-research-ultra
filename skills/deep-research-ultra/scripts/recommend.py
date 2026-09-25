@@ -568,7 +568,11 @@ class PaperRecommender:
         citations = paper_data.get('citation_count', 0) or paper_data.get('citations', 0)
 
         reasons = []
-        if citations > 100:
+        if not ('citation_count' in paper_data or 'citations' in paper_data):
+            # 「这个源没有引用数」与「这篇论文 0 引用」是两件事：PubMed / arXiv / Unpaywall
+            # 本来就不给这个数，按 0 说不出来
+            reasons.append('该源未提供引用数据，引用维按缺项计')
+        elif citations > 100:
             reasons.append(f"高引论文（{citations} 次引用）")
         elif citations > 10:
             reasons.append(f"被引 {citations} 次")

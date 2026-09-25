@@ -11,6 +11,36 @@
 
 ---
 
+## v6.27.0（2026-09-25）— 学术结果的 raw 补上规范字段，论文推荐度不再瞎评
+
+顺着 GitHub 那条思路量学术链路（本机直连 OpenAlex / Semantic Scholar / PubMed / arXiv，
+查询词「retrieval augmented generation」），发现更严重的一处错位：
+`recommend.PaperRecommender.rank_results()` 拿的是 `result.raw`，而评分器读
+`citation_count` / `published_date` / `venue` / `influential_citation_count`，
+各家 API 的原生键名却是 `cited_by_count`（OpenAlex）/ `citationCount`（S2）/
+`fulljournalname`（PubMed）——引擎其实早把这些值算出来了，却在 `raw=item` 时丢掉。
+
+实测"评分器要且有值的键"：openalex 2/11、semantic-scholar 3/11（raw 里明明躺着
+`citationCount`）、pubmed 1/11、**arxiv-fulltext 0/11**（连 title 都没有）。
+后果：几千引用的 RAG 论文被算成"引用维 0 分 → 总分 32 → 等级 Skip"。
+
+- 新增 `engines/base.py::paper_meta()`：保留原生 payload（档 B 反查与账本字段靠它），
+  再叠一层规范键；只写显式取到值的键，取不到的不写成 0。
+  接入 openalex / semantic-scholar / pubmed / arxiv-fulltext / unpaywall 五处构造点。
+- 新增 `_bare_doi()`：OpenAlex 给 `https://doi.org/10.x`、S2 给裸 `10.x`，统一成裸 DOI
+  （同一个标识符两种写法会让跨源判等失效）。
+- 评分器话术：`citation_count` 这个键**不存在**时不再暗示"0 引用"，改说
+  "该源未提供引用数据，引用维按缺项计"（PubMed / arXiv / Unpaywall 本来就没有这个数）。
+- 真接口复测（同一查询词）：
+  - openalex 键 2/11 → **6/11**，引用维 0.0 → **57.5**，等级 Skip → **Optional**
+  - semantic-scholar 键 3/11 → **5/8**（venue 那两篇本身为空），引用维 0.0 → **100 / 92.3**，
+    总分 32 → **62.0 Recommended**
+  - arxiv-fulltext 键 0/11 → **4/11**，时效维 50 → **79.4**（日期终于被读到）
+  - pubmed 键 1/11 → **4/11**，理由现在明说"该源未提供引用数据"
+- 测试 657 → 666。
+
+
+
 ## v6.26.0（2026-09-25）— github-deep-search 的字段完整度：不知道就不写 0
 
 顺着"摘要纯度"的思路把 GitHub 链路也逐字段量了一遍（本机直连 api.github.com，
