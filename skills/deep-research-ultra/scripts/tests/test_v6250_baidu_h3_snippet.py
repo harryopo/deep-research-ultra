@@ -155,6 +155,25 @@ def test_残缺标签不当摘要(monkeypatch):
     assert '向量库选型' in got[-1].content, got[-1].content
 
 
+def test_截断标签只丢标签不丢整行正文(monkeypatch):
+    """v6.25.1 的"仍带 `<` 的候选行不要"太狠：真页面复测（1488 字节风控解除后那一发）
+    噪声确实归零了，但摘要非空从 8/8 掉到 3/8——百度常把正文和**没有收尾 `>`** 的标签写在同一行
+    （标签的 `>` 落在 4000 字窗口之外，去标签根本吃不掉），整行丢掉等于把好摘要一起清空。
+    改成按 `<` 切开、取该行里像正文的那一段。
+    """
+    tail = ('<div data-module="abstract" data-click="{"clk_info":{"srcid":1}'
+            + ',{"x":1}' * 900)          # 长到超出摘要窗口：整段没有 `>`
+    html = BAIDU_REAL_SHAPE.replace(
+        '从零搭建检索链路：向量库选型、召回重排与评测',
+        '从零搭建检索链路：向量库选型、召回重排与评测' + tail)
+    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: _page(html))
+    got = fb.BaiduHtmlEngine().search('检索增强生成 RAG', max_results=10) or []
+    assert '向量库选型' in got[-1].content, got[-1].content[:80]
+    for r in got:
+        assert ('<' not in r.content and '="' not in r.content
+                and 'data-module' not in r.content), r.content[:80]
+
+
 def test_通道失败仍然返回_none(monkeypatch):
     """契约不变：空壳页（风控/需验证）仍判通道失败，不许退成 0 结果。"""
     monkeypatch.setattr(fb, '_http_get', lambda *a, **k: b'<html>OK</html>')

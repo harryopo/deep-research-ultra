@@ -563,19 +563,25 @@ class BaiduHtmlEngine(SearchEngine):
     SNIPPET_MIN_CHARS = 12
     SNIPPET_MAX_CHARS = 200
 
+    # 碎片的形状：属性赋值 `xxx="` 与花括号。中文摘要里几乎不会出现这两种写法
+    SNIPPET_JUNK = re.compile(r'[A-Za-z-]+="|\{|\}')
+
     @classmethod
     def _snippet_of(cls, window: str, title: str) -> str:
         """取窗口里最长的一段正文当摘要；短标签（"3天前"、站点名）被长度门槛挡掉。
 
-        还带 `<` 的行一律不要：那是没被吃掉的标签（实测真页面有整行以
-        `<div data-module="abstract"` 开头被当成摘要的），不是正文。
+        一行里正文与残缺标签混排时（实测真页面就是：标签的收尾 `>` 落在 4000 字窗口之外，
+        去标签吃不掉它），按 `<` 切开取像正文的那一段——整行丢掉会把 8 条摘要里的 5 条清空。
         """
         best = ''
         for line in _text_of(window).splitlines():
-            line = re.sub(r'\s+', ' ', line).strip()
-            if (len(line) >= cls.SNIPPET_MIN_CHARS and line != title
-                    and '<' not in line and len(line) > len(best)):
-                best = line[:cls.SNIPPET_MAX_CHARS]
+            for frag in line.split('<'):
+                frag = re.sub(r'\s+', ' ', frag).strip()
+                if (len(frag) >= cls.SNIPPET_MIN_CHARS and frag != title
+                        and not cls.SNIPPET_JUNK.search(frag)
+                        and len(frag) > len(best)):
+                    best = frag[:cls.SNIPPET_MAX_CHARS]
+                    break           # 一行只取第一段合格正文，后面的碎片不再参与
         return best
 
 
