@@ -114,6 +114,47 @@ def test_最后一条不会把页脚当摘要(results):
     assert '用户反馈' not in last.content and '页脚区域' not in last.content, last.content
 
 
+def test_页面注释不混进摘要(monkeypatch):
+    """实测复测（风控解除后的真页面，2026-09-25）：有一条结果的摘要开头是
+
+    `<!--s-data:{"styles":{"struct-source":…` ——页面把结构化数据写成 HTML 注释塞在结果块里，
+    注释被摘要窗口截断时收尾的 `>` 落在窗口外，`<[^>]+>` 这种"去标签"根本匹配不上，
+    整段 JSON 就当成正文进了摘要，一路能进账本。
+    """
+    dangling = ('<!--s-data:{"styles":{"struct-source":{"color":"#222"},"struct-title":'
+                '{"font-weight":"bold"}' + ',{"x":1}' * 900)   # 没有 -->，`>` 也一个没有
+    # 塞进最后一条结果的窗口内（真页面就是这种位置：结果块内部的结构化数据注释）
+    html = BAIDU_REAL_SHAPE.replace(
+        '<div class="source-container-pc_6R70n">',
+        dangling + '\n<div class="source-container-pc_6R70n">', 1)
+    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: _page(html))
+    got = fb.BaiduHtmlEngine().search('检索增强生成 RAG', max_results=10) or []
+    assert len(got) == 3, got
+    for r in got:
+        assert 's-data' not in r.content and '{' not in r.content, r.content[:80]
+    assert '分块、编码' in got[1].content, got[1].content
+
+
+def test_残缺标签不当摘要(monkeypatch):
+    """同一次真页面复测里还有两条长这样：
+
+    `<div data-module="abstract" data-click="{"clk_info…`、`<span class="cos-space-mr-3xs…`
+    ——机制是 `_text_of()` 先删标签、**后**解实体：百度把摘要卡片整段以 `&lt;div …&gt;` 的转义形态
+    写在页面里，实体一解就把标签原样吐回正文，再被"最长行"选中当成摘要。
+    判据：解完实体还要再过一遍去标签，仍带 `<` 的候选行不是正文，不许当摘要。
+    """
+    escaped = ('&lt;div data-module="abstract" data-click="{"clk_info":{"srcid":259494},'
+               'fc_vec":"1"},"tpl":"vrdata"}' )   # 整行没有 &gt;：真页面就是被窗口截断在这行中间
+    html = BAIDU_REAL_SHAPE.replace(
+        '从零搭建检索链路：向量库选型、召回重排与评测',
+        escaped + '\n从零搭建检索链路：向量库选型、召回重排与评测')
+    monkeypatch.setattr(fb, '_http_get', lambda *a, **k: _page(html))
+    got = fb.BaiduHtmlEngine().search('检索增强生成 RAG', max_results=10) or []
+    for r in got:
+        assert '<' not in r.content and 'data-module' not in r.content, r.content[:80]
+    assert '向量库选型' in got[-1].content, got[-1].content
+
+
 def test_通道失败仍然返回_none(monkeypatch):
     """契约不变：空壳页（风控/需验证）仍判通道失败，不许退成 0 结果。"""
     monkeypatch.setattr(fb, '_http_get', lambda *a, **k: b'<html>OK</html>')

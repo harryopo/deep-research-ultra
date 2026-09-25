@@ -65,13 +65,23 @@ def _abs_url(href: str, base: str) -> str:
     return href
 
 def _text_of(fragment: str) -> str:
-    """SERP 片段 → 纯文本：去标签，并且**解 HTML 实体**。
+    """SERP 片段 → 纯文本：去注释、去标签、解实体，然后**再去一遍标签**。
 
-    只去标签的话，页面里的 `&mdash;` `&amp;` `&nbsp;` 会原样留在标题与摘要里，
+    为什么要两轮：百度把摘要卡片整段以 `&lt;div data-module="abstract"…&gt;` 的**转义**形态
+    写在页面里，先删标签后解实体的话，实体一解就把标签原样吐回正文（实测真页面两条摘要就是这样
+    带着 `<div data-module=` 入库的）。
+    注释也得去：`<[^>]+>` 只吃得下**带收尾 `>`** 的注释，而百度把结构化数据写成
+    `<!--s-data:{…}-->` 长注释，被摘要窗口截断时那个 `>` 落在窗口外，整段 JSON 就当成正文进了摘要。
+    只去标签不解实体也会漏：`&mdash;` `&amp;` `&nbsp;` 会原样留在标题与摘要里，
     一路进证据账本和报告正文（实测搜狗微信标题就是 `...实践&mdash;&mdash;Prompt tuning...`）。
     """
     from html import unescape as _unesc
-    return _unesc(re.sub(r'<[^>]+>', '', fragment or '')).strip()
+
+    def _strip(s: str) -> str:
+        s = re.sub(r'<!--.*?(?:-->|\Z)', '', s, flags=re.DOTALL)
+        return re.sub(r'<[^>]+>', '', s)
+
+    return _strip(_unesc(_strip(fragment or ''))).strip()
 
 SERP_MIN_BYTES = 20_000    # 真 SERP 页面实测 0.9M–1.4M 字节；被降级时实测只有 1.4KB
 
@@ -555,12 +565,16 @@ class BaiduHtmlEngine(SearchEngine):
 
     @classmethod
     def _snippet_of(cls, window: str, title: str) -> str:
-        """取窗口里最长的一段正文当摘要；短标签（"3天前"、站点名）被长度门槛挡掉。"""
+        """取窗口里最长的一段正文当摘要；短标签（"3天前"、站点名）被长度门槛挡掉。
+
+        还带 `<` 的行一律不要：那是没被吃掉的标签（实测真页面有整行以
+        `<div data-module="abstract"` 开头被当成摘要的），不是正文。
+        """
         best = ''
         for line in _text_of(window).splitlines():
             line = re.sub(r'\s+', ' ', line).strip()
             if (len(line) >= cls.SNIPPET_MIN_CHARS and line != title
-                    and len(line) > len(best)):
+                    and '<' not in line and len(line) > len(best)):
                 best = line[:cls.SNIPPET_MAX_CHARS]
         return best
 
