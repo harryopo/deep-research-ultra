@@ -27,7 +27,8 @@ from typing import Dict, List, Optional
 
 from .base import SearchEngine, SearchResult, EngineMetadata
 from .fallback import (_http_get, _decode_html, DEFAULT_USER_AGENT,
-                      _is_http_url, _stub_page)
+                      _is_http_url, _stub_page, _abs_url,
+                      _text_of)
 
 
 # ============================================================
@@ -148,13 +149,13 @@ class BaiduSerpEngine(SearchEngine):
             snippets = snippet_fallback.findall(html)
 
         for i, (url, title_html) in enumerate(titles[:max_results]):
-            title = re.sub(r'<[^>]+>', '', title_html).strip()
+            title = _text_of(title_html)
             if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''
             if i < len(snippets):
-                snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
+                snippet = _text_of(snippets[i])
 
             # 识别国内技术站点
             site_name = ''
@@ -261,11 +262,14 @@ class SogouWeixinEngine(SearchEngine):
 
         # 搜狗微信文章结果模式
         # <div class="txt-box"> <h3><a href="...">标题</a></h3> <p class="txt-info">摘要</p>
+        # 标题必须从 <h3> 里取：txt-box 开头还有封面图的 <a class="img">，
+        # 拿"块内第一个 <a>"会取到那个无文字的图片锚，整条结果被当空标题丢掉
         item_pattern = re.compile(
             r'<div[^>]*class="[^"]*txt-box[^"]*"[^>]*>(.*?)</div>',
             re.DOTALL,
         )
-        title_pattern = re.compile(r'<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.DOTALL)
+        title_pattern = re.compile(
+            r'<h3[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.DOTALL)
         snippet_pattern = re.compile(r'<p[^>]*class="[^"]*txt-info[^"]*"[^>]*>(.*?)</p>', re.DOTALL)
         account_pattern = re.compile(r'<a[^>]*class="account"[^>]*>(.*?)</a>', re.DOTALL)
 
@@ -277,20 +281,20 @@ class SogouWeixinEngine(SearchEngine):
             if not title_match:
                 continue
 
-            url = title_match.group(1)
-            title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
+            url = _abs_url(title_match.group(1), self.SEARCH_URL)
+            title = _text_of(title_match.group(2))
             if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''
             snippet_match = snippet_pattern.search(block)
             if snippet_match:
-                snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
+                snippet = _text_of(snippet_match.group(1))
 
             account = ''
             account_match = account_pattern.search(block)
             if account_match:
-                account = re.sub(r'<[^>]+>', '', account_match.group(1)).strip()
+                account = _text_of(account_match.group(1))
 
             content_parts = []
             if snippet:
@@ -388,9 +392,11 @@ class SogouZhihuEngine(SearchEngine):
         """解析搜狗知乎搜索结果"""
         results: List[SearchResult] = []
 
-        # 知乎搜索结果模式
+        # 知乎搜索结果模式：条目是 <div class="vrwrap">，切到下一个 vrwrap 或列表结束注释。
+        # 旧写法拿"class 含 results 的 div + 非贪婪到第一个 </div>"，切出来是容器空壳
+        # （容器开头就嵌套了好几个 </div>），标题模式永远搜不到 —— 实测整页 0 条
         item_pattern = re.compile(
-            r'<div[^>]*class="[^"]*results[^"]*"[^>]*>(.*?)</div>',
+            r'<div class="vrwrap">(.*?)(?=<div class="vrwrap">|<!--\s*ResultListViewEnd|$)',
             re.DOTALL,
         )
         title_pattern = re.compile(r'<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.DOTALL)
@@ -404,15 +410,15 @@ class SogouZhihuEngine(SearchEngine):
             if not title_match:
                 continue
 
-            url = title_match.group(1)
-            title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
+            url = _abs_url(title_match.group(1), self.SEARCH_URL)
+            title = _text_of(title_match.group(2))
             if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''
             snippet_match = snippet_pattern.search(block)
             if snippet_match:
-                snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
+                snippet = _text_of(snippet_match.group(1))
 
             results.append(SearchResult(
                 title=title,
@@ -518,25 +524,25 @@ class BaiduXueshuEngine(SearchEngine):
             if not title_match:
                 continue
 
-            url = title_match.group(1)
-            title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
+            url = _abs_url(title_match.group(1), self.SEARCH_URL)
+            title = _text_of(title_match.group(2))
             if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''
             snippet_match = snippet_pattern.search(block)
             if snippet_match:
-                snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
+                snippet = _text_of(snippet_match.group(1))
 
             author = ''
             author_match = author_pattern.search(block)
             if author_match:
-                author = re.sub(r'<[^>]+>', '', author_match.group(1)).strip()
+                author = _text_of(author_match.group(1))
 
             year = ''
             year_match = year_pattern.search(block)
             if year_match:
-                year = re.sub(r'<[^>]+>', '', year_match.group(1)).strip()
+                year = _text_of(year_match.group(1))
 
             content_parts = []
             if snippet:

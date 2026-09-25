@@ -93,12 +93,12 @@ SPECS: List[Dict] = [
      'impersonate': 'chrome124', 'marker': r'link\.url='},
     {'name': 'sogou-weixin', 'cls': SogouWeixinEngine,
      'url': lambda e, q: f"{e.SEARCH_URL}?" + urllib.parse.urlencode(
-         {'query': q, 'type': '2'}),
-     'impersonate': 'chrome124'},
+         {'type': '2', 'query': q, 'ie': 'utf-8'}),
+     'impersonate': 'chrome124', 'marker': r'class="txt-box"'},
     {'name': 'sogou-zhihu', 'cls': SogouZhihuEngine,
-     'url': lambda e, q: f"{getattr(e, 'SEARCH_URL', '')}?" + urllib.parse.urlencode(
-         {'query': q}),
-     'impersonate': 'chrome124'},
+     'url': lambda e, q: f"{e.SEARCH_URL}?" + urllib.parse.urlencode(
+         {'query': q, 'ie': 'utf-8'}),
+     'impersonate': 'chrome124', 'marker': r'vr-title'},
     {'name': 'baidu-xueshu', 'cls': BaiduXueshuEngine,
      'url': lambda e, q: f"{e.SEARCH_URL}?" + urllib.parse.urlencode(
          {'wd': q, 'ie': 'utf-8'}),

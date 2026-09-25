@@ -48,6 +48,31 @@ DEFAULT_USER_AGENT = (
 LAST_HTTP_ERROR: str = ''
 
 
+def _abs_url(href: str, base: str) -> str:
+    """把 SERP 里的相对跳转补成绝对地址。
+
+    `/link?url=...` 是搜狗真结果的写法（跳向目标站），按当前搜索域名补全后才能点得开；
+    补全完仍由 `_is_http_url()` 把关，`javascript:;` 这类伪链接补出来还是伪链接，照旧丢掉。
+    """
+    import urllib.parse as _up
+    href = (href or '').strip()
+    if not href:
+        return href
+    if href.startswith('//'):
+        href = 'https:' + href
+    if base and not href.lower().startswith(('http://', 'https://', 'javascript:')):
+        return _up.urljoin(base, href)
+    return href
+
+def _text_of(fragment: str) -> str:
+    """SERP 片段 → 纯文本：去标签，并且**解 HTML 实体**。
+
+    只去标签的话，页面里的 `&mdash;` `&amp;` `&nbsp;` 会原样留在标题与摘要里，
+    一路进证据账本和报告正文（实测搜狗微信标题就是 `...实践&mdash;&mdash;Prompt tuning...`）。
+    """
+    from html import unescape as _unesc
+    return _unesc(re.sub(r'<[^>]+>', '', fragment or '')).strip()
+
 SERP_MIN_BYTES = 20_000    # 真 SERP 页面实测 0.9M–1.4M 字节；被降级时实测只有 1.4KB
 
 
@@ -506,7 +531,7 @@ class BaiduHtmlEngine(SearchEngine):
                 continue
             link = title_match.group(1)
             title_html = title_match.group(2)
-            title = re.sub(r'<[^>]+>', '', title_html).strip()
+            title = _text_of(title_html)
             if not title or not _is_http_url(link):   # 伪链接不是结果
                 continue
 
@@ -514,11 +539,11 @@ class BaiduHtmlEngine(SearchEngine):
             snippet = ''
             snippet_match = self.SNIPPET_PATTERN.search(block)
             if snippet_match:
-                snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
+                snippet = _text_of(snippet_match.group(1))
             if not snippet:
                 snippet_match = self.SNIPPET_FALLBACK_PATTERN.search(block)
                 if snippet_match:
-                    snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
+                    snippet = _text_of(snippet_match.group(1))
 
             # 百度链接可能是重定向链接（baidu.com/link?url=...）
             results.append(SearchResult(
@@ -610,14 +635,14 @@ class BingHtmlEngine(SearchEngine):
                 continue
             link = title_match.group(1)
             title_html = title_match.group(2)
-            title = re.sub(r'<[^>]+>', '', title_html).strip()
+            title = _text_of(title_html)
             if not title or not _is_http_url(link):   # 伪链接不是结果
                 continue
 
             snippet = ''
             snippet_match = self.SNIPPET_PATTERN.search(block)
             if snippet_match:
-                snippet = re.sub(r'<[^>]+>', '', snippet_match.group(1)).strip()
+                snippet = _text_of(snippet_match.group(1))
 
             results.append(SearchResult(
                 title=title,
