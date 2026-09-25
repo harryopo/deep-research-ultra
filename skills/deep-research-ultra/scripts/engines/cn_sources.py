@@ -26,7 +26,8 @@ import urllib.parse
 from typing import Dict, List, Optional
 
 from .base import SearchEngine, SearchResult, EngineMetadata
-from .fallback import _http_get, _decode_html, DEFAULT_USER_AGENT
+from .fallback import (_http_get, _decode_html, DEFAULT_USER_AGENT,
+                      _is_http_url)
 
 
 # ============================================================
@@ -148,7 +149,7 @@ class BaiduSerpEngine(SearchEngine):
 
         for i, (url, title_html) in enumerate(titles[:max_results]):
             title = re.sub(r'<[^>]+>', '', title_html).strip()
-            if not title or not url:
+            if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''
@@ -278,7 +279,7 @@ class SogouWeixinEngine(SearchEngine):
 
             url = title_match.group(1)
             title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
-            if not title:
+            if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''
@@ -405,7 +406,7 @@ class SogouZhihuEngine(SearchEngine):
 
             url = title_match.group(1)
             title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
-            if not title:
+            if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''
@@ -519,7 +520,7 @@ class BaiduXueshuEngine(SearchEngine):
 
             url = title_match.group(1)
             title = re.sub(r'<[^>]+>', '', title_match.group(2)).strip()
-            if not title:
+            if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
             snippet = ''

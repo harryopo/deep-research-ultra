@@ -48,6 +48,16 @@ DEFAULT_USER_AGENT = (
 LAST_HTTP_ERROR: str = ''
 
 
+def _is_http_url(url: str) -> bool:
+    """SERP 解析出的链接必须是真 http(s) 地址。
+
+    页面模板里有一堆 `javascript:;`、`/s?wd=...` 这类功能锚点，它们长得像结果、
+    被正则抓出来就成了"一条标题+一个伪链接"的 SearchResult。这种条目一旦进了证据账本，
+    就是"某条论断的来源是一个 javascript 伪链接"——比这个源当天 0 结果糟得多，
+    因为它不会被判成不可用，而是会被当成证据继续用下去。
+    """
+    return bool(url) and url.startswith(('http://', 'https://'))
+
 def _note_http_error(detail: str) -> None:
     global LAST_HTTP_ERROR
     LAST_HTTP_ERROR = detail
@@ -481,7 +491,7 @@ class BaiduHtmlEngine(SearchEngine):
             link = title_match.group(1)
             title_html = title_match.group(2)
             title = re.sub(r'<[^>]+>', '', title_html).strip()
-            if not title or not link:
+            if not title or not _is_http_url(link):   # 伪链接不是结果
                 continue
 
             # 提取摘要
@@ -524,8 +534,10 @@ class BingHtmlEngine(SearchEngine):
 
     # Bing 结果项在 <li class="b_algo"> 中
     RESULT_PATTERN = re.compile(r'<li[^>]*class="b_algo"[^>]*>(.*?)</li>', re.DOTALL)
-    # 标题与链接
-    TITLE_PATTERN = re.compile(r'<h2><a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.DOTALL)
+    # 标题与链接。实测页面写的是 <h2 class=""><a href=...>，且结果块开头先插一串
+    # <link rel="stylesheet">，所以 h2 要允许带属性、锚点前要允许换行与空格
+    TITLE_PATTERN = re.compile(r'<h2[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+                               re.DOTALL)
     # 摘要
     SNIPPET_PATTERN = re.compile(r'<p[^>]*>(.*?)</p>', re.DOTALL)
 
@@ -583,7 +595,7 @@ class BingHtmlEngine(SearchEngine):
             link = title_match.group(1)
             title_html = title_match.group(2)
             title = re.sub(r'<[^>]+>', '', title_html).strip()
-            if not title or not link:
+            if not title or not _is_http_url(link):   # 伪链接不是结果
                 continue
 
             snippet = ''
