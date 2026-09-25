@@ -389,7 +389,10 @@ class DuckDuckGoEngine(SearchEngine):
                 )
                 for r in results
             ]
-        except Exception:
+        except Exception as exc:
+            # 不许静默吞：自检要能说出"这个源今天为什么没数据"。本机确实没装 ddgs，
+            # 但原因被吞掉之后，报告只能回落到一句猜出来的"依赖/服务未就绪"。
+            _note_http_error(f'{type(exc).__name__}: {exc}')
             return None
 
 
@@ -501,7 +504,7 @@ class BaiduHtmlEngine(SearchEngine):
                 engine='baidu-html',
             ))
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
 
 # ============================================================
@@ -597,7 +600,7 @@ class BingHtmlEngine(SearchEngine):
                 engine='bing-html',
             ))
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
 
 # ============================================================
@@ -698,4 +701,4 @@ class SearXNGEngine(SearchEngine):
                 raw=item,
             ))
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用

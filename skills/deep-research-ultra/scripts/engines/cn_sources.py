@@ -118,7 +118,7 @@ class BaiduSerpEngine(SearchEngine):
         html = _decode_html(raw)
         results = self._parse_baidu_results(html, max_results)
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
     def _parse_baidu_results(self, html: str, max_results: int) -> List[SearchResult]:
         """解析百度搜索结果页 HTML"""
@@ -252,7 +252,7 @@ class SogouWeixinEngine(SearchEngine):
             return self._fallback_baidu(query, max_results, proxy)
 
         results = self._parse_weixin_results(html, max_results)
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
     def _parse_weixin_results(self, html: str, max_results: int) -> List[SearchResult]:
         """解析搜狗微信搜索结果"""
@@ -381,7 +381,7 @@ class SogouZhihuEngine(SearchEngine):
             return self._fallback_baidu(query, max_results, proxy)
 
         results = self._parse_zhihu_results(html, max_results)
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
     def _parse_zhihu_results(self, html: str, max_results: int) -> List[SearchResult]:
         """解析搜狗知乎搜索结果"""
@@ -493,7 +493,7 @@ class BaiduXueshuEngine(SearchEngine):
 
         html = _decode_html(raw)
         results = self._parse_xueshu_results(html, max_results)
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
     def _parse_xueshu_results(self, html: str, max_results: int) -> List[SearchResult]:
         """解析百度学术搜索结果"""

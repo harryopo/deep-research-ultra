@@ -214,13 +214,21 @@ def _failure_reason(engine) -> str:
             or _last_http_error())
 
 
+NO_REASON_NOTE = ('未记录失败原因（引擎自行返回 None 且没留下 HTTP 错误）'
+                  '—— 别当成"缺依赖"去装包，先单跑一次看它报什么')
+
+
 def _last_http_error() -> str:
-    """取底层 HTTP 失败原因（HTTP 406 / URLError / …），让报告说得出"为什么不可用"。"""
+    """取底层 HTTP 失败原因（HTTP 406 / URLError / …），让报告说得出"为什么不可用"。
+
+    没有记录时照实说"未记录"。旧实现在这里回落到"依赖/服务未就绪"：那是猜的，
+    而用户会照着去 pip install——实测 12 个不可用源里 5 个吃的是这句假原因。
+    """
     try:
         from engines import fallback as _fb
-        return getattr(_fb, 'LAST_HTTP_ERROR', '') or '依赖/服务未就绪'
+        return getattr(_fb, 'LAST_HTTP_ERROR', '') or NO_REASON_NOTE
     except Exception:
-        return '依赖/服务未就绪'
+        return NO_REASON_NOTE
 
 
 def summarize(reports: List[Dict[str, Any]]) -> Dict[str, int]:

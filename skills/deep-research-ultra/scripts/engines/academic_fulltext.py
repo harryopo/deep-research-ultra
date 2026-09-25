@@ -326,7 +326,7 @@ class ArxivFulltextEngine(SearchEngine):
                 },
             ))
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
     def download_pdf(self, paper_id: str, save_path: str, **kwargs) -> Optional[str]:
         """
@@ -536,7 +536,7 @@ class UnpaywallEngine(SearchEngine):
             if len(results) >= max_results:
                 break
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
     def _select_best_oa_location(self, oa_locations: List[Dict]) -> Optional[Dict]:
         """

@@ -228,7 +228,7 @@ class OpenAlexEngine(SearchEngine):
                 raw=item,
             ))
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
 
 # ============================================================
@@ -393,7 +393,7 @@ class SemanticScholarEngine(SearchEngine):
                 raw=item,
             ))
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
 
 # ============================================================
@@ -595,4 +595,4 @@ class PubmedEngine(SearchEngine):
                 raw=item,
             ))
 
-        return results if results else None
+        return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用

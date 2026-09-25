@@ -7,6 +7,31 @@
 
 ---
 
+## v6.24.0（2026-09-25）— 「引擎返回 None」不再被编成「依赖/服务未就绪」
+
+全量 `--probe` 实测：12 个不可用源里有 5 个的原因就是这句写死的猜测
+（sogou-zhihu / baidu-xueshu / duckduckgo / baidu-html / bing-html）。逐个查下去是三件事：
+
+- **引擎没守住自己的返回契约**。`search()` 的约定是：`None` = 通道没取到数据（断路器记失败、
+  判这个源不可用），`[]` = 取到了但 0 条。13 处收口点写成 `return results if results else None`，
+  于是"页面取回来了、正则一条没命中（SERP 改版/反爬页）"被上报成通道故障。
+  用 AST 横扫 engines/ 定位这 13 处（`academic_engines`×3、`academic_fulltext`×2、`cn_sources`×4、
+  `fallback`×3、`github_deep_search`×1），逐处确认函数体内已有真正的取数失败出口后才改；
+  另外 3 处形态相同但语义不同（内部 helper、无取数守卫）保持不动。
+- **duckduckgo 把异常整个吞掉**（`except Exception: return None`），原因丢失。现记录后再返回失败。
+- **探针在没原因时会编一个**。`_last_http_error()` 原先回落到"依赖/服务未就绪"——那是猜的，
+  而用户看到这句会去 `pip install`。现在照实说"未记录失败原因（先单跑一次看它报什么）"。
+
+实测改判（同一批 5 个源）：4 个从 `❌ 依赖/服务未就绪` → `⚠️ 可调通但 0 结果（端点契约变更/需授权）`，
+duckduckgo → `❌ 引擎返回 None（ModuleNotFoundError: No module named 'duckduckgo_search'）`——
+点名到具体缺哪个包。方向也变了：0 结果不该去修网络或装依赖，但也不能当可用源用。
+
+顺带一条同源的诚实性问题（实测，未改代码）：`semantic-scholar` 与 `s2-citation-graph` 同主机，
+逐发隔离测试里一个 429、另一个几秒后 ✅——上游共享池的浮动不是本机能在自检里消除的，
+判"这个源不可用"前按提示隔 ≥90 秒重跑一次。
+
+回归测试 +9 项，全套 557 项绿（仓库合计 606）。
+
 ## v6.23.1（2026-09-25）— MCP 握手预算按实测放宽，超时报错说清卡在哪一段
 
 `--probe --sources open-websearch` 实测 11 秒就回"超时：整场会话 25s 预算内没等到 initialize 的响应"。
