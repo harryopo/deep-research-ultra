@@ -1080,7 +1080,7 @@ class ReportGenerator:
     ) -> str:
         """渲染 GitHub 项目推荐度（分组 + 对比表 + 雷达图）"""
         # 统计各组数量
-        group_counts = {'flagship': 0, 'mainstream': 0, 'niche': 0}
+        group_counts = {'flagship': 0, 'mainstream': 0, 'niche': 0, 'unknown': 0}
         for item in ranked:
             group = item['recommendation'].group
             if group in group_counts:
@@ -1090,6 +1090,7 @@ class ReportGenerator:
             'flagship': ('旗舰项目', '⭐ ≥ 1000', 'group-flagship'),
             'mainstream': ('主流项目', '⭐ 100-1000', 'group-mainstream'),
             'niche': ('小众项目', '⭐ < 100（可借鉴）', 'group-niche'),
+            'unknown': ('元数据未取到', '这一路没返回 star，不做星级判断', 'group-niche'),
         }
 
         parts = [
@@ -1101,6 +1102,8 @@ class ReportGenerator:
             f'<div class="stat-label">主流项目</div></div>',
             f'<div class="stat-card"><div class="stat-value">{group_counts["niche"]}</div>'
             f'<div class="stat-label">小众项目</div></div>',
+            f'<div class="stat-card"><div class="stat-value">{group_counts["unknown"]}</div>'
+            f'<div class="stat-label">元数据未取到</div></div>',
             f'<div class="stat-card"><div class="stat-value">{len(ranked)}</div>'
             f'<div class="stat-label">总计</div></div>',
             f'</div>',
@@ -1139,9 +1142,11 @@ class ReportGenerator:
 
             # 表行
             repo_data = result.raw if hasattr(result, 'raw') else result.get('raw', {})
-            stars = repo_data.get('stars', 0)
+            stars = repo_data.get('stars')
             name = repo_data.get('full_name', repo_data.get('name', result.title if hasattr(result, 'title') else ''))
             url = result.url if hasattr(result, 'url') else result.get('url', '')
+            # 「这一路没取到 star」印 0 会被读成"这个仓库没人标"；真实的 0 才印 0
+            stars_cell = '未取到' if stars is None else f'{"⭐" if stars >= 1000 else ""}{stars}'
 
             dims = rec.dimensions
             # 评分条颜色（根据分数）
@@ -1162,7 +1167,7 @@ class ReportGenerator:
                 f'<tr>'
                 f'<td>{rec.rank_in_group}</td>'
                 f'<td><a href="{html.escape(url)}" target="_blank">{html.escape(str(name)[:40])}</a></td>'
-                f'<td>{"⭐" if stars >= 1000 else ""}{stars}</td>'
+                f'<td>{stars_cell}</td>'
                 f'<td><strong>{rec.total_score:.1f}</strong></td>'
                 f'<td><span class="grade-badge grade-{rec.grade}">{rec.grade}</span></td>'
                 f'<td>{_score_bar(dims.get("popularity", 0))}</td>'
@@ -1234,7 +1239,9 @@ class ReportGenerator:
             paper_data = result.raw if hasattr(result, 'raw') else result.get('raw', {})
             title = paper_data.get('title', result.title if hasattr(result, 'title') else '')
             url = result.url if hasattr(result, 'url') else result.get('url', '')
-            citations = paper_data.get('citation_count', 0) or paper_data.get('citations', 0)
+            citations = paper_data.get('citation_count', paper_data.get('citations'))
+            # PubMed / arXiv / Unpaywall 本来就不给引用数：缺项印 0 会被读成"这篇论文没人引"
+            citations_cell = '未提供' if citations is None else citations
 
             dims = rec.dimensions
 
@@ -1255,7 +1262,7 @@ class ReportGenerator:
                 f'<tr>'
                 f'<td>{rec.rank_in_group}</td>'
                 f'<td><a href="{html.escape(url)}" target="_blank">{html.escape(str(title)[:50])}</a></td>'
-                f'<td>{citations}</td>'
+                f'<td>{citations_cell}</td>'
                 f'<td><strong>{rec.total_score:.1f}</strong></td>'
                 f'<td><span class="grade-badge grade-{rec.grade.replace(" ", "")}">{rec.grade}</span></td>'
                 f'<td>{_score_bar(dims.get("citation_impact", 0))}</td>'

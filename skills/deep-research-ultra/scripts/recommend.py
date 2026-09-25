@@ -86,6 +86,7 @@ class GitHubRecommender:
     - flagship（旗舰）: stars >= 1000
     - mainstream（主流）: 100 <= stars < 1000
     - niche（小众）: stars < 100
+    - unknown（未取到）: 该通道没有返回 star，不做星级判断
 
     推荐等级（借鉴 Technology Radar 四环）：
     - Adopt（采纳）: 总分 >= 75
@@ -123,8 +124,8 @@ class GitHubRecommender:
         weights = INTENT_WEIGHTS.get(intent, INTENT_WEIGHTS['default'])
 
         # 1. 人气（log10 对数缩放）
-        stars = repo_data.get('stars', 0)
-        popularity = min(100, math.log10(stars + 1) * 25)  # log10(10000)≈4 → 100分
+        stars = repo_data.get('stars')
+        popularity = min(100, math.log10((stars or 0) + 1) * 25)  # log10(10000)≈4 → 100分
 
         # 2. 活跃度
         activity = self._score_activity(repo_data)
@@ -172,7 +173,11 @@ class GitHubRecommender:
         total = sum(d * w for d, w in zip(dimensions.values(), weights))
 
         # 分组
-        if stars >= self.FLAGSHIP_THRESHOLD:
+        if stars is None:
+            # 「这一路没取到 star」不是「这个仓库 ⭐<100」：归进 niche 会给它套上
+            # 「小众项目（⭐ < 100，可借鉴）」这句没有依据的断言
+            group = 'unknown'
+        elif stars >= self.FLAGSHIP_THRESHOLD:
             group = 'flagship'
         elif stars >= self.MAINSTREAM_THRESHOLD:
             group = 'mainstream'
@@ -378,7 +383,7 @@ class GitHubRecommender:
             })
 
         # 分组排序
-        groups = {'flagship': [], 'mainstream': [], 'niche': []}
+        groups = {'flagship': [], 'mainstream': [], 'niche': [], 'unknown': []}
         for item in scored:
             groups[item['recommendation'].group].append(item)
 
@@ -388,8 +393,8 @@ class GitHubRecommender:
             for i, item in enumerate(groups[group_name]):
                 item['recommendation'].rank_in_group = i + 1
 
-        # 合并：旗舰组 → 主流组 → 小众组
-        ranked = groups['flagship'] + groups['mainstream'] + groups['niche']
+        # 合并：旗舰组 → 主流组 → 小众组 → 未取到元数据
+        ranked = groups['flagship'] + groups['mainstream'] + groups['niche'] + groups['unknown']
 
         return ranked
 

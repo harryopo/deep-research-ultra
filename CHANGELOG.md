@@ -11,6 +11,26 @@
 
 ---
 
+## v6.29.0（2026-09-26）— 报告里「没取到这个字段」不再印成 0
+
+沿字段完整度这条线往下游扫：引擎层与打分层的缺项在 v6.26.0/v6.27.0 已经照实标注，但推荐度表与分组仍在继续把它们写成事实。
+
+**实测（本机 `gh api search/code`，查询词 `retrieval augmented generation hallucination`）**：`items[].repository` 是瘦身对象——带 `stargazers_url`，**不带 `stargazers_count`**。旧写法 `repo.get('stargazers_count', 0)` 给 5/5 条命中都写了 `stars: 0`，其中真实 star 分别为 **14691 / 6250 / 1635 / 537 / 282**，前三条按真实数据应归入旗舰与主流组。
+
+三处修复：
+
+| 位置 | 旧行为 | 新行为 |
+|------|--------|--------|
+| `GitHubCodeSearchEngine.search` | 每条命中编造 `stars: 0`，且不带 `repo_type` | 缺字段就不写 `stars`，标 `metadata_missing`，并显式标 `repo_type: github`（未知不等于该从表里消失） |
+| `GitHubRecommender.score` 分组 | `stars` 缺失按 0 处理 → 归入 `niche`，表头断言「⭐ < 100（可借鉴）」 | 新增 `unknown` 组：「元数据未取到 · 这一路没返回 star，不做星级判断」 |
+| `report.py` 推荐度表 | Star 列印 `0`、论文引用列印 `0` | 缺项印 `未取到` / `未提供`；**真实为 0 的仍照印 0**（有对照测试守着） |
+
+新增回归 `tests/test_v6290_unknown_not_zero.py`（10 条，其中 4 条是对照面：真实 0 星、真实 0 引用、真实低星归 niche 都不许被一并改成"未知"）。全量 `694 passed`（+10）。
+
+**升级动作**：无配置变更。此前报告里 GitHub 推荐度表的 `0 star` 与论文表的 `0 引用`，凡来自 code search / PubMed / arXiv / Unpaywall 的都应理解为"未取到"。
+
+---
+
 ## v6.28.0（2026-09-25）— 国内源的摘要与日期：baidu-serp 不再只回标题
 
 把字段完整度这套量法扫到国内/平台源（查询词「大模型 私有化部署 成本」，逐源单发、间隔 5 秒）：

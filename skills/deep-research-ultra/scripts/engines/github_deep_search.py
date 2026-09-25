@@ -668,20 +668,28 @@ class GitHubCodeSearchEngine(SearchEngine):
             full_name = repo.get('full_name', '')
             file_path = item.get('path', '')
             html_url = item.get('html_url', '')
+            # 实测（gh api search/code）items[].repository 是瘦身对象：有 stargazers_url，
+            # 没有 stargazers_count。旧写法 .get(..., 0) 把"不知道"写成 ⭐0 并一路进报告。
+            stars = repo.get('stargazers_count')
+            raw = {
+                'full_name': full_name,
+                'file_path': file_path,
+                'repo_url': repo.get('html_url', ''),
+                'repo_type': 'github',
+            }
+            if stars is None:
+                raw['metadata_missing'] = True
+            else:
+                raw['stars'] = stars
 
             results.append(SearchResult(
                 title=f"{full_name}: {file_path}",
                 url=html_url,
                 content=f'在 {full_name} 仓库中找到代码: {file_path}',
                 source='github-code-search',
-                score=float(repo.get('stargazers_count', 0)),
+                score=float(stars) if stars is not None else 0.0,
                 engine='github-code-search',
-                raw={
-                    'full_name': full_name,
-                    'file_path': file_path,
-                    'repo_url': repo.get('html_url', ''),
-                    'stars': repo.get('stargazers_count', 0),
-                },
+                raw=raw,
             ))
 
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
