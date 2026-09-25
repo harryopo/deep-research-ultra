@@ -77,6 +77,10 @@ DEFAULT_ALLOW = (
     'verify_tasks', 'verify_results', 'redteam',
     'session.json', 'report.md', 'report_skeleton.md', 'injection_log.jsonl',
     'guard_allow.txt', 'gate.json', 'l3.json', 'ledger_export.json',
+    # 账本三件套在两种布局下都会出现在会话目录**根上**：CLI 把它们写在 ledger/ 里，
+    # MCP 的 ledger_dir 就是会话目录本身（实测 drux_claim_add 之后根下有 ledger.jsonl）。
+    # 少了这两个名字，任何一次正常调研都会被判成越权写入，门必红
+    'ledger.jsonl', 'evidence.jsonl',
 )
 # 本工具自己的产物：留痕账按定义要抄攻击原文，门的重跑输出会叫 gate2/gate3…
 # 不豁免就是两处自指——给留痕要留痕、跑一次门就多一个越权文件，两轮之后没人肯跑门。

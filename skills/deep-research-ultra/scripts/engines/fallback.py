@@ -463,18 +463,15 @@ class BaiduHtmlEngine(SearchEngine):
     # 百度搜索 URL
     SEARCH_URL = "https://www.baidu.com/s"
 
-    # 结果项正则（匹配搜索结果块）
-    # 百度搜索结果通常在 <div class="result ..."> 中
-    RESULT_PATTERN = re.compile(
-        r'<div[^>]*class="result[^"]*"[^>]*>(.*?)</div>\s*(?=<div[^>]*class="result|<div[^>]*id="content_bottom")',
-        re.DOTALL,
-    )
-    # 标题与链接
-    TITLE_PATTERN = re.compile(r'<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.DOTALL)
-    # 摘要
-    SNIPPET_PATTERN = re.compile(r'<span[^>]*class="content-right_[^"]*"[^>]*>(.*?)</span>', re.DOTALL)
-    # 备用摘要
-    SNIPPET_FALLBACK_PATTERN = re.compile(r'<div[^>]*class="c-abstract[^"]*"[^>]*>(.*?)</div>', re.DOTALL)
+    # 结果锚点：真结果一律写成 `<h3 …><a href="…">`（实测页面 8 个这种锚点＝8 条真结果）。
+    # 不再按 `class="result…"` 切块：实测 20 个这样的 div 里 8 个是 result-molecule
+    # （结果内的「相关搜索」子链接，javascript:; 与 /s?wd= 两种伪链接就从它们来），
+    # 而至少一条真结果的容器 class 不以 result 开头（百科卡片），按块切会整条漏掉
+    ANCHOR_PATTERN = re.compile(
+        r'<h3[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.DOTALL)
+    # 摘要窗口上界：标题往后找，遇到下一条锚点或结果区结束就收口
+    SNIPPET_WINDOW = 4000
+    RESULTS_END_MARKER = 'id="content_bottom"'
 
     @property
     def metadata(self) -> EngineMetadata:
@@ -521,31 +518,25 @@ class BaiduHtmlEngine(SearchEngine):
         html = _decode_html(raw)
 
         results = []
-        # 提取结果块
-        for block in self.RESULT_PATTERN.findall(html):
+        anchors = list(self.ANCHOR_PATTERN.finditer(html))
+        end = html.find(self.RESULTS_END_MARKER)
+        for i, m in enumerate(anchors):
             if len(results) >= max_results:
                 break
-            # 提取标题和链接
-            title_match = self.TITLE_PATTERN.search(block)
-            if not title_match:
-                continue
-            link = title_match.group(1)
-            title_html = title_match.group(2)
-            title = _text_of(title_html)
+            link = _abs_url(m.group(1).strip(), self.SEARCH_URL)
+            title = _text_of(m.group(2))
             if not title or not _is_http_url(link):   # 伪链接不是结果
                 continue
+            # 摘要窗口：下一条锚点（或结果区结束）之前，再套一层长度上界。
+            # 不收口会把页脚/侧栏的长句当成最后一条的摘要
+            bound = m.end() + self.SNIPPET_WINDOW
+            if i + 1 < len(anchors):
+                bound = min(bound, anchors[i + 1].start())
+            elif end > m.end():
+                bound = min(bound, end)
+            snippet = self._snippet_of(html[m.end():bound], title)
 
-            # 提取摘要
-            snippet = ''
-            snippet_match = self.SNIPPET_PATTERN.search(block)
-            if snippet_match:
-                snippet = _text_of(snippet_match.group(1))
-            if not snippet:
-                snippet_match = self.SNIPPET_FALLBACK_PATTERN.search(block)
-                if snippet_match:
-                    snippet = _text_of(snippet_match.group(1))
-
-            # 百度链接可能是重定向链接（baidu.com/link?url=...）
+            # 百度链接是重定向链接（baidu.com/link?url=...），原样入库即可点开
             results.append(SearchResult(
                 title=title,
                 url=link,
@@ -556,6 +547,22 @@ class BaiduHtmlEngine(SearchEngine):
             ))
 
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
+
+    # 摘要节点的 class 带构建哈希（实测 `summary-text_15QGa`、`cos-line-clamp-2`），
+    # 按类名写死的正则上一版就已整页 0 命中，所以只按文本密度取，不认类名
+    SNIPPET_MIN_CHARS = 12
+    SNIPPET_MAX_CHARS = 200
+
+    @classmethod
+    def _snippet_of(cls, window: str, title: str) -> str:
+        """取窗口里最长的一段正文当摘要；短标签（"3天前"、站点名）被长度门槛挡掉。"""
+        best = ''
+        for line in _text_of(window).splitlines():
+            line = re.sub(r'\s+', ' ', line).strip()
+            if (len(line) >= cls.SNIPPET_MIN_CHARS and line != title
+                    and len(line) > len(best)):
+                best = line[:cls.SNIPPET_MAX_CHARS]
+        return best
 
 
 # ============================================================

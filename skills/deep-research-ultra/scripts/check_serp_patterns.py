@@ -120,7 +120,7 @@ def check_one(spec: Dict, query: str) -> Dict:
     import re as _re
     eng, raw, http_err = _fetch(spec, query)
     html = fb._decode_html(raw) if raw else ''
-    pat = getattr(eng, 'RESULT_PATTERN', None)
+    pat = getattr(eng, 'RESULT_PATTERN', None) or getattr(eng, 'ANCHOR_PATTERN', None)
     blocks = len(pat.findall(html)) if pat is not None else None
     marker = spec.get('marker')
     has_content = bool(_re.search(marker, html)) if marker else None

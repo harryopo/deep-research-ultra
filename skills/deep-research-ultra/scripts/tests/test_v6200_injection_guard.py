@@ -207,3 +207,20 @@ def test_cli_output_is_utf8_forced(tmp_path):
     assert r.returncode == 1, f"有越权文件必须非零退出：{r.returncode}"
     assert "未申报" in err, err[:200]
     assert "TAMPERED.txt" in out, out[:200]
+
+def test_flat_ledger_layout_is_not_an_intrusion(tmp_path):
+    """MCP 侧的 ledger_dir 就是会话目录本身，账本直接落在根上。
+
+    实测（drux_session_start + drux_claim_add 之后）根下是 ledger.jsonl、session.json、
+    claims/、sources/；evidence.jsonl 记完来源同样落在根上。DEFAULT_ALLOW 原本只认
+    CLI 那种 `ledger/` 子目录布局，于是**任何一次正常调研都会被门判成越权写入**，
+    drux_gate_check 必然红（tests/test_server_tools.py 三条即此形态）。
+    """
+    root = tmp_path
+    for name in ('ledger.jsonl', 'evidence.jsonl'):
+        (root / name).write_text("", encoding="utf-8")
+    (root / "session.json").write_text("{}", encoding="utf-8")
+    assert scope_findings(str(root)) == [], scope_findings(str(root))
+    # 豁免只到自家产物为止：外来文件在扁平布局下照样点名
+    (root / "backdoor.sh").write_text("echo pwned", encoding="utf-8")
+    assert scope_findings(str(root)) == ["backdoor.sh"]
