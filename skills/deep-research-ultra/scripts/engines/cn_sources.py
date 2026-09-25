@@ -28,7 +28,7 @@ from typing import Dict, List, Optional
 from .base import SearchEngine, SearchResult, EngineMetadata
 from .fallback import (_http_get, _decode_html, DEFAULT_USER_AGENT,
                       _is_http_url, _stub_page, _abs_url,
-                      _text_of)
+                      _text_of, _cn_date_of, BaiduHtmlEngine)
 
 
 # ============================================================
@@ -123,40 +123,22 @@ class BaiduSerpEngine(SearchEngine):
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
 
     def _parse_baidu_results(self, html: str, max_results: int) -> List[SearchResult]:
-        """解析百度搜索结果页 HTML"""
+        """解析百度搜索结果页 HTML——与 BaiduHtmlEngine 共用同一条锚点解析。
+
+        这里原本是自己一套：摘要用 `content-right_` / `c-abstract`（v6.25 实测整页 0 命中，
+        所以 5/5 条 content 为空），还把标题列表与摘要列表按位置配对（`snippets[i]`），
+        一条没摘要就让后面全部串位——第 N+1 条的摘要挂到第 N 条标题上。
+        """
         results: List[SearchResult] = []
-
-        # 百度搜索结果通常在 class="result" 或 class="c-container" 的 div 中
-        # 提取标题和链接
-        # 模式1: <h3 class="t"><a href="...">标题</a></h3>
-        title_pattern = re.compile(
-            r'<h3[^>]*class="[^"]*t[^"]*"[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
-            re.DOTALL,
-        )
-        # 摘要模式
-        snippet_pattern = re.compile(
-            r'<span[^>]*class="content-right_[^"]*"[^>]*>(.*?)</span>',
-            re.DOTALL,
-        )
-        snippet_fallback = re.compile(
-            r'<div[^>]*class="c-abstract[^"]*"[^>]*>(.*?)</div>',
-            re.DOTALL,
-        )
-
-        titles = title_pattern.findall(html)
-        snippets = snippet_pattern.findall(html)
-        if not snippets:
-            snippets = snippet_fallback.findall(html)
-
-        for i, (url, title_html) in enumerate(titles[:max_results]):
+        for href, title_html, window in BaiduHtmlEngine.iter_cards(html):
+            if len(results) >= max_results:
+                break
+            url = _abs_url(href.strip(), self.SEARCH_URL)
             title = _text_of(title_html)
             if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
-            snippet = ''
-            if i < len(snippets):
-                snippet = _text_of(snippets[i])
-
+            snippet = BaiduHtmlEngine._snippet_of(window, title)
             # 识别国内技术站点
             site_name = ''
             for domain, name in self.CN_TECH_SITES.items():
@@ -164,9 +146,7 @@ class BaiduSerpEngine(SearchEngine):
                     site_name = name
                     break
 
-            content_parts = []
-            if snippet:
-                content_parts.append(snippet)
+            content_parts = [snippet] if snippet else []
             if site_name:
                 content_parts.append(f"[来源] {site_name}")
 
@@ -176,10 +156,11 @@ class BaiduSerpEngine(SearchEngine):
                 content='\n'.join(content_parts),
                 source='baidu-serp',
                 score=0.0,
+                published_date=_cn_date_of(window),
                 engine='baidu-serp',
                 raw={
                     'site_name': site_name,
-                    'result_index': i + 1,
+                    'result_index': len(results) + 1,
                     'is_cn_tech': bool(site_name),
                 },
             ))
@@ -308,6 +289,7 @@ class SogouWeixinEngine(SearchEngine):
                 content='\n'.join(content_parts),
                 source='sogou-weixin',
                 score=0.0,
+                published_date=_cn_date_of(block),
                 engine='sogou-weixin',
                 raw={
                     'account': account,
@@ -428,6 +410,7 @@ class SogouZhihuEngine(SearchEngine):
                 content=snippet,
                 source='sogou-zhihu',
                 score=0.0,
+                published_date=_cn_date_of(block),
                 engine='sogou-zhihu',
                 raw={
                     'content_type': 'zhihu_qa',

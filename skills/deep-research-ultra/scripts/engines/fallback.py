@@ -85,6 +85,10 @@ def _text_of(fragment: str) -> str:
 
 SERP_MIN_BYTES = 20_000    # 真 SERP 页面实测 0.9M–1.4M 字节；被降级时实测只有 1.4KB
 
+# 中文 SERP 里的日期写法
+_CN_ABS_DATE = re.compile(r'(20\d{2})\s*[-/年]\s*(\d{1,2})(?:\s*[-/月]\s*(\d{1,2}))?')
+_CN_REL_DATE = re.compile(r'(刚刚|今天|昨天|前天|(\d+)\s*(小时|分钟|天|周|月|年)前)')
+
 
 def _stub_page(raw) -> bool:
     """页面小得不像话 → 记下原因，调用方按"通道失败"返回 None。
@@ -98,6 +102,35 @@ def _stub_page(raw) -> bool:
                          '多半被风控或需人机验证，这一发没有可解析的内容')
         return True
     return False
+
+def _cn_date_of(text, today=None) -> str:
+    """中文页面里的日期写法 → ISO `YYYY-MM-DD`；认不出来就返回空，不猜。
+
+    SERP 的结果块把时间写成各种样子（`2025年9月19日…`、`2026/1/5`、`3天前`、`昨天`），
+    而 `score._score_currency` 只能从正文里兜底抓绝对日期，相对日期一律落 40 分地板——
+    实测国内五个源 published_date 全空，"时效新闻"这类查询因此没有排序依据。
+    """
+    import datetime as _dt
+    s = text if isinstance(text, str) else ''
+    if not s:
+        return ''
+    m = _CN_ABS_DATE.search(s)
+    if m:
+        try:
+            return _dt.date(int(m.group(1)), int(m.group(2) or 1), int(m.group(3) or 1)).isoformat()
+        except ValueError:                      # 2026年13月40日 这种不是日期
+            return ''
+    r = _CN_REL_DATE.search(s)
+    if not r:
+        return ''
+    base = today or _dt.date.today()
+    word = r.group(1)
+    days = {'刚刚': 0, '今天': 0, '昨天': 1, '前天': 2}.get(word)
+    if days is None:
+        unit_days = {'分钟': 0, '小时': 0, '天': 1, '周': 7, '月': 30, '年': 365}
+        days = int(r.group(2)) * unit_days.get(r.group(3), 0)
+    return (base - _dt.timedelta(days=days)).isoformat()
+
 
 def _is_http_url(url: str) -> bool:
     """SERP 解析出的链接必须是真 http(s) 地址。
@@ -482,6 +515,25 @@ class BaiduHtmlEngine(SearchEngine):
     # 摘要窗口上界：标题往后找，遇到下一条锚点或结果区结束就收口
     SNIPPET_WINDOW = 4000
     RESULTS_END_MARKER = 'id="content_bottom"'
+    # 结果卡的起始标记：窗口还要在这里收一次口——某条结果自己没摘要时，
+    # 只按"下一条锚点"切会让它借用下一条的摘要，摘要串位比没摘要更糟
+    CARD_START = re.compile(r'<div[^>]*class="result')
+
+    @classmethod
+    def iter_cards(cls, html: str):
+        """按 `<h3 …><a href=…>` 锚点切出 (href, 标题 HTML, 该条正文窗口)。"""
+        anchors = list(cls.ANCHOR_PATTERN.finditer(html))
+        end = html.find(cls.RESULTS_END_MARKER)
+        for i, m in enumerate(anchors):
+            bound = m.end() + cls.SNIPPET_WINDOW
+            if i + 1 < len(anchors):
+                bound = min(bound, anchors[i + 1].start())
+            elif end > m.end():
+                bound = min(bound, end)
+            card = cls.CARD_START.search(html, m.end(), bound)
+            if card:
+                bound = min(bound, card.start())
+            yield m.group(1), m.group(2), html[m.end():bound]
 
     @property
     def metadata(self) -> EngineMetadata:
@@ -528,23 +580,14 @@ class BaiduHtmlEngine(SearchEngine):
         html = _decode_html(raw)
 
         results = []
-        anchors = list(self.ANCHOR_PATTERN.finditer(html))
-        end = html.find(self.RESULTS_END_MARKER)
-        for i, m in enumerate(anchors):
+        for href, title_html, window in self.iter_cards(html):
             if len(results) >= max_results:
                 break
-            link = _abs_url(m.group(1).strip(), self.SEARCH_URL)
-            title = _text_of(m.group(2))
+            link = _abs_url(href.strip(), self.SEARCH_URL)
+            title = _text_of(title_html)
             if not title or not _is_http_url(link):   # 伪链接不是结果
                 continue
-            # 摘要窗口：下一条锚点（或结果区结束）之前，再套一层长度上界。
-            # 不收口会把页脚/侧栏的长句当成最后一条的摘要
-            bound = m.end() + self.SNIPPET_WINDOW
-            if i + 1 < len(anchors):
-                bound = min(bound, anchors[i + 1].start())
-            elif end > m.end():
-                bound = min(bound, end)
-            snippet = self._snippet_of(html[m.end():bound], title)
+            snippet = self._snippet_of(window, title)
 
             # 百度链接是重定向链接（baidu.com/link?url=...），原样入库即可点开
             results.append(SearchResult(
@@ -553,6 +596,7 @@ class BaiduHtmlEngine(SearchEngine):
                 content=snippet,
                 source='baidu-html',
                 score=0.0,
+                published_date=_cn_date_of(window),
                 engine='baidu-html',
             ))
 
@@ -677,6 +721,7 @@ class BingHtmlEngine(SearchEngine):
                 content=snippet,
                 source='bing-html',
                 score=0.0,
+                published_date=_cn_date_of(block),
                 engine='bing-html',
             ))
 
