@@ -400,7 +400,12 @@ class SogouZhihuEngine(SearchEngine):
             re.DOTALL,
         )
         title_pattern = re.compile(r'<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.DOTALL)
-        snippet_pattern = re.compile(r'<p[^>]*>(.*?)</p>', re.DOTALL)
+        # 摘要候选：实测真摘要只挂在 `star-wiki`（百科条目）与 `space-txt`（普通条目）上。
+        # 旧实现取"块里第一个 <p>"，抓到的是灰色统计行（274个回答 - 97.2万次浏览），
+        # 而 space-txt 形态是 <div>，压根取不到 —— 实测 5 条里 3 条空、1 条只有统计行
+        snippet_pattern = re.compile(
+            r'<(p|div)\b[^>]*class="([^"]*(?:star-wiki|space-txt)[^"]*)"[^>]*>(.*?)</\1>',
+            re.DOTALL)
 
         for block in item_pattern.findall(html):
             if len(results) >= max_results:
@@ -415,10 +420,7 @@ class SogouZhihuEngine(SearchEngine):
             if not title or not _is_http_url(url):   # 伪链接不是结果
                 continue
 
-            snippet = ''
-            snippet_match = snippet_pattern.search(block)
-            if snippet_match:
-                snippet = _text_of(snippet_match.group(1))
+            snippet = self._pick_snippet(block, snippet_pattern)
 
             results.append(SearchResult(
                 title=title,
@@ -433,6 +435,25 @@ class SogouZhihuEngine(SearchEngine):
             ))
 
         return results
+
+    # 灰色统计行（`274个回答 - 2145人关注 - 97.2万次浏览`）与真摘要同款 class 前缀，
+    # 只靠 text-lightgray 分开；点赞数套在 zan-box 里，会把正文顶成一行数字
+    SNIPPET_SKIP_CLASS = 'text-lightgray'
+    ZAN_BOX = re.compile(r'<span[^>]*class="[^"]*zan-box[^"]*"[^>]*>.*?</span>', re.DOTALL)
+    STATS_TEXT = re.compile(r'\d+个回答|\d+次浏览')
+
+    @classmethod
+    def _pick_snippet(cls, block: str, snippet_pattern) -> str:
+        """条目块里挑一段真摘要：跳过统计行，取最长的候选。"""
+        best = ''
+        for _tag, cls_attr, inner in snippet_pattern.findall(block):
+            if cls.SNIPPET_SKIP_CLASS in cls_attr:
+                continue
+            text = ' '.join(_text_of(cls.ZAN_BOX.sub('', inner)).split())
+            if (len(text) >= 12 and not cls.STATS_TEXT.search(text)
+                    and len(text) > len(best)):
+                best = text[:300]
+        return best
 
     def _fallback_baidu(self, query: str, max_results: int, proxy: Optional[str]) -> Optional[List[SearchResult]]:
         """降级到百度搜索 site:zhihu.com"""
