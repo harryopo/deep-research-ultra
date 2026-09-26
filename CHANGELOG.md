@@ -11,6 +11,27 @@
 
 ---
 
+## v6.30.0（2026-09-26）— 档 B 反查补上 GitHub Release 这一族制品
+
+端到端实跑（主题「本地小模型推理引擎选型」，158 条 claim）撞到一条判同缺口：D5 维度 5 条 claim 的来源是
+**官方发布页** `github.com/vllm-project/vllm/releases/tag/v0.28.0`，按文档指引去反查官方 API
+`api.github.com/repos/vllm-project/vllm/releases/tags/v0.28.0`——REST 路径多一个 `s`，
+`_github_key` 把两者算成两个制品，5 条真反查**全部被拒**，拒词还是"反查必须打在同一个制品上"。
+Release 说明是"版本 churn"这类结论唯一的一手载体，这条通道打不通就只能整批停在 pending。
+
+- `_artifact_key` 新增 release 族归一：`releases/tag/<t>`（网页）与 `releases/tags/<t>`（REST）折叠为
+  `owner/repo@release:<t>`；**不同 tag 仍是不同制品**（版本差异本身就是结论），
+  `releases/download/<tag>/<file>` 指向具体文件，不与发布页混同。
+- 实跑效果：这 5 条经官方 API 反查全部升为档 B 已验；该轮 verified 从 39（档 A 29 + 档 B 10）
+  升到 72（档 A 29 + 档 B 43），报告过门并盖戳（`body=2da1f9c061f41967`）。
+- 新增 `tests/test_v6300_release_identity.py`（5 条：网页↔REST 同制品、异 tag 不同制品、
+  release 不等于仓库根/README、资源文件另算）。全量 `700 passed`（+6 用例，含一条参数化两例）。
+
+**升级动作**：无配置变更。此前停在 pending 的"某发布页/Release Notes 说 X"类 claim，现在可以用
+`verify-primary --check-url <releases/tags/… 或 releases/tag/…>` 走档 B 反查。
+
+---
+
 ## v6.29.0（2026-09-26）— 报告里「没取到这个字段」不再印成 0
 
 沿字段完整度这条线往下游扫：引擎层与打分层的缺项在 v6.26.0/v6.27.0 已经照实标注，但推荐度表与分组仍在继续把它们写成事实。

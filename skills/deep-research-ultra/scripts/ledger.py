@@ -306,6 +306,11 @@ def _github_key(u: str) -> str:
         return f'github:{str(u or "").lower()}'
     host, owner, repo, rest = m.group(1).lower(), m.group(2), m.group(3), m.group(4)
     seg = rest.split('/')
+    # 发布页与它的 REST 入口是同一份制品：网页是 releases/tag/<t>，REST 是 releases/tags/<t>
+    # （多一个 s）。不折叠的话，"拿官方 API 复核官方发布页"这条最硬的反查永远判成不同制品
+    # （实跑 5 条发布说明 claim 全被拒）。release 资源文件仍按路径单独成制品。
+    if (seg[0] == 'releases' and len(seg) > 2 and seg[1] in ('tag', 'tags')):
+        return f'github.com:{owner.lower()}/{repo.lower()}@release:{"/".join(seg[2:]).lower()}'
     ref, path = '', rest
     if seg[0] in ('blob', 'tree', 'raw', 'resolve') and len(seg) > 1:
         ref, path = seg[1], '/'.join(seg[2:])
