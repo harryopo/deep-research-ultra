@@ -461,6 +461,9 @@ def _load_shard(path: Path) -> Tuple[List[Any], List[str]]:
     return items, errors
 
 
+SKILL_MD = Path(__file__).resolve().parents[1] / 'SKILL.md'
+
+
 class ResearchLedger:
     """证据账本。session_dir 即 ledger 根目录。"""
 
@@ -468,6 +471,12 @@ class ResearchLedger:
     EVIDENCE = 'evidence.jsonl'
     CLAIMS_DIR = 'claims'
     SOURCES_DIR = 'sources'
+
+    # 一份分片（＝一个维度）能写多少条 claim。实跑量出来的产能账：deep 档 8 维度 93 条
+    # （≈12/维度）覆盖率 0.89；standard 档 5 维度 158 条（≈32/维度）同样两名复核员逐字回验，
+    # 覆盖率只剩 0.46。分母涨、分子不动——写进账本的条数超出 Lead 能逐字回验的量，
+    # 多出来的每一条都在拉低真实覆盖率，所以合并时要点名，别让 Lead 到发布门才发现。
+    SHARD_CLAIM_CAP = 12
 
     def __init__(self, session_dir: str):
         self.root = Path(session_dir)
@@ -814,6 +823,7 @@ class ResearchLedger:
         existing = self._ids()
         existing_src = existing_sources(self.root)
         rejects: Dict[Tuple[str, str], int] = {}
+        per_file: Dict[str, int] = {}     # 每份分片收进账本的 claim 数（产能告警用）
 
         def reject(fname: str, reason: str):
             stats['rejected'] += 1
@@ -833,11 +843,14 @@ class ResearchLedger:
                 if typ == 'evidence':
                     continue
                 elif typ == 'claim':
-                    if item.get('id') in existing:
-                        stats['deduped'] += 1
-                        continue
                     if not str(item.get('text') or '').strip():
                         reject(f.name, 'claim 缺 text，空断言不进账本')
+                        continue
+                    # 上限量的是"这个维度写了多少条"，与是否首次合并无关：
+                    # 重跑 merge 时全部走去重通道，按"新增入账"计数就会一声不响
+                    per_file[f.name] = per_file.get(f.name, 0) + 1
+                    if item.get('id') in existing:
+                        stats['deduped'] += 1
                         continue
                     # 缺 status 一律 pending：合并动作不能自己批准结论
                     self.add_claim(
@@ -873,6 +886,14 @@ class ResearchLedger:
         for (fname, reason), n in sorted(rejects.items()):
             tail = f'（{n} 条）' if n > 1 else ''
             print(f'拒收 {fname}: {reason}{tail}', file=sys.stderr)
+        for fname, n in sorted(per_file.items()):
+            if n > self.SHARD_CLAIM_CAP:
+                print(f'⚠️ {fname} 收到 {n} 条 claim，超每维度上限 '
+                      f'{self.SHARD_CLAIM_CAP} 条：条数本身不进 verified 分子，只会把覆盖率'
+                      '分母撑大。挑最硬的 '
+                      f'{self.SHARD_CLAIM_CAP} 条留下（要带逐字引文），其余删除或按子主题拆维度'
+                      '重派，别放着等发布门来问', file=sys.stderr)
+                stats['over_cap'] = stats.get('over_cap', 0) + 1
         return stats['claims'], stats['sources']
 
     def _ids(self) -> set:

@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.30.0
+version: 6.31.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -515,6 +515,10 @@ Lead（主 Agent）
 2) 落盘：把你的全部产物写进一个文件 {ledger_dir}/{slug}.json，形状照下面的 schema 抄。
    除这个文件外不写任何东西，尤其**不要跑 ledger.py add-claim 直写共享 ledger.jsonl**
    （并发追加的原子性不由你保证，Lead 归并时统一 merge 收编）
+   **每维度 ≤12 条 claim，每条必须带可点回原文的逐字片段**：实测每维度写到 30 条时，
+   Lead 一轮内无法逐字回验，多出来的每一条都只把覆盖率的分母撑大、不会进 verified 的分子
+   （deep 档 12 条/维度覆盖率 0.89，standard 档 32 条/维度同一套判据只剩 0.46）。
+   挑证据最硬的留下，其余不写进账本——少写不是漏写，是让结论站得住。
 3) 每条 claim 只记录事实与来源，不做总结断言；status 一律 "pending"（verified 只能由 Lead 在
    归并阶段赋予）；发现矛盾写 "status": "conflict"
 4) 不碰任务清单：不要调用 TaskCreate / TaskUpdate / TodoWrite 之类的待办工具，也不要写计划或记忆文件。
