@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.32.0
+version: 6.33.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -1439,6 +1439,14 @@ python "${SKILL_DIR}/scripts/ledger.py" set-status --session <dir> --claim-id <i
     [--status <s>] [--note <n>] [--text "<就地更正后的原文>"]   # 只给 --text 时状态不动
 python "${SKILL_DIR}/scripts/ledger.py" verify-primary --session <dir> --claim-id <id>[,<id>...] \
     --check-url <同一制品的另一通道URL> [--check-title <t>] [--method <手段>]
+python "${SKILL_DIR}/scripts/ledger.py" link-identity --session <dir> --claim-id <id>[,<id>...] \
+    --anchor <账本已有来源URL> --target <反查URL>
+    # 跨标识符判同（预印本↔期刊 DOI 这类）：查书目记录的 externalIds 并写 type=identity 凭据进账本，
+    # 绑成功后再对目标 URL 跑 verify-primary
+python "${SKILL_DIR}/scripts/ledger.py" content-identity --session <dir> --claim-id <id>[,<id>...] \
+    --anchor <账本已有来源URL> --target <另一主机的同一内容URL>
+    # 跨主机且无标识符的一对（文档站页面↔仓库 .md 源文件）：凭这条 claim 的逐字片段
+    # 在两侧正文都命中判同；指错文件/空壳页/纯转述一律拒
 python "${SKILL_DIR}/scripts/ledger.py" merge --session <dir> --dir <分片所在目录>
 python "${SKILL_DIR}/scripts/ledger.py" status --session <dir> [--topic <t>]   # 无 --topic 出 {"topics":…,"totals":…}
 python "${SKILL_DIR}/scripts/ledger.py" export --session <dir> --format json|md [--out <path>]
