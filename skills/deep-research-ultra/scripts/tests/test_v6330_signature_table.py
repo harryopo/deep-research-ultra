@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 SKILL = Path(__file__).resolve().parents[2] / 'SKILL.md'
-LEDGER = Path(__file__).resolve().parents[1] / 'ledger.py'
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 
 
 def _signature_block() -> str:
@@ -29,23 +29,33 @@ def _signature_block() -> str:
     return block[:nxt.start()] if nxt else block
 
 
-def _subcommands() -> list:
-    src = LEDGER.read_text(encoding='utf-8')
-    return sorted(set(re.findall(r"cmd == '([a-z-]+)'", src)))
+def _scripts_with_subcommands() -> dict:
+    """扫全部 CLI 脚本，取各自的子命令清单（不止 ledger——同类缺陷要一次横扫）。"""
+    out = {}
+    for path in sorted(SCRIPTS_DIR.glob('*.py')):
+        cmds = sorted(set(re.findall(r"cmd == '([a-z-]+)'",
+                                     path.read_text(encoding='utf-8', errors='replace'))))
+        if cmds:
+            out[path.name] = cmds
+    return out
 
 
 def test_每个子命令都在签名块里():
     block = _signature_block()
-    missing = [c for c in _subcommands()
-               if f'ledger.py" {c}' not in block and f'ledger.py" {c} ' not in block]
+    table = _scripts_with_subcommands()
+    assert table, '一个带子命令的 CLI 都没扫到——扫描口径坏了，这条断言就会空转'
+    missing = [f'{name} {cmd}' for name, cmds in table.items()
+               for cmd in cmds if f'{name}" {cmd}' not in block]
     assert not missing, (
         f'§14.3 签名块缺 {missing}——这张表写着"照抄即可，不必再跑 --help"，'
-        f'漏一条就等于这条通道不存在')
+        f'漏一条就等于这条能力不存在')
 
 
 def test_签名块不为空且确实覆盖多数命令():
     """对照面：断言不许因为"块没解析到"而空转通过。"""
     block = _signature_block()
-    cmds = _subcommands()
-    hit = sum(1 for c in cmds if f'ledger.py" {c}' in block)
-    assert hit >= len(cmds) - 1, f'签名块只覆盖 {hit}/{len(cmds)} 条，解析或文档出了问题'
+    table = _scripts_with_subcommands()
+    total = sum(len(cmds) for cmds in table.values())
+    hit = sum(1 for name, cmds in table.items()
+              for c in cmds if f'{name}" {c}' in block)
+    assert hit >= total - 1, f'签名块只覆盖 {hit}/{total} 条，解析或文档出了问题'
