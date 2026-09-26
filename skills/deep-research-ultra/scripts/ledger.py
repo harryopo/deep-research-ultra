@@ -463,6 +463,46 @@ def _load_shard(path: Path) -> Tuple[List[Any], List[str]]:
 
 SKILL_MD = Path(__file__).resolve().parents[1] / 'SKILL.md'
 
+# 跨主机判同（v6.32）：凭"这条 claim 自己的逐字片段在两条通道的正文里都命中"绑同制品。
+# 阈值定的是有据可查的两端：正文短于 MIN_IDENTITY_BODY 就是 404/风控空壳，拿它当凭据等于没取；
+# 片段短于 MIN_IDENTITY_QUOTE 容易在任意页面撞车（"the following" 这种），不算证据。
+MIN_IDENTITY_BODY = 400
+MIN_IDENTITY_QUOTE = 20
+# 片段必须**止于引号本身**：写成 `"(.{20,}?)"` 会把 `"OS: Linux" 与 "Python: 3.10 -- 3.13"`
+# 里的两个独立引号吃成一段，取出 `os: linux" 与 "python: 3.10...` 这种哪儿都不存在的拼接串，
+# 于是真有凭据的 claim 被判成"没命中"（实跑 c-d4-05 假阴性）。
+_QUOTE_PATTERNS = (
+    re.compile(r'「([^」]{20,}?)」', re.S),
+    re.compile(r'“([^”]{20,}?)”', re.S),
+    re.compile(r'"([^"]{20,}?)"', re.S),
+    re.compile(r'`([^`]{20,}?)`', re.S),
+)
+
+
+def _norm_body(s: Any) -> str:
+    return re.sub(r'\s+', ' ', str(s or '')).strip().lower()
+
+
+def _quote_spans(text: str) -> List[str]:
+    """从 claim 原文里取出可核验的逐字片段（引号/反引号内，已归一化）。"""
+    out: List[str] = []
+    for pat in _QUOTE_PATTERNS:
+        for m in pat.finditer(str(text or '')):
+            frag = _norm_body(m.group(1))
+            if len(frag) >= MIN_IDENTITY_QUOTE and frag not in out:
+                out.append(frag)
+    return out
+
+
+def _fetch_body(url: str) -> str:
+    """取一条 URL 的正文（HTML 去标签）。取不到回空串——空壳不许当凭据，由调用方判。"""
+    try:
+        from engines.fallback import _decode_html, _http_get, _text_of
+    except Exception:
+        return ''
+    raw = _http_get(url, timeout=45, max_retries=2)
+    return _norm_body(_text_of(_decode_html(raw))) if raw else ''
+
 
 class ResearchLedger:
     """证据账本。session_dir 即 ledger 根目录。"""
@@ -711,6 +751,80 @@ class ResearchLedger:
             done += 1
         return done
 
+
+
+    def content_identity(self, claim_ids, anchor_url, target_url, body_of=None) -> int:
+        """跨主机的同一份内容：凭这条 claim 的逐字片段在两条通道都命中来绑同一制品。
+
+        实跑（2026-09-26）卡住的形态：来源是文档站页面
+        `docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html`，
+        反查想打在仓库源文件 `raw.githubusercontent.com/.../docs/.../gpu.md` 上。
+        两个主机、两条路径互推不出来，`_artifact_key` 判不同；`link-identity` 只认
+        书目标识符，文档页没有 DOI/arXiv 号。这对"官方文档页 ↔ 官方仓库源文件"本该是
+        最硬的自证组合，却永远走不通。
+
+        凭据取内容本身，不猜路径、不看整体相似度（导航与页脚会让两个无关页面很像）：
+        ① 锚点必须是这条 claim 已有的来源制品（不许拿别人的记录背书）；
+        ② claim 原文里要有 ≥20 字的逐字片段——全是转述就没有可核证据；
+        ③ 该片段必须在**两侧正文里都逐字命中**，指错文件（那句话写在别的文件里）照样拒；
+        ④ 任一侧正文不足 400 字按空壳拒（404 / 风控页 / JS 壳都不算取到内容）。
+        成功时写一条 identity 记录（matched 里带命中的片段），verify_primary 随后按这条记录放行。
+        """
+        wanted = {c.strip() for c in claim_ids if c and c.strip()}
+        if not wanted or not str(target_url or '').strip():
+            return 0
+        body_of = body_of or _fetch_body
+        entries = list(_iter_entries(self.entries_path))
+        claims = {e['id']: e for e in entries
+                  if e.get('type') == 'claim' and e.get('id')}
+        src_keys: Dict[str, set] = {}
+        for e in entries:
+            if e.get('type') == 'source' and e.get('claim_id'):
+                src_keys.setdefault(e['claim_id'], set()).add(
+                    _artifact_key(e.get('url', '')))
+        linked = {(e.get('claim_id'), e.get('target'))
+                  for e in entries if e.get('type') == 'identity'}
+        a_key = _artifact_key(anchor_url)
+        t_key = _clean_url(target_url)
+        done = 0
+        for cid in sorted(wanted):
+            c = claims.get(cid)
+            if not c:
+                print(f'拒绝 content-identity：账本里没有 claim {cid}', file=sys.stderr)
+                continue
+            if a_key not in src_keys.get(cid, set()):
+                print(f'拒绝 content-identity：锚点 {anchor_url} 不是 claim {cid} 已有的来源'
+                      f'制品，不能拿别的记录给它背书', file=sys.stderr)
+                continue
+            spans = _quote_spans(c.get('text', ''))
+            if not spans:
+                print(f'拒绝 content-identity：claim {cid} 原文里没有 ≥'
+                      f'{MIN_IDENTITY_QUOTE} 字的逐字片段，转述不能当判同凭据',
+                      file=sys.stderr)
+                continue
+            if (cid, t_key) in linked:
+                done += 1
+                continue
+            abody, tbody = _norm_body(body_of(anchor_url)), _norm_body(body_of(target_url))
+            if len(abody) < MIN_IDENTITY_BODY or len(tbody) < MIN_IDENTITY_BODY:
+                print(f'拒绝 content-identity：claim {cid} 有一侧正文不足 '
+                      f'{MIN_IDENTITY_BODY} 字（锚点 {len(abody)}／反查 {len(tbody)}），'
+                      f'空壳页不算取到内容', file=sys.stderr)
+                continue
+            hit = next((s for s in spans if s in abody and s in tbody), None)
+            if not hit:
+                print(f'拒绝 content-identity：claim {cid} 的逐字片段没有一条在两侧都命中'
+                      f'（试了 {len(spans)} 个片段）——反查大概打在了别的文件上，'
+                      f'那句话不在这份内容里', file=sys.stderr)
+                continue
+            _atomic_append(self.entries_path, json.dumps({
+                'type': 'identity', 'claim_id': cid, 'anchor': anchor_url,
+                'target': t_key, 'matched': f'content:{hit[:120]}',
+                'anchor_chars': len(abody), 'target_chars': len(tbody),
+                'created_at': _now(),
+            }, ensure_ascii=False))
+            done += 1
+        return done
 
 
     def verify_primary(self, claim_ids: List[str], check_url: str,
@@ -1078,6 +1192,10 @@ def _main(argv: Optional[List[str]] = None) -> int:
                     # --status 与 --text 至少给一个；只给 --text 时状态原样不动
   python ledger.py verify-primary --session <dir> --claim-id <id>[,<id>...] \
       --check-url <一手制品URL> [--check-title <t>] [--method repo_health]
+  python ledger.py content-identity --session <dir> --claim-id <id>[,...] \
+      --anchor <账本已有来源URL> --target <另一主机的同一内容URL>
+                    # 跨主机判同（文档站页面↔仓库源文件）：凭这条 claim 的逐字片段
+                    # 在两侧正文都命中；指错文件、空壳页、纯转述一律拒
   python ledger.py merge --session <dir> --dir <src_dir|分片文件>
                     # 递归收 *.json/*.jsonl（--dir 给单个文件也认）；只收 UTF-8 分片，
                     # 编码不对/路径不存在都点名回话，不会静默报"0 条"
@@ -1144,6 +1262,21 @@ def _main(argv: Optional[List[str]] = None) -> int:
         if n:
             print(f"判同 {n} 条 claim：{ids} —— 凭据已落账（type=identity），"
                   f"现在可以对目标 URL 跑 verify-primary")
+            return 0
+        print("判同 0 条：没写任何 identity 记录（原因见上方拒绝信息）", file=sys.stderr)
+        return 1
+
+    if cmd == 'content-identity':
+        try:
+            ledger.require()
+        except FileNotFoundError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        ids = [i.strip() for i in _opt('--claim-id').split(',') if i.strip()]
+        n = ledger.content_identity(ids, _opt('--anchor'), _opt('--target'))
+        if n:
+            print(f"内容判同 {n} 条 claim：{ids} —— 逐字片段已在两侧正文命中，凭据落账"
+                  f"（type=identity），现在可以对目标 URL 跑 verify-primary")
             return 0
         print("判同 0 条：没写任何 identity 记录（原因见上方拒绝信息）", file=sys.stderr)
         return 1

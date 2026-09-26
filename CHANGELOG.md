@@ -11,6 +11,38 @@
 
 ---
 
+## v6.32.0（2026-09-26）— 跨主机的同一份内容可以判同了（文档站页面 ↔ 仓库源文件）
+
+实跑收口时剩 3 条 vLLM 文档结论升不上档 B，卡在制品判等：来源登记的是
+`docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html`，
+而同一句话的仓库源文件在 `raw.githubusercontent.com/vllm-project/vllm/main/docs/.../gpu.md`。
+两个主机、两条路径互推不出来，`_artifact_key` 判不同；`link-identity` 只认书目标识符
+（文档页没有 DOI/arXiv 号）——"官方文档页 ↔ 官方仓库源文件"这对本该最硬的自证组合永远打不通。
+
+本机实测确认凭据真实存在：`vLLM does not support Windows natively`、`Python: 3.10 -- 3.13`
+两句在**文档页与仓库源文件里逐字都在**；而 `compute capability 7.5` 与 AMD/Intel 那些行只在文档页
+（写在别的文件里）。
+
+- 新增 `ledger.py content-identity --session <dir> --anchor <账本已有来源> --target <另一主机 URL>`：
+  凭据取**这条 claim 自己的逐字片段在两侧正文里都命中**。不猜路径映射、不看整体相似度
+  （导航、页脚、版权行会让两个无关页面"很像"）。四条硬拒：锚点不是这条 claim 的来源、
+  claim 里没有 ≥20 字逐字片段（纯转述）、任一侧正文 <400 字（空壳/风控页）、
+  片段没在两侧都命中（多半指错了文件）。成功时写 `type=identity` 记录，
+  `verify-primary` 随后按这条记录放行——判同与升级仍是两步，留痕可查。
+- 修掉一处自己写的假阴性：取片段的正则原本写成 `"(.{20,}?)"`，会把
+  `"OS: Linux" 与 "Python: 3.10 -- 3.13"` 两个独立引号吃成一段拼接串，
+  那种串哪儿都不存在，于是真有凭据的 claim 被误判"没命中"。改为片段止于引号本身。
+- 实跑效果：`c-d4-04`、`c-d4-05` 经此通道升为档 B 已验，该轮 verified 72 → 74（覆盖率 0.47），
+  报告重过门并换戳（`body=57aab69552fe711d`）。`c-d4-06` 仍被拒——它引的三行是渲染页里
+  跨 ROCm 与 Intel 两段的拼接，任何单个源文件都装不下，**照实停在 pending**，不放宽判据去凑。
+- 新增 `tests/test_v6320_content_identity.py`（8 条：跨主机绑同、绑完能升档 B、指错文件拒、
+  空壳页拒、纯转述拒、锚点非自有来源拒、相邻引号不许拼成一段、修好后能绑上）。
+  SKILL.md 档 B 判据表同步这条通道。全量 `713 passed`（+8）。
+
+**升级动作**：无配置变更。文档类 claim 想升档 B，先跑一次 `content-identity` 拿凭据再 `verify-primary`。
+
+---
+
 ## v6.31.0（2026-09-26）— 每维度写进账本的 claim 条数有上限，超了在归并时就点名
 
 同一套判据、同样两名复核员，两轮的覆盖率差了 43 个百分点，原因不在证据质量：
