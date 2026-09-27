@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.34.5
+version: 6.35.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -497,7 +497,7 @@ Lead 拆维度 → --plan-only 出计划与待确认清单 → 用户增删/调�
 ```
 Lead（主 Agent）
  ├─ 拆解子问题（Phase 1 的 MECE 树）
- ├─ 一次性并行 spawn 子 Agent（Agent 工具，subagent_type=general-purpose，每个子问题一个）
+ ├─ 分波并行 spawn 子 Agent（Agent 工具，subagent_type=general-purpose，每个子问题一个；每波 ≤4）
  │    ├─ 子 Agent A: research.py 检索「子问题1」+ ledger 落盘
  │    ├─ 子 Agent B: research.py 检索「子问题2」+ ledger 落盘
  │    └─ ...
@@ -584,7 +584,7 @@ id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_
 >
 > `--session` 传的是 **`{ledger_dir}` 本身**（里面有 `ledger.jsonl`），不是它的父目录：`set-status`/`verify-primary` 现在会先 `require()`，账本不存在直接报错退出，而不是静默建一个空账本再返回"升级 0 条"（v6.7）。
 
-- **并行派发**：Lead 对全部叶子子问题**一次性并行** `Agent` 调用（每子 Agent 独立上下文）；breadth = `--breadth` 值。**一次 turn 发完**，不要一个子问题一个 turn 串行派
+- **分波派发**：Lead 按 breadth 并行 `Agent` 调用（每子 Agent 独立上下文），**每波最多 4 个、一波发完等齐再发下一波**；breadth=8 就是 2 波，不是 8 个一起发。实测有账号在 breadth=8 一波全发时被宿主直接打回 `user concurrency limit exceeded`，整轮停在派发上。撞上就照 `--plan-only` 回执的动作降级：**这一波折半重发（4→2）**；连续两波仍超限，剩下那几个维度由 Lead 自己跑检索补齐——**不许把"发不出去"写成"这个维度没资料"**。也不许退化成"一个子问题一个 turn 串行派"，那是把 turn 预算烧光
 - **Lead 不吞原始结果**：子 Agent 的返回值只该是"写了哪几个分片文件 + 几条 claim/几个源"，
   原始搜索结果留在子 Agent 的上下文里，不进 Lead
 - **并发写安全**：子 Agent 各自写独立分片文件 `{ledger_dir}/{slug}.json`，**不直写共享 ledger.jsonl**（多进程并发追加整行不保证原子）；Lead 归并时统一用 `merge` 收编去重，完整命令见下条 ①（`--session` 不能省，只给 `--dir` 会退 2 报"缺少 --session"）。
@@ -1352,7 +1352,7 @@ ranked = rec.rank_results(results_list, query='RAG framework', intent='novel_app
 7. **引用可追溯** — 每个关键结论必须带账本 [N] 引用，发布前校验门通过才交付
 8. **诚实标注** — 无法验证的信息标注"待确认"，矛盾点明示
 9. **多视角对抗** — 复杂调研必须过专家团评审（域专家/怀疑者/实践者），防自证
-10. **子 Agent 并行** — effort ≥ standard 时按 breadth 并行派发子研究员，结果落盘
+10. **子 Agent 分波并行** — effort ≥ standard 时按 breadth 派发子研究员，每波 ≤4 个，结果落盘
 11. **推荐度排序** — GitHub 项目和论文必须输出推荐度评分与分组排序
 
 ---

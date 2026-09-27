@@ -52,6 +52,11 @@ SKILL_MD = SCRIPT_DIR.parent / 'SKILL.md'
 # 由 test_v6330_signature_table 对撞，改这里不同步改表就会红。
 EFFORT_BREADTH = {'quick': 2, 'standard': 4, 'deep': 8, 'exhaustive': 12}
 
+# 一波能同时发出去的几个子 Agent。上限不是调参：实测有账号在 breadth=8 一波全发时被
+# 宿主直接打回 user concurrency limit exceeded，整轮停在那里。4 是保守起点，
+# 撞上还要再折半（见 --plan-only 回执里的降级动作）。
+WAVE_MAX = 4
+
 
 def skill_version() -> str:
     """版本号单一来源：SKILL.md frontmatter（此前 banner 硬编码 v4.0，与实际版本漂移）。"""
@@ -612,7 +617,10 @@ def cmd_plan_only(args):
     print("📋 待确认清单（计划确认门）：")
     print("─" * 60)
     print(f"  建议 effort: {effort}{'（--effort 指定）' if args.effort else f'（{args.depth} 深度）'}")
-    print(f"  建议 breadth（并行子主题数）: {breadth}")
+    print(f"  建议 breadth（并行子主题数）: {breadth} ｜ 分波派发：每波 ≤{WAVE_MAX}，"
+          f"{breadth} → {-(-breadth // WAVE_MAX)} 波")
+    print(f"  ↪ 一波全发会被宿主打回 user concurrency limit exceeded：撞上就把这一波折半重发"
+          f"（{WAVE_MAX}→{max(1, WAVE_MAX // 2)}），连续两波仍超限则该维度改由 Lead 自己跑检索")
     pv = [', '.join(q.perspectives) for q in plan.issue_tree if q.perspectives] or ['(默认域专家/怀疑者/实践者)']
     print(f"  专家团视角: {'; '.join(dict.fromkeys(pv))}")
     print(f"  子问题（共 {len(plan.unanswered_questions)} 个待执行主题）:")
