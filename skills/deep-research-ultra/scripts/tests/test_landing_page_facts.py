@@ -117,9 +117,13 @@ def test_public_copy_versions_and_paths_match_the_repo(html):
     assert block, '找不到方式一的安装命令块'
     assert re.search(r'rm -rf|rsync .*--delete', block.group(1)), \
         '方式一的拷贝命令是合并式的，升级会留下旧版残留文件'
-    win = re.search(r'Windows 下(.*)', readme)
+    win = re.search(r'Windows 下([\s\S]{0,200})', readme)
     assert win and re.search(r'/MIR|robocopy', win.group(1)), \
         'Windows 那条也得用替换式拷贝（xcopy 是合并）'
+    # 本机实测：/MIR 真同步成功返回的是 3（复制了文件 **且** 删掉目标里多出来的文件），
+    # 只写"1 代表复制了文件"会让人把安装成功读成失败
+    assert re.search(r'返回码[\s\S]{0,120}(?<!\d)3(?!\d)', win.group(1)), \
+        'Windows 那条的返回码说明没覆盖 /MIR 的 3，升级成功会被读成失败'
 
 
 def test_test_count_matches_what_is_on_disk(html):
@@ -163,6 +167,16 @@ def test_install_commands_point_at_paths_that_exist(html):
                 'skills/deep-research-ultra/scripts/research.py'):
         assert rel in html, f'页面少了安装命令 {rel}'
         assert (REPO_ROOT / rel).exists(), f'页面让用户执行 {rel}，但仓库里没有这个路径'
+    # 页面上的拷贝命令必须是替换式的：合并式落到已有安装位会把旧版已删除的文件留在原地，
+    # 装完就是"版本号相同、内容不同"的漂移副本（README 同一处修过，页面是漏网的另一半）
+    for m in re.finditer(r'cp -r skills/deep-research-ultra', html):
+        head = html[max(0, m.start() - 120):m.start()]
+        assert 'rm -rf' in head, '页面里的 cp -r 前面没有 rm -rf，升级会留下旧版残留文件'
+    assert 'xcopy' not in html, '页面还在推荐合并式的 xcopy'
+    win = re.search(r'robocopy[\s\S]{0,220}', html)
+    assert win and '/MIR' in win.group(0), '页面缺 Windows 的替换式拷贝（robocopy /MIR）'
+    assert re.search(r'返回码[\s\S]{0,120}(?<!\d)3(?!\d)', win.group(0)), \
+        '页面的 robocopy 说明没覆盖 /MIR 的 3，升级成功会被读成失败'
 
 
 def test_page_ends_cleanly(html):
