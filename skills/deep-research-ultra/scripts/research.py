@@ -48,6 +48,10 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 SKILL_MD = SCRIPT_DIR.parent / 'SKILL.md'
 
+# effort → 建议 breadth（并行子主题数）。SKILL.md 的 effort 表抄的就是这张表，
+# 由 test_v6330_signature_table 对撞，改这里不同步改表就会红。
+EFFORT_BREADTH = {'quick': 2, 'standard': 4, 'deep': 8, 'exhaustive': 12}
+
 
 def skill_version() -> str:
     """版本号单一来源：SKILL.md frontmatter（此前 banner 硬编码 v4.0，与实际版本漂移）。"""
@@ -603,7 +607,7 @@ def cmd_plan_only(args):
     from plan import resolve_preset_key, DEPTH_TO_EFFORT
     preset_key = resolve_preset_key(args.effort, args.depth)
     effort = DEPTH_TO_EFFORT[preset_key]
-    breadth = args.breadth or {'quick': 2, 'standard': 4, 'deep': 8, 'exhaustive': 12}.get(effort, 4)
+    breadth = args.breadth or EFFORT_BREADTH.get(effort, 4)
     print("─" * 60)
     print("📋 待确认清单（计划确认门）：")
     print("─" * 60)

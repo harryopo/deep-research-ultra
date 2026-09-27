@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.34.4
+version: 6.34.5
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -411,18 +411,26 @@ pending → searching → verified | conflict | supplementing → completed
 
 **努力程度分级（effort）决策树**（对齐社区 depth/breadth 共识）：
 
-| effort | 子问题数 | breadth（并行子Agent数）| 数据源数 | 反思轮次 | 专家团 | 报告字数 |
-|--------|----------|------------------------|----------|----------|--------|----------|
-| `quick`（快速） | 2-3 | 2 | 2-3 | 0 | 跳过 | 1500-3000 |
-| `standard`（标准，默认） | 4-6 | 4 | 3-5 | 1 | 1 轮 3 视角 | 3000-6000 |
-| `deep`（深度） | 7-10 | 8 | 5-8 | 2-3 | 2 轮含冲突消解 | 6000-15000 |
-| `exhaustive`（极深） | 10+ | 12 | 8+ | 3+ | red-team 对抗 + 多轮修订 | 15000+ |
+| effort | 子问题数（代码硬上限）| breadth（并行子Agent数）| 每问数据源数 | 报告字数（多轮累计目标）|
+|--------|----------------------|------------------------|--------------|--------------------------|
+| `quick`（快速） | ≤3 | 2 | 2 | 1500-3000 |
+| `standard`（标准，默认） | ≤5 | 4 | 3 | 3000-6000 |
+| `deep`（深度） | ≤8 | 8 | 5 | 6000-15000 |
+| `exhaustive`（极深） | ≤12 | 12 | 8 | 15000+ |
+
+> **反思轮次与专家团不随 effort 自动变**（四档各跑一次 `--plan-only` 实测）：反思轮数由
+> `--reflect-rounds N` 决定（默认 1，`0` 关闭），专家团视角由 `--perspectives` 决定
+> （不传给默认三视角：域专家 / 怀疑者 / 实践者；`--perspectives 0` 关闭）。
+> 想要"多轮含冲突消解"或"red-team 对抗"，得自己写 `--reflect-rounds 2`（或 3）并给出视角清单——
+> 只把 effort 调到 deep 不会带来多轮。
 
 **深度策略**（`--depth` 兼容映射）：quick→快速 / standard→标准 / deep→深度 / extreme→极深（exhaustive）
 
 > 决策规则：任务重要性高 / 结论将有决策用途 → 至少 `deep`；时间紧 / 快速浏览 → `quick`。
 > `--breadth N` 显式覆盖并行子 Agent 数；`--effort` 与 `--depth` 同时给出时以 `--effort` 为准。
-> **子问题数 = `--dimensions` 的个数**：想要 7-10 个子问题就要给 7-10 个维度，否则 breadth 空转。
+> **子问题数 = `--dimensions` 的个数，但每档有硬上限**（表第 2 列）：给超了会在 stderr 点名丢弃
+> 并记进 `plan.dropped_dimensions`——想要 9-12 个子问题就得升到 `exhaustive`，否则 breadth 空转、
+> 维度还被截掉。
 > **v6.6 起 `--effort` 真正生效**：此前 effort 只影响打印，plan 预设仍按 `--depth`（默认 standard，上限 5）取值，8 个维度会被静默截为 5。现在 effort 优先映射预设（exhaustive↔extreme），超出上限的维度会在 stderr 告警并记入 `plan.dropped_dimensions`。
 
 > **单轮产能红线（v6.14）**：上表的报告字数是**多轮累计目标**，一轮写不完是设计使然，不是你偷懒。
@@ -600,7 +608,7 @@ id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_
 # {调研主题}
 
 **调研时间**：YYYY-MM-DD HH:MM
-**调研深度**：standard（4-6 子问题 / 3-5 数据源 / 1 轮反思）
+**调研深度**：standard（≤5 子问题 / 每问 3 源 / --reflect-rounds 1）
 **调研配置**：effort=standard ｜ breadth=4 ｜ 专家团=3 视角（域专家/怀疑者/实践者）｜ 发布校验=passed
 **调研 Agent**：deep-research-ultra
 **路由决策**：[rule] 学术论文（置信度 0.95）→ arxiv, paper-search, openalex

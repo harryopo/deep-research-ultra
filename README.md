@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.34.4
+# Deep Research Ultra — 超级深度调研工具 v6.34.5
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.34.4-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.34.5-brightgreen.svg)]()
 
 
 ---
@@ -344,12 +344,16 @@ python scripts/research.py "RAG 最佳实践" --plan-only --depth standard
 
 ### 深度策略
 
-| 深度 | 子问题数 | 数据源数 | 反思轮次 | 报告字数 | 预计耗时 |
+| 深度（`--depth`）| 对应 effort | 子问题数（硬上限）| 每问数据源数 | 报告字数（多轮累计目标）| 预计耗时 |
 |------|----------|----------|----------|----------|----------|
-| quick | 2-3 | 2-3 | 0 | 1500-3000 | 1-3 分钟 |
-| standard | 4-6 | 3-5 | 1 | 3000-6000 | 5-8 分钟 |
-| deep | 7-10 | 5-8 | 2-3 | 6000-15000 | 10-20 分钟 |
-| extreme | 10+ | 8+ | 3+ | 15000+ | 20-40 分钟 |
+| quick | `quick` | ≤3 | 2 | 1500-3000 | 1-2 分钟 |
+| standard | `standard` | ≤5 | 3 | 3000-6000 | 3-5 分钟 |
+| deep | `deep` | ≤8 | 5 | 6000-15000 | 10-20 分钟 |
+| extreme | `exhaustive` | ≤12 | 8 | 15000+ | 20-40 分钟 |
+
+表里没有"反思轮次"这一列：反思轮数由 `--reflect-rounds N` 单独决定（默认 1，`0` 关闭），
+不随深度档变；专家团视角由 `--perspectives` 决定（不传给默认三视角：域专家 / 怀疑者 / 实践者）。
+维度给超过当晚上限会在 stderr 点名丢弃，要多几个子问题就同时升档。
 
 ### CRAAP 五维评分
 
@@ -422,7 +426,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
         │   ├── skill_engines.py  github_deep_search.py  platform_engines.py
         │   ├── cn_sources.py  builtin.py  crawl4ai_engine.py
         │   └── fallback.py           # 降级引擎 + curl_cffi TLS 指纹伪装
-        └── tests/                    # 61 个测试文件 / 672 用例
+        └── tests/                    # 61 个测试文件 / 673 用例
 ```
 
 ---
@@ -452,7 +456,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
 ## 🧪 测试
 
 ```bash
-# 单元测试（672 个用例）——在 skill 目录内
+# 单元测试（673 个用例）——在 skill 目录内
 cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 
 # 插件壳侧测试（握手 / MCP 工具 / Stop 钩子 / 安装器，50 个用例）——在仓库根
@@ -574,4 +578,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-*v6.34.4 · 2026-09-27 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 主题级查询词预演 + 检索词按语料语言给 + 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查，含 Release 与跨主机同内容判同）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验 + 抓回内容中的指令不影响裁决 + 未取到的元数据如实标注 + 国内源解析修复 + 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*
+*v6.34.5 · 2026-09-27 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 主题级查询词预演 + 检索词按语料语言给 + 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查，含 Release 与跨主机同内容判同）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验 + 抓回内容中的指令不影响裁决 + 未取到的元数据如实标注 + 国内源解析修复 + 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*
