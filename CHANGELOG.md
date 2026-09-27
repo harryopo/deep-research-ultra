@@ -32,6 +32,10 @@
 以上四条各有一道静态断言守着（`test_landing_page_facts.py` 的版本与相对链接检查、
 `test_env_guidance_no_card.py` 的免费额度检查），下次漏改会直接红，不用靠人记。
 
+同一轮把仓库默认分支从 `main` 改到 `plan-a/plugin-shell`：`main` 是 v6.14 的老快照，
+只用来出 GitHub Pages（Pages 构建源仍是 `main`）。改完之后，仓库首页那份 README 和
+`git clone` 拿到的代码才是当前的；宣传页上「读 README」的链接也相应指向本分支。
+
 ---
 
 ## v6.34.0（2026-09-26）— 学术论文推荐度表不再列 GitHub 仓库
