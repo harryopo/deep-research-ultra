@@ -214,8 +214,8 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
   <div class="term" data-rv id="cmdblock">
     <div class="term-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>bash — 在解压出的 deep-research-ultra/ 目录内</span></div>
     <div class="term-body"><pre style="font:inherit;background:none;border:0;margin:0;overflow:visible"><span class="k">$</span> pip install -r skills/deep-research-ultra/requirements.txt
-<span class="k">$</span> cp -r skills/deep-research-ultra ~/.qoder/skills/
-<span class="c"># Windows：xcopy /E /I skills\deep-research-ultra %USERPROFILE%\.qoder\skills\deep-research-ultra</span>
+<span class="k">$</span> rm -rf ~/.qoder/skills/deep-research-ultra && cp -r skills/deep-research-ultra ~/.qoder/skills/
+<span class="c"># Windows：robocopy skills\deep-research-ultra %USERPROFILE%\.qoder\skills\deep-research-ultra /MIR（返回码 0/1/3 都算成功，≥8 才是失败）</span>
 <span class="k">$</span> python skills/deep-research-ultra/scripts/research.py --probe
 <span class="t">[GATE]</span> 引擎今天真出不出数据，逐项实测后打印清单</pre></div>
   </div>
@@ -329,7 +329,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
     <div class="r">
       <div class="fact"><span>文件</span><b>deep-research-ultra-v7.0.0.zip</b></div>
       <div class="fact"><span>内容</span><b>源码 + 校验脚本 + 全量测试</b></div>
-      <div class="fact"><span>内核版本</span><b>6.34.2</b></div>
+      <div class="fact"><span>内核版本</span><b>6.34.3</b></div>
       <div class="fact"><span>插件壳版本</span><b>7.0.0</b></div>
       <div class="fact" style="border:0"><span>许可</span><b>MIT</b></div>
     </div>
@@ -337,7 +337,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
 </div></section>
 
 <footer><div class="wrap f">
-  <span>◍ Deep Research Ultra · 内核 6.34.2 / 插件壳 7.0.0</span>
+  <span>◍ Deep Research Ultra · 内核 6.34.3 / 插件壳 7.0.0</span>
   <span class="lk"><a href="https://github.com/harryopo/deep-research-ultra">GitHub</a><a href="https://github.com/harryopo/deep-research-ultra/releases">Releases</a><a href="#top">回到顶部</a></span>
   <span>© 2026 harryopo · MIT License</span>
 </div></footer>
@@ -353,7 +353,7 @@ if('IntersectionObserver'in window){
   rvEls.forEach(el=>io.observe(el));
 }else rvEls.forEach(el=>el.classList.add('in'));
 const CMD=`pip install -r skills/deep-research-ultra/requirements.txt
-cp -r skills/deep-research-ultra ~/.qoder/skills/
+rm -rf ~/.qoder/skills/deep-research-ultra && cp -r skills/deep-research-ultra ~/.qoder/skills/
 python skills/deep-research-ultra/scripts/research.py --probe`;
 const toast=document.getElementById('toast');
 document.querySelector('[data-copy]').addEventListener('click',async()=>{
