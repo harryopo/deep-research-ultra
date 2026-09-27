@@ -60,6 +60,21 @@ def test_arxiv_specific_step_stays_off_other_sources():
 
 
 
+def test_503_upstream_pause_is_not_reported_as_a_broken_endpoint():
+    """实测 2026-09-27：OpenAlex 匿名搜索回 HTTP 503，正文明写「search cluster 在扛负载，稍后重试」。
+
+    这类"上游暂时不供服"既不是端点契约变更，也不是本机到不了它——催 --proxy 或马上换源
+    都是错的动作顺序，正确动作是等几分钟单发重跑。修之前它落进了"直连端点出不来数据
+    （网络被拦/反爬/契约变更）：可加 --proxy、换同层替代源"这一档。
+    """
+    text = _advice('openalex: HTTP 503 Service Unavailable', kind='direct', engine='openalex')
+    assert '直连端点今天出不来数据' not in text, \
+        f'上游过载落进了「端点出不来数据」那一档：{text}'
+    assert '换同层替代源' not in text, f'第一动作该是等一会儿重跑，不是换源：{text}'
+    assert '没连上就等于没有这个源' not in text, text
+    assert '503' in text and '重跑' in text, f'没给出「稍后重跑」这个动作：{text}'
+
+
 def test_generic_timeout_advice_still_unaffected():
     """不许因为加了 406 分支就把别的失败原因一起改掉。"""
     text = _advice('arxiv: 超时：整场会话 25s 预算内没等到响应')

@@ -407,6 +407,14 @@ UPSTREAM_REFUSAL_ADVICE = (
     '（连发会把本来能通的查询也打成 406）；重跑照拒，再换同层替代源')
 ARXIV_REFUSAL_STEP = ('arXiv 另有一条：search_query 要用分类式（如 cat:cs.CL）——'
                       '实测裸关键词与多词 AND 单发也被恒判 406，改查询形态才通')
+# 上游自己回了"暂时不供服、稍后重试"：实测 2026-09-27 OpenAlex 匿名搜索 HTTP 503，
+# 正文是 "Anonymous search is paused while the search cluster recovers from heavy load"。
+# 它不是端点契约变更，也不是本机到不了那个域名——加 --proxy 无用，先等一会儿重跑。
+UPSTREAM_PAUSE_CODES = ('HTTP 503',)
+UPSTREAM_PAUSE_ADVICE = (
+    '上游回了 503「暂时不供服 / 稍后重试」：是它自己的搜索集群在扛负载，'
+    '不是这个源没配好，也不是端点契约变更（加 --proxy 没用）。等几分钟单发重跑 --probe；'
+    '连着两次都 503 再按「这个源今天没有」排除，别去改代码')
 SUBSTITUTE_ADVICE = ('改用同层替代源：arXiv 全文 → arxiv.org/abs 页；国内学术 → '
                      'openalex/pubmed；HTML 降级搜索 → MCP/直连层，别把降级链当兜底')
 
@@ -447,6 +455,8 @@ def _advice_for(rep: Dict[str, Any]) -> List[str]:
         lines.append(UPSTREAM_REFUSAL_ADVICE)
         if 'arxiv' in str(rep.get('engine') or '').lower():
             lines.append(ARXIV_REFUSAL_STEP)
+    elif any(code in note for code in UPSTREAM_PAUSE_CODES):
+        lines.append(UPSTREAM_PAUSE_ADVICE)
     elif any(k in note for k in MCP_NOTE_KEYS) or rep.get('kind') == 'mcp':
         lines.append('需在当前会话连上对应 MCP server（`research.py --mcp-check` 看连接态，'
                      '缺的用 `scripts/setup-mcp.sh --core` 配），没连上就等于没有这个源')
