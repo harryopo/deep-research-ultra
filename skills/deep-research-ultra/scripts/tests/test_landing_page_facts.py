@@ -87,7 +87,8 @@ def test_page_does_not_print_a_live_availability_count(html):
 # 版本与测试数：必须与代码一致，且不留旧值
 # ------------------------------------------------------------
 
-def test_kernel_and_shell_versions_match_the_code(html):
+def test_public_copy_versions_and_paths_match_the_repo(html):
+    """对外文案（宣传页 + README）里的版本号和相对路径都得对得上仓库现状。"""
     from research import skill_version
     import json
     shell = json.loads((REPO_ROOT / '.qoder-plugin' / 'plugin.json')
@@ -98,6 +99,18 @@ def test_kernel_and_shell_versions_match_the_code(html):
     stale = re.findall(r'内核\s*(\d+\.\d+\.\d+)', html)
     assert stale and set(stale) <= {skill_version()}, \
         f'页面残留旧内核版本号 {set(stale) - {skill_version()}}'
+    # README 是同一份对外文案的另一半：徽章与标题也停在旧版本过（6.14 而内核已 6.34）
+    readme = (REPO_ROOT / 'README.md').read_text(encoding='utf-8')
+    badge = re.search(r'version-([0-9]+\.[0-9]+\.[0-9]+)', readme)
+    assert badge and badge.group(1) == skill_version(), \
+        f'README 徽章是 {badge and badge.group(1)}，当前内核 {skill_version()}'
+    major_minor = '.'.join(skill_version().split('.')[:2])
+    assert f'v{major_minor}' in readme.splitlines()[0], \
+        f'README 标题没跟着版本走：{readme.splitlines()[0]}'
+    # v7 把 skill 下沉到 skills/ 子目录，README 里按旧根布局写的链接会点空
+    broken = [p for p in set(re.findall(r'\]\((?!https?:|#)([^)#]+)', readme))
+              if not (REPO_ROOT / p).exists()]
+    assert not broken, f'README 里的相对链接指不到文件：{sorted(broken)}'
 
 
 def test_test_count_matches_what_is_on_disk(html):

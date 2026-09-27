@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.14
+# Deep Research Ultra — 超级深度调研工具 v6.34.1
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.14.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.34.1-brightgreen.svg)]()
 
 
 ---
@@ -32,6 +32,13 @@
 | 🧭 **仓库扫描五态（v6.12）** | `repo_health.py` 分清 ok / not_found / rate_limited / forbidden / unreachable：429、403、断网一律 `unknown` 且退出码 3，不再把限流写成"该仓库高风险"；GitHub 请求自动带 `GITHUB_TOKEN`（Gitee 不漏）
 | 📄 **下载制品校验（v6.13）** | arXiv PDF/LaTeX 落盘前验魔数、篇幅、`%%EOF` 完整性与论文 ID 一致性；HTML 报错页、断流、"换成另一篇"一律返回 None 并打印原因，不再伪装成一次成功下载 |
 | 🧱 **报告骨架 + 单轮产能红线（v6.14）** | `skeleton.py` 从账本直接生成引用编号、来源登记表与分主题 claim 清单，Lead 只写摘要/方法/结论；未达 verified 的断言带 `⚠️ 待核` 出场，残留 `【待写】` 是校验门**硬失败**——"deep 档写不完就拿骨架冒充报告"这条路机器堵死 |
+| 🔎 **主题级预演（v6.15）** | `--probe --sources a,b --theme-query "本维度真要用的词"` 把「引擎今天活着」与「引擎对这个主题到不到数据」分开报；退出码 4 = 没有任何引擎对本主题到得了数据，只能改词或换通道，不许写成"该主题无相关资料" |
+| 🌐 **检索词按语料语言给（v6.15）** | `--source-query 引擎=查询词`：英文学术库给英文词、国内平台给中文词。相关性按**该引擎实际收到的词**打分并记进 `evidence.jsonl`，按账本重跑能复现同一批命中 |
+| 🚫 **「未知」不等于 0（v6.24/6.26/6.29）** | 引擎返回 `None`＝通道失败、`[]`＝通到了但 0 条，两者不再混写；没取到的 star / 引用数在报告里印「未取到」「未提供」，真的是 0 才印 0，元数据缺失的项目单列一组不做星级判断 |
+| 🪞 **同一制品的三条判同通道（v6.19–6.32）** | 同族 URL 入口（`link-identity`）、跨标识符字段（DOI / arXiv id）、跨主机逐字内容片段（`content-identity`，文档站页面 ↔ 仓库源文件）；GitHub Release 页与 REST 入口认作同一制品，档 B 反查因此多出一条真通道 |
+| 🛡️ **抓回内容里的指令不进裁决（v6.20）** | 网页/PDF 中"忽略以上指令"式文字由机械门隔离，验证员只按逐字片段判支持度；删除文件、上传密钥、植入程序这类动作即使当前有权限也一律不做，写进派单模板与门脚本 |
+| 📏 **每维度 claim 上限（v6.31）** | 单分片超过 12 条在 `merge` 归并时点名文件并告警——claim 产量超过验证产能时，多出来的只会是过不了门的 pending |
+| 🇨🇳 **国内源解析按真页面重做（v6.24.4–6.28）** | 百度 / 搜狗微信 / 搜狗知乎的标题、摘要、日期重新解析，摘要不再整行丢失；被风控的空壳页判为通道失败，不当成"这个主题没结果" |
 | 🔌 **MCP 真连接（v6.9）** | 5 个 MCP 源纳入闸门：一个会话一个进程真握手、25 秒整场预算、超时不留孤儿进程；连不上就报「❌ 连不上 + 原因」，配置齐全不再等于可用 |
 | 📦 **文件化交付契约（v6.5）** | 报告一律落盘 `.research/<session>/report.md`，返回值只给 ≤25 行短摘要（长正文塞返回值会被截断） |
 | 🖥️ **Windows 控制台自适应（v6.5）** | CLI 强制 UTF-8 输出，GBK 代码页不再 UnicodeEncodeError |
@@ -173,18 +180,18 @@ git archive HEAD | tar -x -C ~/.qoder/plugins/cache/local/deep-research-ultra/7.
 | 有 VPN | `--core` + Tavily + Firecrawl + Brave Search MCP |
 | 学术调研 | `--core` + Semantic Scholar MCP + Scientific-Papers-MCP |
 
-详见 [references/mcp-config.md](references/mcp-config.md)
+详见 [skills/deep-research-ultra/references/mcp-config.md](skills/deep-research-ultra/references/mcp-config.md)
 
 ### 环境变量配置
 
 ```bash
 # ========== Layer 1: MCP 增强层（可选）==========
 
-# Tavily AI 搜索（推荐，免费 1000 次/月）
+# Tavily AI 搜索（推荐，1000 次/月免费；注册前确认免绑卡——要绑银行卡就放弃这个源）
 # 获取地址：https://app.tavily.com
 export TAVILY_API_KEY=tvly-xxxxxxxxxxxxxxxxxxxxx
 
-# Firecrawl 搜索 + 抓取（免费 500 credits/月）
+# Firecrawl 搜索 + 抓取（500 credits/月；注册前确认免绑卡——要绑银行卡就放弃这个源）
 # 获取地址：https://firecrawl.dev
 export FIRECRAWL_API_KEY=fc-xxxxxxxxxxxxxxxxxxxxx
 
@@ -218,6 +225,9 @@ export HTTPS_PROXY=http://127.0.0.1:7890
 ### 命令行使用（v4 推荐）
 
 ```bash
+# 下面这类 `python scripts/research.py …` 都在 skill 目录内执行：
+#   cd skills/deep-research-ultra
+
 # 自动选择数据源（推荐，默认 HTML 报告）
 python scripts/research.py "Python Web 框架"
 
@@ -368,54 +378,46 @@ python scripts/research.py "query" --no-cache
 ## 📁 项目结构
 
 ```
-deep-research-ultra/
-├── SKILL.md                    # Claude Code Skill 定义（纯净版，更新历史见 CHANGELOG.md）
-├── CHANGELOG.md                # 版本更新与迁移指南
-├── README.md                   # 本文件
-├── requirements.txt            # Python 依赖（仅 ddgs）
-├── LICENSE                     # MIT 许可证
-├── scripts/
-│   ├── research.py             # 主入口（CLI：--auto-route/--effort/--breadth/--ledger/--perspectives）
-│   ├── search.py               # v3 独立兼容入口（引擎注册表与路由不加载它，主入口是 research.py）
-│   ├── setup-mcp.sh            # MCP 一键配置脚本
-│   ├── router.py               # 智能路由（三级级联 Rule→Semantic→LLM）
-│   ├── recommend.py            # 推荐度评分（GitHub 8 维 / 论文 5 维 + 雷达图）
-│   ├── tier.py                 # 来源 Tier 分级（Tier 1-4）
-│   ├── ledger.py               # 证据账本（claim→source 可溯源）
-│   ├── panel.py                # 专家团评审清单生成
-│   ├── validate_report.py      # 发布前校验门
-│   ├── engines/
-│   │   ├── base.py             # SearchEngine 抽象基类 + EngineRegistry
-│   │   ├── mcp_client.py       # MCP 客户端封装
-│   │   ├── mcp_engines.py      # MCP 服务器封装（5 个）
-│   │   ├── academic_engines.py # 学术直连（OpenAlex/S2/PubMed）
-│   │   ├── academic_fulltext.py# 学术全文+引用图谱
-│   │   ├── skill_engines.py    # 全局 skill 封装（6 个）
-│   │   ├── github_deep_search.py # GitHub 深搜 + Code Search
-│   │   ├── cn_sources.py       # 国内内容源（百度/搜狗/百度学术）
-│   │   ├── builtin.py          # Claude 内置工具封装
-│   │   ├── crawl4ai_engine.py  # Crawl4AI 浏览器自动化
-│   │   └── fallback.py         # 降级引擎（4 个）+ curl_cffi TLS 伪装
-│   ├── plan.py                 # MECE 问题树 + 多视角注入
-│   ├── score.py                # CRAAP 五维评分（含 Tier 加权）
-│   ├── verify.py               # 交叉验证 + 矛盾检测
-│   ├── reflect.py              # 反思循环 + 证据充分性停止
-│   ├── report.py               # 报告生成（md/html/csv/json + Mermaid + 账本附录）
-│   ├── progress.py             # 进度跟踪 + ETA 估算
-│   ├── cache.py                # LRU 缓存
-│   └── tests/
-│       ├── test_core.py        # 核心单元测试
-│       ├── test_console.py     # GBK 控制台冒烟（CLI 不崩 + UTF-8 输出）
-│       ├── test_probe.py       # 引擎功能自检判定
-│       └── test_v6.py          # tier/ledger/panel/validate/plan/score/平台引擎/相关性过滤
-├── evals/
-│   └── evals.json              # 评测集（38 个场景，含 v6 五场景）
-└── references/
-    ├── mcp-config.md           # MCP 配置指南
-    ├── tool-integration.md     # 工具集成指南
-    ├── v6-research-notes.md   # v6 方法论与开源方案调研笔记
-    ├── optimization-plan-v4.md # 四层架构优化方案
-    └── migration-v3-to-v4.md  # v3→v4 迁移指南
+deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 skills/ 子目录
+├── README.md  CHANGELOG.md  LICENSE  .gitignore
+├── index.html                        # GitHub Pages 宣传页（从 main 分支的单文件发布）
+├── .qoder-plugin/plugin.json         # 宿主插件清单（注册为插件时才用到，可选）
+├── mcp.json                          # MCP 服务器声明 → server.py
+├── server.py                         # 5 个 drux_* 工具（stdio 握手与中文入参往返均实测）
+├── hooks/
+│   ├── hooks.json                    # Stop 钩子声明
+│   ├── gate_hook.py                  # 报告没盖过校验戳就拦停
+│   └── probe_log.py
+├── tests/                            # 插件壳侧测试 4 个文件（握手/工具/钩子/安装器）
+├── docs/{specs,plans}/               # 设计文档与实现计划
+└── skills/deep-research-ultra/       # ← 解包即用的 skill 本体
+    ├── SKILL.md                      # 接口文档：命令照抄即可，签名表见 §14.3
+    ├── requirements.txt              # 唯一第三方依赖 ddgs
+    ├── evals/evals.json              # 评测集（40 个场景）
+    ├── references/                   # 19 份调研笔记与配置指南
+    └── scripts/
+        ├── research.py               # 主入口（--probe/--env-check/--plan-only/--source-query…）
+        ├── search.py                 # v3 兼容入口（注册表与路由不加载它）
+        ├── router.py                 # 三级级联路由 Rule→Semantic→LLM
+        ├── plan.py  reflect.py  progress.py   # 问题树 / 反思停止 / 进度
+        ├── probe.py  env_check.py    # 引擎功能自检 + Phase 0 环境闸门
+        ├── ledger.py                 # 证据账本：merge/set-status/verify-primary/link-identity/content-identity
+        ├── guard.py                  # 越权文件与注入指令机械门
+        ├── skeleton.py               # 账本直出报告骨架（引用编号 + 来源登记表）
+        ├── validate_report.py        # 发布前校验门 + 防伪戳 --stamp/--verify-stamp
+        ├── repo_health.py            # 仓库健康五态（限流/封禁/断网判 unknown）
+        ├── check_serp_patterns.py    # SERP 改版预警：把「0 结果」的四种成因分开
+        ├── recommend.py  score.py  tier.py  similarity.py   # 推荐度 / CRAAP / Tier / 判同
+        ├── panel.py  report.py  verify.py  cache.py  console.py
+        ├── install.py  mcp_config_writer.py  setup-mcp.sh   # 跨宿主安装与 MCP 配置
+        ├── engines/                  # 12 个引擎模块，撑起四层共 32 个数据源
+        │   ├── base.py               # SearchEngine 抽象基类 + EngineRegistry
+        │   ├── mcp_client.py  mcp_engines.py        # MCP 层（5 个）
+        │   ├── academic_engines.py  academic_fulltext.py
+        │   ├── skill_engines.py  github_deep_search.py  platform_engines.py
+        │   ├── cn_sources.py  builtin.py  crawl4ai_engine.py
+        │   └── fallback.py           # 降级引擎 + curl_cffi TLS 指纹伪装
+        └── tests/                    # 61 个测试文件 / 671 用例
 ```
 
 ---
@@ -445,10 +447,13 @@ deep-research-ultra/
 ## 🧪 测试
 
 ```bash
-# 运行单元测试（315 个用例）
-cd scripts && python -m pytest tests/ -v
+# 单元测试（671 个用例）——在 skill 目录内
+cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 
-# 端到端测试（dry-run）
+# 插件壳侧测试（握手 / MCP 工具 / Stop 钩子 / 安装器，49 个用例）——在仓库根
+python -m pytest tests/ -v
+
+# 端到端 dry-run（回到 skill 目录）
 python scripts/research.py --mcp-check
 python scripts/research.py "测试" --plan-only --depth quick
 python scripts/research.py "测试" --depth quick --format html -o test.html
@@ -505,8 +510,8 @@ class NewEngine(SearchEngine):
 
 ### 商业服务（有免费额度）
 
-- Tavily: https://tavily.com（免费 1000 次/月）
-- Firecrawl: https://firecrawl.dev（免费 500 credits/月）
+- Tavily: https://app.tavily.com（1000 次/月免费；注册前确认免绑卡——要绑银行卡就放弃这个源）
+- Firecrawl: https://www.firecrawl.dev（500 credits/月；注册前确认免绑卡——要绑银行卡就放弃这个源）
 
 ---
 
@@ -514,9 +519,9 @@ class NewEngine(SearchEngine):
 
 ### 内部参考
 
-- [references/mcp-config.md](references/mcp-config.md) — MCP 配置指南
-- [references/tool-integration.md](references/tool-integration.md) — 工具集成指南
-- [references/v6-research-notes.md](references/v6-research-notes.md) — v6 方法论与开源方案调研笔记
+- [skills/deep-research-ultra/references/mcp-config.md](skills/deep-research-ultra/references/mcp-config.md) — MCP 配置指南
+- [skills/deep-research-ultra/references/tool-integration.md](skills/deep-research-ultra/references/tool-integration.md) — 工具集成指南
+- [skills/deep-research-ultra/references/v6-research-notes.md](skills/deep-research-ultra/references/v6-research-notes.md) — v6 方法论与开源方案调研笔记
 - 完整更新历史见 [CHANGELOG.md](CHANGELOG.md)
 
 ### 外部参考
@@ -564,4 +569,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-*v6.14 · 2026-09-20 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验（非 PDF/截断/换文档一律拒绝落盘）+ 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*
+*v6.34.1 · 2026-09-26 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 主题级查询词预演 + 检索词按语料语言给 + 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查，含 Release 与跨主机同内容判同）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验 + 抓回内容中的指令不影响裁决 + 未取到的元数据如实标注 + 国内源解析修复 + 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*

@@ -11,6 +11,29 @@
 
 ---
 
+## v6.34.1（2026-09-26）— README 这份对外文案终于跟上了仓库现状
+
+不改任何运行逻辑，只补一处会误导安装者的东西：README 停在 v6.14 的写法上，而仓库已经走过
+20 个版本、目录也下沉过一次。逐条对着仓库量出来的四处：
+
+- **版本号**：标题写 `v6.14`、徽章写 `6.14.0`，当前内核是 6.34.0
+- **项目结构**：整棵树还是"skill 在仓库根"的旧布局。v7 之后根目录是插件壳
+  （`plugin.json` / `mcp.json` / `server.py` / `hooks/`），skill 在
+  `skills/deep-research-ultra/`。树里也缺 `probe.py` `guard.py` `skeleton.py`
+  `repo_health.py` `check_serp_patterns.py` `install.py` 等 12 个已存在的模块
+- **断链**：三处 `references/*.md` 链接按旧根路径写，在 GitHub 上点开是 404
+- **命令**：`cd scripts && pytest tests/` 与 `python scripts/research.py …` 没交代在哪个目录跑，
+  照抄会在仓库根报"没有这个文件"；测试数写 315，实测 `scripts/tests` 收得到 671
+
+顺手把"注册可能有绑卡门槛"这条规矩横扫到 README：`probe.CONFIG_GUIDE` 里带绑卡提醒的源
+（Tavily / Firecrawl），在 README 的环境变量块和"商业服务"清单里原本是裸写"免费 N 次/月"的，
+现在四行都补上了同一句自查。
+
+以上四条各有一道静态断言守着（`test_landing_page_facts.py` 的版本与相对链接检查、
+`test_env_guidance_no_card.py` 的免费额度检查），下次漏改会直接红，不用靠人记。
+
+---
+
 ## v6.34.0（2026-09-26）— 学术论文推荐度表不再列 GitHub 仓库
 
 `PaperRecommender.rank_results` 以前只问"raw 是不是非空 dict"，不问它是不是论文，

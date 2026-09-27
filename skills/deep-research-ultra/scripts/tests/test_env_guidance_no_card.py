@@ -17,6 +17,21 @@ def test_free_quota_guidance_carries_the_no_card_caveat():
     offenders = [k for k, v in probe.CONFIG_GUIDE.items()
                  if ('免费' in v or 'credits' in v) and '绑卡' not in v]
     assert not offenders, f'这些免费额度指引没写绑卡自查：{offenders}'
+    # 哪些源需要盯绑卡，由 CONFIG_GUIDE 自己说了算（它的指引里写了"确认免绑卡"）；
+    # README 是用户最先读到的那份指引，同一个源不能在这边省掉这句
+    import re
+    flagged = set()
+    for v in probe.CONFIG_GUIDE.values():
+        if '绑卡' in v:
+            m = re.search(r'https?://(?:www\.)?([a-z0-9-]+)\.', v)
+            if m:
+                flagged.add(m.group(1))
+    assert flagged, 'CONFIG_GUIDE 里一条绑卡提醒都没有，判据失效了'
+    readme = (SKILL_MD.parents[2] / 'README.md').read_text(encoding='utf-8')
+    naked = [ln.strip() for ln in readme.splitlines()
+             if ('免费' in ln or 'credits' in ln) and '绑卡' not in ln
+             and any(s in ln.lower() for s in flagged)]
+    assert not naked, f'README 里有裸写的商业源免费额度：{naked}'
 
 
 def test_skill_md_bans_card_required_sources():
