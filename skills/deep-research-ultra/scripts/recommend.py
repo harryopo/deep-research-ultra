@@ -609,6 +609,10 @@ class PaperRecommender:
                 paper_data = {}
             if not paper_data or not isinstance(paper_data, dict):
                 continue
+            # 一张表只装一种东西：GitHub 行以前也进"学术论文推荐度"，还被打上 h-index
+            # 与引用影响分——一个仓库没有这些东西。判据取"是什么"，不猜像不像。
+            if paper_data.get('repo_type') == 'github' or 'full_name' in paper_data:
+                continue
 
             rec = self.score(paper_data, query)
             scored.append({
