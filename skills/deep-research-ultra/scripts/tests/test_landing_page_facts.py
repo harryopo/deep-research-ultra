@@ -111,6 +111,15 @@ def test_public_copy_versions_and_paths_match_the_repo(html):
     broken = [p for p in set(re.findall(r'\]\((?!https?:|#)([^)#]+)', readme))
               if not (REPO_ROOT / p).exists()]
     assert not broken, f'README 里的相对链接指不到文件：{sorted(broken)}'
+    # 安装位必须"替换"而不是"合并"：cp -r / xcopy 会把旧版已删除的文件留在原地，
+    # 装完就是"版本号相同、内容不同"的漂移副本
+    block = re.search(r'### 方式一.*?```bash(.*?)```', readme, re.S)
+    assert block, '找不到方式一的安装命令块'
+    assert re.search(r'rm -rf|rsync .*--delete', block.group(1)), \
+        '方式一的拷贝命令是合并式的，升级会留下旧版残留文件'
+    win = re.search(r'Windows 下(.*)', readme)
+    assert win and re.search(r'/MIR|robocopy', win.group(1)), \
+        'Windows 那条也得用替换式拷贝（xcopy 是合并）'
 
 
 def test_test_count_matches_what_is_on_disk(html):

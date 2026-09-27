@@ -153,6 +153,23 @@ def test_refuses_to_clobber_a_repo_clone(tmp_path, fake_repo):
     assert (dest / 'keep-me.md').exists(), '拒绝之前已经把目标删了'
 
 
+def test_dry_run_refusal_does_not_claim_an_install_failed(tmp_path, fake_repo, capsys,
+                                                          monkeypatch):
+    """--dry-run 什么都不写，被护栏拦下时不能喊"安装失败"——那会让人以为出了事。"""
+    home, appdata = tmp_path / 'home', tmp_path / 'Roaming'
+    dest = home / '.trae-cn' / 'skills' / 'deep-research-ultra'
+    (dest / '.git').mkdir(parents=True)
+    appdata.mkdir()
+    monkeypatch.setattr(Path, 'home', staticmethod(lambda: home))
+
+    code = install.main(['--host', 'trae', '--dry-run', '--repo-root', str(fake_repo)])
+
+    err = capsys.readouterr().err
+    assert code == 2, '预演被拦下仍须非零退出，否则上游 Agent 会当通过继续'
+    assert '安装失败' not in err, f'预演模式在喊安装失败：{err}'
+    assert '预演' in err
+
+
 def test_replaces_an_ordinary_old_install(tmp_path, fake_repo):
     """普通旧版本（无 .git）就该被覆盖替换——用户明确要的行为。"""
     home, appdata = tmp_path / 'home', tmp_path / 'Roaming'

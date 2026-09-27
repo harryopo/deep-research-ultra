@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.34.1
+# Deep Research Ultra — 超级深度调研工具 v6.34.2
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.34.1-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.34.2-brightgreen.svg)]()
 
 
 ---
@@ -76,12 +76,16 @@
 pip install -r skills/deep-research-ultra/requirements.txt
 
 # 把 skill 目录放进宿主的 skills 路径即可被触发（Qoder 为例）
+# 先删旧目录再拷：cp -r 是合并，旧版里已删除的文件会留在安装位（实测能留下旧 scripts/*.py），
+# 装完就成了"版本号相同、内容不同"的漂移副本
+rm -rf ~/.qoder/skills/deep-research-ultra
 cp -r skills/deep-research-ultra ~/.qoder/skills/
 
 python skills/deep-research-ultra/scripts/research.py --probe   # 自检：引擎今天真出不出数据
 ```
 
-Windows 下 `cp -r` 换成 `xcopy /E /I skills\deep-research-ultra %USERPROFILE%\.qoder\skills\deep-research-ultra`。
+Windows 下换成 `robocopy skills\deep-research-ultra %USERPROFILE%\.qoder\skills\deep-research-ultra /MIR`
+（`/MIR` 会先把目标里多出来的文件删掉；注意 robocopy 返回码 1 只代表"复制了文件"，≥8 才是失败）。
 
 有网络时也可以直接克隆，之后步骤相同：
 
@@ -450,7 +454,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
 # 单元测试（671 个用例）——在 skill 目录内
 cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 
-# 插件壳侧测试（握手 / MCP 工具 / Stop 钩子 / 安装器，49 个用例）——在仓库根
+# 插件壳侧测试（握手 / MCP 工具 / Stop 钩子 / 安装器，50 个用例）——在仓库根
 python -m pytest tests/ -v
 
 # 端到端 dry-run（回到 skill 目录）
@@ -569,4 +573,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-*v6.34.1 · 2026-09-26 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 主题级查询词预演 + 检索词按语料语言给 + 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查，含 Release 与跨主机同内容判同）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验 + 抓回内容中的指令不影响裁决 + 未取到的元数据如实标注 + 国内源解析修复 + 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*
+*v6.34.2 · 2026-09-27 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 主题级查询词预演 + 检索词按语料语言给 + 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查，含 Release 与跨主机同内容判同）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验 + 抓回内容中的指令不影响裁决 + 未取到的元数据如实标注 + 国内源解析修复 + 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*

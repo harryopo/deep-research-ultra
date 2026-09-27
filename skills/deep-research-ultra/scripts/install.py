@@ -164,7 +164,9 @@ def main(argv=None) -> int:
                              repo_root=Path(args.repo_root) if args.repo_root else default_repo_root(),
                              home=Path.home(), dry_run=args.dry_run)
     except InstallError as exc:
-        print(f'安装失败：{exc}', file=sys.stderr)
+        # 预演模式下什么都没写，喊"安装失败"是假警报——同一句话要按模式说
+        prefix = '预演拦下：' if args.dry_run else '安装失败：'
+        print(f'{prefix}{exc}', file=sys.stderr)
         return 2
     print(f"宿主 {report.host}：skill → {report.skill_dest}")
     print(f'MCP：{report.mcp_action}' + (f' → {report.mcp_path}' if report.mcp_path else ''))
