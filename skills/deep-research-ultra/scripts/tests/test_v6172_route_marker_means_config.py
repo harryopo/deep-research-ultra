@@ -97,3 +97,34 @@ def test_genuinely_unconfigured_engine_still_flagged(capsys):
     out = _route_out(capsys, engines)
     line = next(l for l in out.splitlines() if target in l)
     assert '❌' in line, f'{target} 缺配置却不再被标出，等于取消了这个提示：{line!r}'
+
+
+def test_unconfigured_engine_is_not_written_into_the_suggested_sources(capsys):
+    """❌ 的引擎不能出现在建议的 `--sources` 里——同一条回执不能自相矛盾。
+
+    实测缺陷清单 A2（本机一条命令复现）：`--route "什么是 RAG"` 上面刚印
+    `1. ❌ tavily`，下面就是 `python research.py "…" --sources tavily,baidu-serp`。
+    照抄建议命令的人第一步就把请求打在一个没配 key 的源上，
+    这正是"路由无视同会话 probe 结果"里能被静态判掉的那一半。
+    """
+    names = _chain_names(QUERY)
+    target = names[0]
+    engines = [_Eng(n, configured=(n != target)) for n in names]
+    out = _route_out(capsys, engines)
+
+    line = next(l for l in out.splitlines() if '--sources ' in l)
+    suggested = line.split('--sources', 1)[1].strip().split(',')
+    assert names[1] in suggested, f'建议命令本身要还在：{line!r}'
+    assert target not in suggested, f'缺配置的 {target} 被写进建议 --sources：{line!r}'
+    assert target in out.split('--sources', 1)[1], \
+        '排除了还得点名，否则 Lead 不知道少装了哪个源'
+
+
+def test_fully_configured_chain_keeps_the_suggestion_unchanged(capsys):
+    """正向对照：别把 --sources 建议改成永远为空来"修"这条。"""
+    names = _chain_names(QUERY)
+    engines = [_Eng(n) for n in names]
+    out = _route_out(capsys, engines)
+
+    line = next(l for l in out.splitlines() if '--sources ' in l)
+    assert names[0] in line, f'配置齐全的链仍应被推荐：{line!r}'

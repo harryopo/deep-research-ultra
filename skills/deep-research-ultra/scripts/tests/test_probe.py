@@ -55,8 +55,72 @@ class _FakeEngine:
 
 
 class _Item:
-    def __init__(self, title='Vector DB paper', url='https://a.dev'):
-        self.title, self.url = title, url
+    def __init__(self, title='Vector DB paper', url='https://a.dev', content=''):
+        self.title, self.url, self.content = title, url, content
+
+
+def test_probe_reports_body_completeness():
+    """✅ 只证明"出得来条目"，不证明"出得来正文"——逐字引用要的是后者。
+
+    实测缺陷清单 A1（2026-09-28，内核 6.34.5）：open-websearch 探针打 ✅，
+    实际每条只有标题、content 全空。Lead 照 ✅ 派"取原文逐字引文"的活，
+    一整轮白跑。回执要把这两件事分开印。
+    """
+    eng = _FakeEngine(results=[_Item(content=''), _Item(content='   ')])
+    rep = probe_engine(eng)
+
+    assert rep['status'] == STATUS_OK, '只有标题≠引擎坏了，别改判成不可用（闸门会误停）'
+    assert '正文 0/2' in rep['note'], f"没印出正文完整度: {rep['note']}"
+    assert '逐字' in rep['note'], '要点醒 Lead：这一档取不到逐字引文'
+
+
+def test_probe_body_count_when_all_results_have_content():
+    """正向对照：条目都带正文时不许出现"正文"字样，别把回执写成长清单。"""
+    eng = _FakeEngine(results=[_Item(content='摘要一'), _Item(content='摘要二')])
+    rep = probe_engine(eng)
+
+    assert '正文' not in rep['note'], rep['note']
+
+
+def test_probe_body_count_is_a_ratio_when_partial():
+    eng = _FakeEngine(results=[_Item(content='有摘要'), _Item(content='')])
+    rep = probe_engine(eng)
+
+    assert '正文 1/2' in rep['note'], rep['note']
+
+
+SKILL_MD = Path(__file__).resolve().parents[2] / 'SKILL.md'
+
+
+def test_skill_md_documents_the_body_completeness_criterion():
+    """回执加了新判据，SKILL.md 的判定表必须同步——否则 Lead 仍按"✅＝能取正文"派活。"""
+    md = SKILL_MD.read_text(encoding='utf-8')
+    row = next((l for l in md.splitlines() if l.startswith('| ✅ N 条')), '')
+    assert '正文' in row and '逐字' in row, f'✅ 那一行没写正文完整度：{row!r}'
+
+
+def test_skill_md_bans_helper_scripts_outside_the_session_dir():
+    """派单模板要写死"临时脚本只落会话目录"，护栏才有得可查。
+
+    实测缺陷清单 A11：一个子 Agent 把 helper 写在系统 /tmp，guard 的作用域是会话目录，
+    于是那次执行没有任何账跟踪它。
+    """
+    md = SKILL_MD.read_text(encoding='utf-8')
+    assert '/tmp' in md, 'SKILL.md 没点名系统 /tmp 这个逃逸出口'
+    assert 'scratch/' in md, '要给出该落在哪儿（会话目录 scratch/），不能只说"不许写 /tmp"'
+
+
+def test_skill_md_probe_budget_matches_the_code():
+    """文档里当作报错示例的那个预算数，要和 MCP_PROBE_BUDGET 一致。
+
+    只锁"示例引号里的数"：SKILL.md 另有一句在讲"预算原先是 25s，所以判成超时"，
+    那是历史，不是漂移。
+    """
+    from probe import MCP_PROBE_BUDGET
+
+    md = SKILL_MD.read_text(encoding='utf-8')
+    assert f'{MCP_PROBE_BUDGET}s 预算内没等到响应' in md, \
+        f'SKILL.md 引用的超时示例还停在旧预算上（当前 {MCP_PROBE_BUDGET}s）'
 
 
 def test_classify_probe_distinguishes_empty_from_failed():

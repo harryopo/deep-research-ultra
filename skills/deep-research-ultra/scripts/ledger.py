@@ -37,6 +37,11 @@ try:
 except ImportError:
     effective_independent_count = lambda srcs, **kw: len(srcs)  # type: ignore
 
+try:
+    from guard import INJECTION_LOG
+except ImportError:  # 独立运行/测试无 guard 时用同一个默认名
+    INJECTION_LOG = 'injection_log.jsonl'
+
 VALID_STATUS = {'pending', 'searching', 'verified', 'conflict', 'supplementing', 'completed'}
 
 
@@ -897,13 +902,17 @@ class ResearchLedger:
     # 合并（子 Agent 产物）
     # ------------------------------------------------------------------
     def _own_paths(self) -> set:
-        """账本自己写出来的文件——归并扫目录时要跳过，按路径认不按文件名。
+        """账本与护栏自己写出来的文件——归并扫目录时要跳过，按路径认不按文件名。
 
         子 Agent 的分片可以叫任何名字，包括恰好叫 ledger.jsonl；只按名字跳会把真分片丢掉。
+        留痕账 injection_log.jsonl 也算自己的：它写在会话根或账本目录两处（与
+        guard.load_log 同规格），实测一轮调研里它的 13 行被 merge 逐条计入"拒收"，
+        "收到 8 份分片"比真实的 7 份多 1——Lead 按份数核对时每次都像有路子上报了废分片。
         """
         sess = self.root.parent if self.root.name == 'ledger' else self.root
         return {os.path.normcase(str(p.resolve()))
-                for p in (self.entries_path, self.evidence_path, sess / 'session.json')}
+                for p in (self.entries_path, self.evidence_path, sess / 'session.json',
+                          self.root / INJECTION_LOG, sess / INJECTION_LOG)}
 
     def merge(self, src_dir: str) -> Tuple[int, int]:
         """合并 src_dir 下的全部子产物（.jsonl / .json），按 id 去重。

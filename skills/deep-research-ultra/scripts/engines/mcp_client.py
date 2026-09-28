@@ -174,14 +174,29 @@ class McpSession:
         return False
 
     def _spawn(self) -> subprocess.Popen:
+        # errors='backslashreplace'：MCP 的 JSON-RPC 是 UTF-8，但 server 的 stderr（以及个别
+        # 实现写到 stdout 的日志）在中文 Windows 上常是 cp936。按 UTF-8 硬解会让读线程
+        # 抛 UnicodeDecodeError 死掉——坏字节在 stderr 就丢掉失败原因，在 stdout 就断会话。
+        # 用 backslashreplace 而不是 replace：坏字节原样留成 \xNN，至少看得出"它写过一段
+        # 非 UTF-8 的本地化报错"；换成替换符就等于什么都没留下。
         kwargs = dict(stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                       stderr=subprocess.PIPE, env=self.env, text=True,
-                      encoding='utf-8', bufsize=1)
+                      encoding='utf-8', errors='backslashreplace', bufsize=1)
         if os.name == 'nt':
             kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
         else:
             kwargs['start_new_session'] = True      # 自成进程组，才能整组端掉
         return subprocess.Popen(self.command, **kwargs)
+
+    def _note(self, base: str) -> str:
+        """失败原因能带上 stderr 就带上。
+
+        原先只有"进程退出/关闭输出"两条分支拼 stderr，超时分支不拼——实测一个活着但
+        不回话的 server，它早就把"端口被占用"这类原因写到了 stderr，回执却只剩
+        「超时：4s 预算内没等到响应」这一句同义反复，等于没说。
+        """
+        tail = self.stderr_tail.strip()[-300:]
+        return f'{base}；stderr: {tail}' if tail else base
 
     def open(self) -> bool:
         """起进程并完成 initialize 握手；握手不过就整体判失败（不留下半死的会话）。"""
@@ -247,14 +262,14 @@ class McpSession:
             self._lines.put(_EOF)
 
     def _pump_err(self, stream) -> None:
-        tail = ''
         try:
             for line in iter(stream.readline, ''):
-                tail = (tail + line)[-4000:]
+                # 边读边存：超时那一刻就要能看见 server 已经写过的报错。
+                # 原先只在 finally 赋值，而 finally 要等流读完——进程还活着、流没关，
+                # 于是超时回执里永远没有 stderr，只剩一句"没等到响应"的同义反复。
+                self.stderr_tail = (self.stderr_tail + line)[-1500:]
         except (OSError, ValueError):
             pass
-        finally:
-            self.stderr_tail = tail[-1500:]
 
     def _remaining(self) -> float:
         return max(0.0, self._deadline - time.time())
@@ -294,22 +309,19 @@ class McpSession:
             left = self._remaining()
             if left <= 0:
                 where = '握手' if self._in_handshake else '整场会话'
-                self.error = (f'超时：{where} {self._active_limit:g}s 预算内没等到 '
-                              f'{method} 的响应')
+                self.error = self._note(f'超时：{where} {self._active_limit:g}s 预算内'
+                                        f'没等到 {method} 的响应')
                 return None
             try:
                 line = self._lines.get(timeout=min(left, 0.5))
             except queue.Empty:
                 if self._proc.poll() is not None:
-                    self.error = (f'server 进程已退出（code={self._proc.returncode}）'
-                                  + (f'；stderr: {self.stderr_tail.strip()[-300:]}'
-                                     if self.stderr_tail.strip() else ''))
+                    self.error = self._note(
+                        f'server 进程已退出（code={self._proc.returncode}）')
                     return None
                 continue
             if line is _EOF:
-                self.error = 'server 关闭了输出（可能启动即失败）' \
-                    + (f'；stderr: {self.stderr_tail.strip()[-300:]}'
-                       if self.stderr_tail.strip() else '')
+                self.error = self._note('server 关闭了输出（可能启动即失败）')
                 return None
             line = line.strip()
             if not line:

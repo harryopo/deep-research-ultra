@@ -198,13 +198,29 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
     status = classify_probe(results)
     if status == STATUS_OK:
         first = results[0]
-        note = (first.title or first.url or '')[:60]
+        note = ((first.title or first.url or '')[:60] + _body_hint(results))
     elif status == STATUS_EMPTY:
         note = '可调通但 0 结果（查询词无命中，或端点契约变更/需授权）'
     else:
         note = f'引擎返回 None（{_failure_reason(engine)}）'
     return {'engine': name, 'status': status, 'count': len(results or []),
             'note': note, 'query': q, **_meta_fields(engine)}
+
+
+def _body_hint(results) -> str:
+    """把"出得来条目"与"出得来正文"分开印——✅ 不等于能取到逐字引文。
+
+    实测缺陷清单 A1：open-websearch 探针 ✅ 而每条只有标题（content 全空），
+    Lead 据此派下"取原文逐字引文"的活，一整轮白跑。
+    闸门仍按"出得出数据"计数（只有标题的源确实出了数据），这里只补一句事实。
+    """
+    total = len(results)
+    with_body = sum(1 for r in results if (getattr(r, 'content', '') or '').strip())
+    if with_body == total:
+        return ''
+    if not with_body:
+        return f'｜正文 0/{total}：只有标题和链接，逐字引文要另开抓取通道'
+    return f'｜正文 {with_body}/{total}'
 
 
 def _failure_reason(engine) -> str:
@@ -389,6 +405,8 @@ CONFIG_GUIDE: Dict[str, str] = {
     'TAVILY_API_KEY': 'https://app.tavily.com 申请（1000 次/月免费；注册前确认免绑卡——要绑银行卡就放弃这个源）',
     'FIRECRAWL_API_KEY': 'https://www.firecrawl.dev 申请（500 credits/月；注册前确认免绑卡——要绑银行卡就放弃这个源）',
     'CRAWL4AI_URL': '本地起服务后设为 http://localhost:11235',
+    'CRAWL4AI_API_TOKEN': '仅当自建 Crawl4AI 服务设了鉴权时才需要（Docker 部署时自定义的 '
+                          'Bearer token）；本地默认起的服务不配也能用',
     'SEARXNG_URL': '自建 SearXNG 实例地址（如 http://localhost:8888）；没有实例就排除该源',
 }
 

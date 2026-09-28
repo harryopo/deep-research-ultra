@@ -68,6 +68,10 @@ for line in sys.stdin:
             if mode == 'flood':      # 先刷爆 stderr 管道缓冲再回答
                 sys.stderr.write('x' * 400000 + '\n')
                 sys.stderr.flush()
+            if mode == 'gbk-noanswer':   # 中文 Windows 上 server 的报错常是 GBK/cp936
+                sys.stderr.buffer.write('服务启动失败：端口被占用\n'.encode('gbk'))
+                sys.stderr.buffer.flush()
+                continue
             out = {'jsonrpc': '2.0', 'id': rid,
                    'result': {'content': [{'type': 'text', 'text': json.dumps(
                        {'results': [{'url': 'https://a.dev/1', 'title': 'S1'},
@@ -175,15 +179,35 @@ def test_stderr_flood_does_not_deadlock(stub_path):
     assert titles([result]) == ['S1', 'S2']
 
 
+def test_non_utf8_stderr_reaches_the_failure_reason(stub_path):
+    """server 用系统码页写 stderr 时，那段报错必须还能出现在失败原因里。
+
+    实测：_spawn 用 text=True + encoding='utf-8' 且没有 errors=。中文 Windows 上
+    npx/uvx 起的 server 会把本地化报错写成 GBK/cp936 字节，读线程一遇坏字节就抛
+    UnicodeDecodeError 死掉，stderr_tail 留空 → 回执只剩"没连上"，说不出它为什么没连上。
+    同一份坏字节若出现在 stdout，会话直接断，所以两条管道都要容错。
+    """
+    client = make_client(stub_path, mode='gbk-noanswer')
+
+    assert client.call_tool('stub-search', {'query': 'x'}, timeout=4) is None
+    assert 'stderr' in client.last_error, \
+        f'非 UTF-8 的报错被丢掉了，失败原因只剩一句空话: {client.last_error}'
+    assert '\\x' in client.last_error, '坏字节应原样留成 \\xNN，而不是整段消失'
+
+
 # ---------------------------------------------------------------------------
 # ③ 不留孤儿进程
 # ---------------------------------------------------------------------------
 
 def _pid_alive(pid: int) -> bool:
     if sys.platform == 'win32':
+        # tasklist 的输出是系统码页（中文 Windows 上是 cp936），不是 UTF-8；
+        # 而"没有正在运行的任务"这句话恰恰只在进程已被收掉时出现——不 replace 的话，
+        # 实现正确反而读回报错（实测 -X utf8 跑本文件时 TypeError: NoneType）。
         out = subprocess.run(['tasklist', '/NH', '/FI', f'PID eq {pid}'],
-                             capture_output=True, text=True).stdout
-        return str(pid) in out
+                             capture_output=True, text=True,
+                             encoding='utf-8', errors='replace').stdout
+        return str(pid) in (out or '')
     try:
         os.kill(pid, 0)
         return True

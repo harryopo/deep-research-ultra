@@ -63,7 +63,9 @@ class Crawl4aiEngine(SearchEngine):
             layer=3,
             description="Crawl4AI 本地爬虫（Docker 部署，JS 渲染 + LLM 提取 + 反检测）",
             requires_config=True,
-            config_keys=["CRAWL4AI_URL", "CRAWL4AI_API_TOKEN"],
+            # 只把 URL 列为必需项：CRAWL4AI_API_TOKEN 是 Docker 部署加了鉴权才用的可选值，
+            # 列进必需项会让本地起好服务的机器被判「缺少配置」，这条源在闸门里凭空消失。
+            config_keys=["CRAWL4AI_URL"],
             is_async_supported=True,
             is_china_friendly=True,
             priority=200,

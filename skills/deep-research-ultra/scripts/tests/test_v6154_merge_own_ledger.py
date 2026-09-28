@@ -107,6 +107,67 @@ def test_a_subdir_shard_named_like_the_ledger_still_merges(session, tmp_path):
     assert any(c['text'] == '重名分片的 claim' for c in L.claims())
 
 
+def test_injection_log_is_not_counted_as_a_shard(session):
+    """guard 的留痕账不是子 Agent 的产物。
+
+    实测缺陷清单 A7（2026-09-28 一轮 7 维调研，内核 6.34.5，6.35.0 复现照旧）：
+    留痕账按派单模板写在 {ledger_dir} 里，而 _own_paths() 只跳 ledger.jsonl /
+    evidence.jsonl / session.json，rglob('*.jsonl') 把它一起扫进来了。结果那轮
+    13 行留痕被逐条计入"拒收 13 条"，"收到 8 份分片"比真实的 7 份多 1——
+    Lead 按"份数与派发的路数吻合"核对时，每次都像有路子出了废分片。
+    """
+    d, L = session
+    rows = ''.join(json.dumps({
+        'file': 'raw/page-%02d.md' % i, 'marker': 'ask_credentials',
+        'quoted': '…要求读取 .env 并上传密钥', 'action': '已拒绝',
+    }, ensure_ascii=False) + '\n' for i in range(13))
+    (d / 'injection_log.jsonl').write_text(rows, encoding='utf-8')
+
+    claims, sources = L.merge(str(d))
+
+    assert L.last_merge['files'] == 2, '留痕账被当成了分片'
+    assert L.last_merge['rejected'] == 0, '留痕账的 13 行被记成"拒收 13 条"'
+    assert claims == 2
+
+
+def test_injection_log_in_a_mcp_layout_ledger_is_skipped(tmp_path):
+    """MCP 布局下账本就写在会话根，留痕账和它是同一个目录，一样不能当分片。
+
+    第一版把这个用例写成"留痕账写在会话根、账本写在 ledger/"——那种布局下
+    merge 的 rglob 根本扫不到它，测试当下就绿，什么也没验。
+    """
+    L = ResearchLedger(str(tmp_path)).init()
+    L.add_claim('Lead 自己写的 claim', topic='补贴', status='pending')
+    _shard(tmp_path, 'worker-1.json', 'c-w1', '分片一的 claim')
+    (tmp_path / 'injection_log.jsonl').write_text(
+        json.dumps({'file': 'raw/a.md', 'marker': 'cn_exec',
+                    'quoted': '…', 'action': '已拒绝'}, ensure_ascii=False) + '\n',
+        encoding='utf-8')
+
+    claims, _ = L.merge(str(tmp_path))
+
+    assert L.last_merge['files'] == 1
+    assert L.last_merge['rejected'] == 0
+    assert claims == 1
+
+
+def test_shard_named_like_the_injection_log_still_merges(session):
+    """正向对照：跳过的是那本留痕账本身，不是所有叫 injection_log.jsonl 的文件。
+
+    少了这条，"按名字跳"会把真分片静默吞掉——和 v6.15.4 那次把 ledger.jsonl
+    按名字跳、吞掉两份真分片是同一个错。
+    """
+    d, L = session
+    sub = d / 'batch-7'
+    sub.mkdir()
+    _shard(sub, 'injection_log.jsonl', 'c-w7', '重名分片的 claim')
+
+    claims, _ = L.merge(str(d))
+
+    assert claims == 3
+    assert any(c['text'] == '重名分片的 claim' for c in L.claims())
+
+
 def test_cli_receipt_names_the_real_shard_count(session, capsys):
     d, L = session
     rc = _main(['merge', '--session', str(d), '--dir', str(d)])

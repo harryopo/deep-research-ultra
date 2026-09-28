@@ -48,7 +48,9 @@ PROFILES: Dict[str, Dict[str, Any]] = {
         'commands': ['python'],
         'modules': ['engines', 'curl_cffi'],
         'skills': ['oss-finder', 'agent-reach', 'sciverse'],
-        'envs': ['GITHUB_TOKEN'],  # 可选（提升 GitHub 深搜速率）
+        # 引擎自己声明的必需项要在这里点名，否则"环境就绪"是假的：
+        # gitee 无 token 时搜索端点静默返回 []，看起来像"国内没有这个仓库"
+        'envs': ['GITHUB_TOKEN', 'GITEE_TOKEN'],  # 可选（提升 GitHub 深搜速率 / 解锁 Gitee）
         'net': ['github.com', 'gitee.com', 'modelscope.cn', 'arxiv.org'],
     },
     'academic': {
@@ -65,15 +67,19 @@ PROFILES: Dict[str, Dict[str, Any]] = {
         'modules': ['engines', 'curl_cffi'],
         'skills': ['oss-finder', 'agent-reach', 'last30days', 'sciverse', 'defuddle', 'context7'],
         'envs': ['TAVILY_API_KEY', 'FIRECRAWL_API_KEY', 'GITHUB_TOKEN', 'UNPAYWALL_EMAIL',
-                 'CRAWL4AI_URL', 'CRAWL4AI_API_TOKEN', 'OPENALEX_MAILTO'],
+                 'CRAWL4AI_URL', 'CRAWL4AI_API_TOKEN', 'OPENALEX_MAILTO',
+                 'GITEE_TOKEN', 'SEARXNG_URL'],
         'net': ['github.com', 'gitee.com', 'modelscope.cn', 'arxiv.org', 'api.semanticscholar.org',
                 'api.openalex.org', 'app.tavily.com', 'www.firecrawl.dev'],
     },
 }
 
 # 可选项目（缺失只警告，不阻断启动）
+# GITEE_TOKEN / SEARXNG_URL 是"少一条源"而不是"开不了工"：缺它们时闸门仍能以
+# 出数据的引擎数 ≥3 放行，所以列进可选，别让一次正常调研被单条国内源卡死。
 OPTIONAL_ENVS = {'GITHUB_TOKEN', 'UNPAYWALL_EMAIL', 'CRAWL4AI_URL', 'CRAWL4AI_API_TOKEN',
-                 'TAVILY_API_KEY', 'FIRECRAWL_API_KEY', 'OPENALEX_MAILTO'}
+                 'TAVILY_API_KEY', 'FIRECRAWL_API_KEY', 'OPENALEX_MAILTO',
+                 'GITEE_TOKEN', 'SEARXNG_URL'}
 
 # 缺失时要说清后果，否则用户只在并发撞限流后才知道有这档配置
 ENV_HINTS = {

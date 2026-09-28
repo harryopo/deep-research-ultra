@@ -213,7 +213,7 @@ def cmd_route(args, registry):
     from router import QueryRouter
 
     print("=" * 70)
-    print("Deep Research Ultra v5.0 — 智能路由分析")
+    print(f"Deep Research Ultra v{skill_version()} — 智能路由分析")
     print("=" * 70)
     print()
 
@@ -281,16 +281,25 @@ def cmd_route(args, registry):
         print(f"   {decision.reasoning}")
         print()
 
-    runnable = [n for n in filtered if n not in agent_only]
+    runnable = [n for n in filtered if n not in agent_only and n in configured_names]
     print("💡 使用以下命令执行调研:")
     if runnable:
         print(f"   python research.py \"{args.query}\" --sources {','.join(runnable[:5])}")
+    else:
+        print("   （没有可写进 --sources 的引擎：先按上面的 ❌ 把配置补齐，再重跑 --route）")
     print(f"   或直接运行（自动路由）:")
     print(f"   python research.py \"{args.query}\" --auto-route")
     dropped = sorted(agent_only & set(filtered))
     if dropped:
         print(f"   🤖 {', '.join(dropped)} 不写进 --sources：脚本层取不到，"
               f"要由 Lead/子 Agent 直接调用对应 skill 或内置工具")
+    # 同一条回执不能自相矛盾：上面刚给某个引擎打了 ❌（配置没就绪），
+    # 下面就不能再把它写进建议命令——实测 --route "什么是 RAG" 就是这样把 tavily
+    # 推荐给没配 TAVILY_API_KEY 的人，照抄的人第一步就打在一条死通道上。
+    unconfigured = sorted(set(filtered) - configured_names - agent_only)
+    if unconfigured:
+        print(f"   ⛔ {', '.join(unconfigured)} 未写进 --sources：配置没就绪（见上面的 ❌），"
+              f"缺的变量 --probe 会按引擎逐条打印去哪申请")
 
 
 # ============================================================
@@ -1306,12 +1315,13 @@ def _generate_simple_html(data, results, verification=None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Deep Research Ultra v5.0 — 深度调研工具（智能路由 + 学术直连 + 反爬虫升级）',
+        description=f'Deep Research Ultra v{skill_version()} — '
+                    '深度调研工具（智能路由 + 学术直连 + 反爬虫升级）',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-v5.0 四阶段工作流: Plan → Execute → Synthesize → Reflect
+四阶段工作流: Plan → Execute → Synthesize → Reflect
 四层数据源: MCP + 学术直连 → Skill → 内置 → 降级（curl_cffi TLS 伪装）
-v5.0 新增: 智能路由(--auto-route) | 学术直连引擎(OpenAlex/S2/PubMed) | 反爬虫升级
+能力: 智能路由(--auto-route) | 学术直连引擎(OpenAlex/S2/PubMed) | 反爬虫升级
 
 示例:
   %(prog)s "深度调研 2025 年 AI Agent 框架"
@@ -1341,17 +1351,17 @@ v3 兼容（自动降级到 Layer 4）:
     # v6.0：努力程度分级（映射 depth + breadth 上限）
     parser.add_argument('--effort', default=None,
                         choices=['quick', 'standard', 'deep', 'exhaustive'],
-                        help='v6.0 努力程度（quick=1轮检索跳过专家团 ... exhaustive=red-team对抗评审）')
+                        help='努力程度（quick=1轮检索跳过专家团 ... exhaustive=red-team对抗评审）')
     parser.add_argument('--breadth', type=int, default=0,
-                        help='v6.0 并行子主题数（0=随 effort 自动；供主 Agent 并行派发参考）')
+                        help='并行子主题数（0=随 effort 自动；供主 Agent 并行派发参考）')
     parser.add_argument('--auto-claim', action='store_true',
                         help='把每条搜索结果的标题自动写成一条 claim（默认关闭：标题是'
                              '别人页面的标题而不是本调研的论断，会灌进 5 星空仓库与广告'
-                             '噪声并虚高覆盖率；只在复现 v6.9 及以前行为时用）')
+                             '噪声并虚高覆盖率；只在需要旧版逐条落 claim 的行为时用）')
     parser.add_argument('--ledger', default=None,
-                        help='v6.0 证据账本目录（.research/session/ledger），搜索结果落盘并用于反思/报告')
+                        help='证据账本目录（.research/session/ledger），搜索结果落盘并用于反思/报告')
     parser.add_argument('--perspectives', default=None,
-                        help='v6.0 专家团视角，逗号分隔（如 domain_expert,skeptic,practitioner；"0" 关闭）')
+                        help='专家团视角，逗号分隔（如 domain_expert,skeptic,practitioner；"0" 关闭）')
     parser.add_argument('--reflect-rounds', type=int, default=1,
                         help='反思循环轮数（0=禁用, 1=默认, 3=深度模式）')
     parser.add_argument('--goal', help='调研目标（明确目标可跳过澄清）')
@@ -1373,9 +1383,9 @@ v3 兼容（自动降级到 Layer 4）:
     parser.add_argument('--no-plan', action='store_true',
                         help='跳过 MECE 计划生成（快速搜索模式）')
     parser.add_argument('--auto-route', action='store_true',
-                        help='v5.0 智能路由：自动根据查询意图选择数据源（学术→论文引擎，开源→GitHub，理论+联网+实际）')
+                        help='智能路由：自动根据查询意图选择引擎链（学术→论文引擎，开源→GitHub，理论+联网+实际）')
     parser.add_argument('--route', action='store_true',
-                        help='v5.0 仅展示路由分析结果（不执行搜索）')
+                        help='仅展示路由分析结果（不执行搜索）')
 
     # 输出
     parser.add_argument('--format', '-f', default='html',
@@ -1415,7 +1425,7 @@ v3 兼容（自动降级到 Layer 4）:
                         help='环境分级验证（minimal/opensource/academic/full）')
     parser.add_argument('--env-profile', default='full',
                         choices=['minimal', 'opensource', 'academic', 'full'],
-                        help='环境验证 profile（v6.1，默认 full）')
+                        help='环境验证 profile（默认 full）')
     parser.add_argument('--no-net', action='store_true',
                         help='跳过网络连通性探测（--env-check 用）')
     parser.add_argument('--list', '-l', action='store_true',

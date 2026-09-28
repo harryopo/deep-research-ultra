@@ -615,6 +615,33 @@ class TestDocConsistency:
         m = re.search(r'^version:\s*(\S+)', self._skill_md(), re.M)
         assert m and skill_version() == m.group(1)
 
+    def test_cli_output_has_no_stale_version_stamp(self, capsys):
+        """`--route` 横幅与 `--help` 文案必须跟着 SKILL.md，不许停在旧版本号。
+
+        实测：内核已经 6.35.0，`--route` 横幅还印「Deep Research Ultra v5.0」，
+        `--help` 的 description 同样。读的人据此认定自己装错了版本，
+        或把这套版本号抄进报告与 issue。
+        """
+        import argparse
+        import re
+        import subprocess
+        from research import build_registry, cmd_route, skill_version
+
+        cmd_route(argparse.Namespace(query='什么是 RAG'), build_registry())
+        banner = capsys.readouterr().out.splitlines()[1]
+        assert skill_version() in banner, \
+            f'--route 横幅没带当前内核版本 {skill_version()}：{banner!r}'
+        stale = {v for v in re.findall(r'\d+\.\d+(?:\.\d+)?', banner)
+                 if v != skill_version()}
+        assert not stale, f'--route 横幅印着旧版本号 {stale}'
+
+        help_out = subprocess.run(
+            [sys.executable, str(self.ROOT / 'scripts' / 'research.py'), '--help'],
+            capture_output=True, text=True, encoding='utf-8', errors='replace').stdout
+        stamps = set(re.findall(r'v\d+(?:\.\d+)+', help_out))
+        assert stamps <= {f'v{skill_version()}'}, \
+            f'--help 文案里还挂着别的版本号：{sorted(stamps - {f"v{skill_version()}"})}'
+
 
 class TestLedgerSetStatus:
     """Lead 归并阶段的状态升级通道。
