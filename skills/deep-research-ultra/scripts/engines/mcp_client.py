@@ -132,6 +132,26 @@ def _kill_tree(proc: subprocess.Popen) -> None:
         pass
 
 
+WINDOWS_LAUNCHER_EXTS = ('.cmd', '.bat')
+
+
+def _resolve_command(cmd: str) -> str:
+    """Windows 上把裸 `npx`/`uvx` 换成 `npx.cmd`/`uvx.cmd`。
+
+    node 的安装目录里同时有 `npx`（bash 脚本）、`npx.cmd`、`npx.ps1`；`setup-mcp.sh` 与宿主
+    配置写的都是裸名。Python 的 CreateProcess 只认可执行文件，实测因此报
+    「进程起不来：[WinError 2] 系统找不到指定的文件」——看着像"这个工具没装"，
+    实际只差一个 `.cmd` 后缀。找不到对应批处理时保持原样，让报错继续说真名。
+    """
+    if os.name != 'nt' or cmd.lower().endswith(WINDOWS_LAUNCHER_EXTS) or Path(cmd).is_absolute():
+        return cmd
+    for ext in WINDOWS_LAUNCHER_EXTS:
+        found = shutil.which(cmd + ext)
+        if found:
+            return found
+    return cmd
+
+
 class McpSession:
     """一个进程里跑完「握手 → initialized 通知 → 若干请求」。
 
@@ -147,7 +167,8 @@ class McpSession:
 
     def __init__(self, command: List[str], env: Dict[str, str], budget: float,
                  handshake_budget: Optional[float] = None, on_spawn=None):
-        self.command, self.env = command, env
+        self.command = [_resolve_command(command[0])] + list(command[1:])
+        self.env = env
         self.budget = budget
         self.handshake_budget = handshake_budget if handshake_budget is not None else budget
         self._on_spawn = on_spawn
@@ -510,10 +531,13 @@ class McpClient:
             return False
         # 检查命令是否可执行
         cmd = command_list[0]
+        # 判"装没装"要按真会拿去起进程的那个名字判：Windows 上裸 npx 文件在但起不来，
+        # 把它算作"已就绪"就等于把 WinError 2 留到运行期才爆
+        target = _resolve_command(cmd)
         # npx/uvx/node/python 等常见命令
-        if shutil.which(cmd) is None:
+        if shutil.which(target) is None:
             # 检查是否为绝对路径
-            if not (Path(cmd).exists() and os.access(cmd, os.X_OK)):
+            if not (Path(target).exists() and os.access(target, os.X_OK)):
                 return False
         # 检查环境变量是否齐全
         cfg = self.config

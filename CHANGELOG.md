@@ -15,6 +15,33 @@
 
 ---
 
+## v6.36.3（2026-09-28）— Windows 上 MCP server 其实起不来：启动名缺了 `.cmd`
+
+清理安装位时顺手把 3 个免费 MCP 源在新位置配好，真跑一发 `--probe --sources
+open-websearch,arxiv,paper-search`，三条全是 ❌，其中两条的原因是：
+
+    引擎返回 None（open-websearch: 进程起不来：[WinError 2] 系统找不到指定的文件。）
+
+node 安装目录里同时有 `npx`（bash 脚本）、`npx.cmd`、`npx.ps1`；`setup-mcp.sh` 与宿主配置
+写的都是裸名 `npx`。Python 的 CreateProcess 只认可执行文件，于是报"找不到文件"——
+这句话读起来像"这台机器没装 node"，实际只差一个后缀，而 `shutil.which('npx')` 还偏会
+命中那个脚本，于是"配好了"与"起不来"同时成立。
+
+- `mcp_client._resolve_command()`：Windows 上把裸 `npx`/`uvx` 解析成 `npx.cmd`/`uvx.cmd`；
+  已经带后缀的、绝对路径的、POSIX 的一律不动；找不到批处理时保持原名，
+  让"没装"的报错继续说真名而不是换一个名字。
+- "命令装没装"的判据改用同一个解析结果，否则运行期才爆的 WinError 2 前面还有一枚 ✅。
+- 五条断言：Windows 解析、带后缀不动、找不到就保持原名、POSIX 不改写、
+  以及解析确实发生在起进程的那条路上（假 Popen 收到的是 `npx.cmd`，参数原样）。
+
+同时清掉一处安装位：`~/.agents/skills/deep-research-ultra-v7`（内核 6.34.5 的旧拷贝）。
+删除前逐文件比对过：123 个文件与提交 `69fff69` 的内容全部一致，唯一多出的
+`.mcp.json` 由 `setup-mcp.sh --core` 可重生成（已在新安装位重建）。
+
+用例数 704→709（测试文件 63→64），页面合计 754→759。
+
+---
+
 ## v6.36.2（2026-09-28）— 自检把"探到哪一步"说得更准：冷启动重探一发 + 未测能力点名
 
 同一份缺陷清单里剩下的两条（A3 的能力/名字错位、A10 的 MCP 冷启动超时），都落在
