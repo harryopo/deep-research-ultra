@@ -188,23 +188,49 @@ def probe_engine(engine, query: str = '', max_results: int = 3) -> Dict[str, Any
     if engine_kind(engine) == 'mcp':
         # MCP 走 npx/uvx 冷启动，不给预算就能把整轮自检拖死
         kwargs['mcp_timeout'] = MCP_PROBE_BUDGET
-    _reset_http_error()
-    try:
-        results = engine.search(q, max_results=max_results, **kwargs)
-    except Exception as exc:          # 引擎异常不得当成"可用"
-        return {'engine': name, 'status': STATUS_FAILED, 'count': 0,
-                'note': f'探针异常: {exc}', 'query': q, **_meta_fields(engine)}
 
-    status = classify_probe(results)
-    if status == STATUS_OK:
-        first = results[0]
-        note = ((first.title or first.url or '')[:60] + _body_hint(results))
-    elif status == STATUS_EMPTY:
-        note = '可调通但 0 结果（查询词无命中，或端点契约变更/需授权）'
-    else:
-        note = f'引擎返回 None（{_failure_reason(engine)}）'
+    def _attempt() -> Tuple[str, str, List[Any]]:
+        _reset_http_error()
+        try:
+            res = engine.search(q, max_results=max_results, **kwargs)
+        except Exception as exc:          # 引擎异常不得当成"可用"
+            return STATUS_FAILED, f'探针异常: {exc}', []
+        st = classify_probe(res)
+        if st == STATUS_OK:
+            first = res[0]
+            return st, (first.title or first.url or '')[:60] + _body_hint(res) \
+                     + _unprobed_caps_hint(engine), res
+        if st == STATUS_EMPTY:
+            return st, '可调通但 0 结果（查询词无命中，或端点契约变更/需授权）', []
+        return st, f'引擎返回 None（{_failure_reason(engine)}）', []
+
+    status, note, results = _attempt()
+    # npx/uvx 冷启动首轮在下包，45s 起不来是预期内的；只多给一发，两次都算不清就照实判坏
+    if (status == STATUS_FAILED and engine_kind(engine) == 'mcp' and '超时' in note):
+        status, note, results = _attempt()
+        if status == STATUS_OK:
+            note += '（首轮冷启动超时，重探才出数据＝包已下好，后面会快）'
+        else:
+            note += (f'（两次都在 {MCP_PROBE_BUDGET}s 预算内超时）'
+                     '先跑 bash scripts/setup-mcp.sh --core 预热再重测')
     return {'engine': name, 'status': status, 'count': len(results or []),
             'note': note, 'query': q, **_meta_fields(engine)}
+
+
+# 探针只发 search() 一发；这些能力要靠另一次调用才验得到
+UNPROBED_CAPS = ('fulltext', 'latex', 'extract', 'citation_graph')
+
+
+def _unprobed_caps_hint(engine) -> str:
+    """声明了"检索之外"的能力时，回执要点名本次没测它——✅ 不等于全文通道今天可用。
+
+    实测缺陷清单 A3：arxiv-fulltext 的 search() 只回元数据，正文要 download_pdf/fetch_latex
+    另发；探针 ✅ 被读成"连正文都拿到了"，Lead 于是把逐字引用的活派给一条只出元数据的通道。
+    """
+    caps = [c for c in UNPROBED_CAPS if engine.has_capability(c)]
+    if not caps:
+        return ''
+    return f'｜未测 {"、".join(caps)}（要另发一次调用才算验过）'
 
 
 def _body_hint(results) -> str:

@@ -89,6 +89,100 @@ def test_probe_body_count_is_a_ratio_when_partial():
     assert '正文 1/2' in rep['note'], rep['note']
 
 
+class _SeqEngine(_FakeEngine):
+    """按脚本回数据的替身：'TIMEOUT' 表示这一发是超时失败（None + client 里的原因）。"""
+
+    def __init__(self, script):
+        super().__init__(results=None)
+        self.script = list(script)
+        self.calls = 0
+
+    def search(self, query, max_results=10, **kwargs):
+        self.calls += 1
+        out = self.script.pop(0)
+        if out == 'TIMEOUT':
+            self._client = type('_C', (), {'last_error':
+                                           'stub: 超时：整场会话 45s 预算内没等到 tools/call 的响应'})()
+            return None
+        return out
+
+
+def _as_mcp(monkeypatch):
+    import probe as _probe
+    monkeypatch.setattr(_probe, 'engine_kind', lambda e: 'mcp')
+
+
+def test_mcp_cold_start_timeout_gets_one_reprobe(monkeypatch):
+    """npx/uvx 首轮在下包，超一次就判"今天没有"会把配好的源打死。
+
+    实测缺陷清单 A10：MCP server 冷启动在预算内起不来，第二轮才出数据。
+    只多给一次，且两次都要在回执里说清——不然 Lead 以为探了两轮坏源。
+    """
+    _as_mcp(monkeypatch)
+    eng = _SeqEngine(['TIMEOUT', [_Item(content='摘要')]])
+
+    rep = probe_engine(eng)
+
+    assert eng.calls == 2, '首轮超时后没有重探'
+    assert rep['status'] == STATUS_OK
+    assert '冷启动' in rep['note'], f"重探成功要说明首轮是冷启动: {rep['note']}"
+
+
+def test_mcp_second_timeout_stops_and_tells_the_warmup(monkeypatch):
+    """重探只一次；两次都超时就照实判坏，并给预热动作，不许无限重试烧时间。"""
+    _as_mcp(monkeypatch)
+    eng = _SeqEngine(['TIMEOUT', 'TIMEOUT'])
+
+    rep = probe_engine(eng)
+
+    assert eng.calls == 2, '重探超过一次，整轮自检会被拖死'
+    assert rep['status'] == STATUS_FAILED
+    assert 'setup-mcp.sh' in rep['note'], f"该给出预热命令: {rep['note']}"
+
+
+def test_non_mcp_timeout_is_not_double_billed(monkeypatch):
+    """正向对照：直连引擎别跟着重探——它的超时是网络问题，翻倍只会拖慢整场自检。"""
+    import probe as _probe
+    monkeypatch.setattr(_probe, 'engine_kind', lambda e: 'direct')
+    eng = _SeqEngine(['TIMEOUT'])
+
+    rep = probe_engine(eng)
+
+    assert eng.calls == 1
+    assert rep['status'] == STATUS_FAILED
+
+
+def test_probe_names_the_capabilities_it_did_not_exercise():
+    """声明了全文/引用图谱能力、这次却只打了检索一发 → 回执要写清"未测"。
+
+    实测缺陷清单 A3：`arxiv-fulltext` 的 search() 只回元数据（标题/摘要），
+    全文要另一发 download_pdf/fetch_latex。探针 ✅ 会被读成"正文也拿到了"。
+    """
+    eng = _FakeEngine(name='arxiv-fulltext', results=[_Item(content='摘要')],
+                      capabilities=('search', 'academic', 'fulltext', 'latex'))
+    rep = probe_engine(eng)
+
+    assert rep['status'] == STATUS_OK
+    assert '未测' in rep['note'] and 'fulltext' in rep['note'], rep['note']
+
+
+def test_search_only_engine_gets_no_unprobed_capability_note():
+    """正向对照：没有额外能力的引擎别硬加"未测"一行。"""
+    eng = _FakeEngine(results=[_Item(content='摘要')])
+    rep = probe_engine(eng)
+
+    assert '未测' not in rep['note'], rep['note']
+
+
+def test_skill_md_documents_the_cold_start_reprobe_and_unprobed_caps():
+    """两条新判据要写在 SKILL.md 的判定表里，否则 Lead 仍按"探一次定生死"行动。"""
+    md = SKILL_MD.read_text(encoding='utf-8')
+
+    assert '自动重探一次' in md, 'MCP 超时会自动重探，文档没写就会有人以为探一次定生死'
+    row = next((l for l in md.splitlines() if l.startswith('| ✅ N 条')), '')
+    assert '未测' in row, f'✅ 那一行没写"未测哪些能力"：{row!r}'
+
+
 SKILL_MD = Path(__file__).resolve().parents[2] / 'SKILL.md'
 
 
