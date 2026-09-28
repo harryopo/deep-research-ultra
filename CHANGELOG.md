@@ -13,6 +13,27 @@
 
 ---
 
+## v6.36.1（2026-09-28）— 全局 skill 的安装位清单收口为一份
+
+起因是一句提问：「agent-reach 没装会怎样」。查下来"没装"这件事本身没问题——
+`--env-check` 把它算缺增强、退出码不变，🤖 那一档改用宿主内置 WebSearch/WebFetch。
+但顺着这条查下去抓到两处真实缺陷：
+
+- `env_check._check_skill` 只扫 `~/.agents/skills` 与 `~/.claude/skills`，
+  而 `skill_engines` 那边扫的是另外四个根、**不含 `~/.agents/skills`**——
+  同一台机器上一处说"装了"、另一处说"没装"，装在 Qoder 自己的 `~/.qoder/skills`
+  下的 skill 两边都看不见（明明装了却被判缺失，用户会重复安装）。
+- 收口为 `skill_engines.skill_install_path()` 一份实现、两处调用；根清单补齐
+  `~/.agents/skills` 与 `~/.qoder/skills`，`~/.trae-cn/skills`（目录链接）按 inode 去重。
+- 判"未找到"时回执列出找过哪些根，并写明没装的后果与替代通道（改用内置检索，不影响开工）。
+- 本机复验：oss-finder / sciverse / defuddle / last30days 两层判定一致，
+  agent-reach 照实报未装并给出去处。四条新断言覆盖 Qoder 根可见、两层一致、
+  `.agents` 根在清单内、"未找到"必须自报搜索过哪些根。
+
+用例数 694→698（测试文件 62→63），页面合计 744→748。
+
+---
+
 ## v6.36.0（2026-09-28）— 复核一份实跑缺陷清单，修掉六处「回执说不清自己看见了什么」
 
 来源：一次真实调研会话（7 维并行、两波派发，最终 84 条 claim / 211 条来源并过门盖戳）交回的

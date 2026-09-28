@@ -39,23 +39,44 @@ from .base import SearchEngine, SearchResult, EngineMetadata
 # ============================================================
 
 def _get_skill_directories() -> List[Path]:
-    """
-    返回所有可能的 skill 安装目录
+    """各宿主的 skill 安装根——这份清单是全包唯一的权威，env-check 也用它。
 
-    按优先级：
-    1. 项目级 .agents/skills/
-    2. 用户级 ~/.claude/skills/
-    3. 用户级 ~/.trae-cn/skills/
-    4. 用户级 ~/.config/claude/skills/
+    以前 env_check 自己另写两个根（.agents / .claude），这里写另外四个（不含 .agents）：
+    同一台机器上一处说装了、另一处说没装，装在 ~/.qoder/skills 的 skill 两边都看不见。
     """
     home = Path.home()
     cwd = Path.cwd()
-    return [
-        cwd / ".agents" / "skills",
+    roots = [
+        cwd / ".agents" / "skills",         # 项目级
+        home / ".agents" / "skills",        # 多数 Agent 的默认全局位
         home / ".claude" / "skills",
         home / ".trae-cn" / "skills",
         home / ".config" / "claude" / "skills",
+        home / ".qoder" / "skills",
     ]
+    seen: set = set()
+    out: List[Path] = []
+    for r in roots:
+        if not r.exists():
+            continue
+        # ~/.trae-cn/skills 是指向 ~/.agents/skills 的目录链接：同一 inode 只算一次
+        key = (r.stat().st_dev, r.stat().st_ino)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(r)
+    return out
+
+
+def skill_install_path(skill_name: str) -> Optional[Path]:
+    """返回该 skill 的安装目录（找不到回 None）。判"装没装"与给出路径共用这一次查找。"""
+    for skills_dir in _get_skill_directories():
+        for candidate in (skills_dir / skill_name / "SKILL.md",
+                          skills_dir / f"skill_agent_{skill_name}" / "SKILL.md",
+                          skills_dir / skill_name / "skill.md"):
+            if candidate.exists():
+                return candidate.parent
+    return None
 
 
 def is_skill_installed(skill_name: str) -> bool:
@@ -68,19 +89,7 @@ def is_skill_installed(skill_name: str) -> bool:
     Returns:
         True 如果在任何 skill 目录中找到对应 SKILL.md
     """
-    for skills_dir in _get_skill_directories():
-        if not skills_dir.exists():
-            continue
-        # 检查多种命名：agent-reach / skill_agent_agent-reach
-        candidates = [
-            skills_dir / skill_name / "SKILL.md",
-            skills_dir / f"skill_agent_{skill_name}" / "SKILL.md",
-            skills_dir / skill_name / "skill.md",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                return True
-    return False
+    return skill_install_path(skill_name) is not None
 
 
 def list_installed_skills() -> List[str]:

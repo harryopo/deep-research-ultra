@@ -176,10 +176,20 @@ def _check_env(name: str) -> Tuple[bool, str]:
 
 
 def _check_skill(name: str) -> Tuple[bool, str]:
-    for root in (Path.home() / '.agents' / 'skills', Path.home() / '.claude' / 'skills'):
-        if (root / name / 'SKILL.md').exists():
-            return True, f'{root / name}'
-    return False, f'全局 skill 未找到 {name}（npx skills add <owner/repo> 安装）'
+    """全局 skill 装没装——根清单只有一份（skill_engines），这里不再另写一遍。
+
+    判"未找到"时要说清找过哪些根：用户会照着提示往某个目录里装，
+    而那个目录如果不被扫描，装完还是"未找到"。
+    """
+    from engines.skill_engines import _get_skill_directories, skill_install_path
+
+    found = skill_install_path(name)
+    if found:
+        return True, str(found)
+    searched = '、'.join(str(p) for p in _get_skill_directories())
+    return False, (f'全局 skill 未找到 {name}；找过：{searched or "（本机没有 skill 安装根）"}。'
+                   f'没装不影响开工（🤖 那一档改用宿主内置 WebSearch/WebFetch），'
+                   f'要装就按 README 的方式二装到上面任一目录')
 
 
 def _check_net(host: str, timeout: float = 3.0) -> Tuple[bool, str]:
