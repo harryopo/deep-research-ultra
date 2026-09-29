@@ -1,15 +1,15 @@
-# Deep Research Ultra — 超级深度调研工具 v6.40.0
+# Deep Research Ultra — 超级深度调研工具 v6.41.0
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
-> **MCP 服务器 + 全局 Skill + 内置工具 + 降级引擎的四层数据源架构（32 个数据源）**
+> **MCP 服务器 + 全局 Skill + 内置工具 + 降级引擎的四层数据源架构（33 个数据源）**
 
 🚀 **[点击查看教程网页](https://harryopo.github.io/deep-research-ultra/)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.40.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.41.0-brightgreen.svg)]()
 
 
 ---
@@ -419,7 +419,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
         ├── recommend.py  score.py  tier.py  similarity.py   # 推荐度 / CRAAP / Tier / 判同
         ├── panel.py  report.py  verify.py  cache.py  console.py
         ├── install.py  mcp_config_writer.py  setup-mcp.sh   # 跨宿主安装与 MCP 配置
-        ├── engines/                  # 12 个引擎模块，撑起四层共 32 个数据源
+        ├── engines/                  # 12 个引擎模块，撑起四层共 33 个数据源
         │   ├── base.py               # SearchEngine 抽象基类 + EngineRegistry
         │   ├── mcp_client.py  mcp_engines.py        # MCP 层（5 个）
         │   ├── academic_engines.py  academic_fulltext.py

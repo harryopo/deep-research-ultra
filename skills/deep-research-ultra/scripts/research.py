@@ -81,7 +81,7 @@ def build_registry():
     from engines import (
         TavilyMcpEngine, FirecrawlMcpEngine, OpenWebsearchMcpEngine,
         ArxivMcpEngine, PaperSearchMcpEngine,
-        OpenAlexEngine, SemanticScholarEngine, PubmedEngine,
+        OpenAlexEngine, SemanticScholarEngine, PubmedEngine, EuropePmcEngine,
         ArxivFulltextEngine, UnpaywallEngine, CitationGraphEngine,
         AgentReachEngine, OssFinderEngine, Last30DaysEngine,
         SciverseEngine, DefuddleEngine, Context7Engine,
@@ -100,6 +100,8 @@ def build_registry():
         ArxivMcpEngine, PaperSearchMcpEngine,
         # Layer 1: 学术直连引擎（v5.0 新增，无需 MCP，直连免费 API）
         OpenAlexEngine, SemanticScholarEngine, PubmedEngine,
+        # Layer 1: Europe PMC（v6.41 新增：唯一能给开放获取全文直链的学术源）
+        EuropePmcEngine,
         # Layer 1: 学术全文+引用图谱（v5.1 新增）
         ArxivFulltextEngine, UnpaywallEngine, CitationGraphEngine,
         # Layer 2: Skill

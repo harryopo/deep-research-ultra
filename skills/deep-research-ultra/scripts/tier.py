@@ -31,6 +31,8 @@ from urllib.parse import urlparse
 # 学术/文献/官方文档平台域名（Tier 1-2 关键，子域名亦命中）
 ACADEMIC_DOMAINS = {
     'arxiv.org': 1, 'openalex.org': 1, 'pubmed.ncbi.nlm.nih.gov': 1,
+    # Europe PMC 是同行评审文献的正式存档站（含 PMC 全文），与 pubmed 同级
+    'europepmc.org': 1, 'ebi.ac.uk': 1,
     'doi.org': 1, 'semanticscholar.org': 2, 'scholar.google.com': 2,
     'ncbi.nlm.nih.gov': 1, 'nih.gov': 1, 'osti.gov': 1,
     'core.ac.uk': 1, 'citeseerx.ist.psu.edu': 2, 'dl.acm.org': 1,

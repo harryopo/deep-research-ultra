@@ -1,8 +1,8 @@
 ---
 name: deep-research-ultra
-version: 6.40.0
+version: 6.41.0
 description: |
-  超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
+  超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 33 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
 allowed-tools: Read Write Bash Glob Grep AskUserQuestion Agent WebSearch WebFetch
 ---
@@ -149,7 +149,7 @@ python "${SKILL_DIR}/scripts/guard.py" --session {workspace}/.research/{session_
 - **编排者角色**：本 skill 调度 MCP 服务器、全局 skill、内置工具，不重复造轮子
 - **方法论驱动**：MECE 问题树（6状态）+ CRAAP 评分 + 交叉验证 + CER 结构 + 多信号反思
 - **分层降级**：MCP → 学术直连 → Skill → 内置 → 降级引擎（含 curl_cffi TLS 指纹伪装）
-- **学术深度**：arXiv 全文(PDF/LaTeX) + Unpaywall OA + Semantic Scholar 引用图谱
+- **学术深度**：arXiv 全文(PDF/LaTeX) + Unpaywall OA + Europe PMC 开放获取全文直链 + Semantic Scholar 引用图谱
 - **反爬升级**：curl_cffi TLS 指纹 + Crawl4AI JS 渲染 + Camoufox 强反爬兜底
 - **GitHub 深搜**：分桶搜索 + 低星项目挖掘 + 依赖图反向挖掘 + awesome 列表挖掘（不漏项目）
 - **国内适配**：百度 SERP + 搜狗微信/知乎 + 百度学术，国内调研最适配
@@ -177,7 +177,7 @@ RoutingDecision → 动态引擎链 + 多语言查询变体
 
 | 查询类型 | 关键词特征 | 推荐引擎链 |
 |---------|----------|-----------|
-| **学术论文** | paper/research/论文/arxiv/doi | arxiv, paper-search, openalex, semantic-scholar, pubmed, **baidu-xueshu** |
+| **学术论文** | paper/research/论文/arxiv/doi | arxiv, paper-search, openalex, semantic-scholar, pubmed, europepmc, **baidu-xueshu** |
 | **开源项目** | github/open source/开源/npm | **github-deep-search**, **github-code-search**, oss-finder, tavily, open-websearch |
 | **社区口碑** | reddit/评价/口碑/知乎 | agent-reach, last30days, tavily, **sogou-zhihu**, **baidu-serp** |
 | **技术文档** | docs/文档/api/tutorial | context7, defuddle, firecrawl |
@@ -887,11 +887,11 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 
 ---
 
-## 四、四层数据源架构（共 32 个数据源：28 个可搜索，20 个支持 --probe 自检，含 5 个 MCP）
+## 四、四层数据源架构（共 33 个数据源：28 个可搜索，22 个支持 --probe 自检，含 5 个 MCP）
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Layer 1: MCP + 学术直连层（11 个引擎）                              │
+│  Layer 1: MCP + 学术直连层（12 个引擎）                              │
 │  ├── Tavily MCP          AI 搜索 + extract + map + crawl            │
 │  ├── Firecrawl MCP       搜索 + scrape + crawl + browser 自动化     │
 │  ├── open-websearch MCP  免费、无 Key、Bing/百度/CSDN/掘金等        │
@@ -900,6 +900,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 │  ├── OpenAlex            474M+ 作品，直连无需 MCP                    │
 │  ├── Semantic Scholar    200M+ 论文 + AI 引用上下文                  │
 │  ├── PubMed              36M+ 医学论文                               │
+│  ├── Europe PMC          MEDLINE 摘要 + 开放获取全文直链（无 Key）    │
 │  ├── arXiv Fulltext      检索回元数据，全文按编号另取（见 6.1）       │
 │  ├── Unpaywall           DOI→合法 OA PDF                             │
 │  └── S2 Citation Graph   引用图谱 + intents + influential            │
@@ -1438,7 +1439,7 @@ bash "${SKILL_DIR}/scripts/setup-mcp.sh" --core
 # 2. 检查数据源可用性
 python "${SKILL_DIR}/scripts/research.py" --mcp-check
 
-# 3. 列出所有可用引擎（共 32 个）
+# 3. 列出所有可用引擎（共 33 个）
 python "${SKILL_DIR}/scripts/research.py" --list
 
 # 4. 必装 curl_cffi（全引擎共用的 TLS 指纹伪装，--env-check 会判它硬缺失）
@@ -1611,7 +1612,7 @@ scripts/
 ├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素/占位标记）+ 防伪戳 --stamp/--verify-stamp
 ├── skeleton.py              # 报告骨架生成（v6.14）：从账本出引用编号+来源登记表，正文留【待写】给 Lead
 ├── engines/
-│   ├── __init__.py          # 引擎导出聚合（32 个数据源，28 个可搜索）
+│   ├── __init__.py          # 引擎导出聚合（33 个数据源，28 个可搜索）
 │   ├── base.py              # SearchEngine 抽象基类 + EngineMetadata + EngineRegistry
 │   ├── mcp_client.py        # MCP 客户端封装
 │   ├── mcp_engines.py       # MCP 服务器封装（Tavily/Firecrawl/open-websearch/arxiv/paper-search）

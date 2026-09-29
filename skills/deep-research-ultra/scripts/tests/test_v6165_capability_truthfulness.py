@@ -86,7 +86,7 @@ class TestInventoryUnchanged:
 
     def test_total_sources_and_config_split_are_untouched(self):
         reg = build_registry()
-        assert len(reg.get_all()) == 32
-        assert len(reg.get_configured()) == 27
+        assert len(reg.get_all()) == 33
+        assert len(reg.get_configured()) == 28
         assert 'unpaywall' in {e.get_name() for e in reg.get_configured()}, \
             'unpaywall 有占位 email 兜底，DOI 通道实测可用，不该被算成需配置'

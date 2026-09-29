@@ -5,6 +5,7 @@ Deep Research Ultra v4.0 — Layer 1: 学术直连引擎层
 - OpenAlexEngine: 开放学术元数据（474M+ 作品，含引用分析与概念标签）
 - SemanticScholarEngine: AI2 语义学术（200M+ 论文，含 TLDR 与 influential citations）
 - PubmedEngine: NCBI PubMed 医学文献（36M+ 医学文献，含 MeSH 词表）
+- EuropePmcEngine: Europe PMC（MEDLINE 摘要 + PMC 开放获取全文直链，无需 Key）
 
 设计说明：
 - 这些引擎直接调用各大学术 API 的官方 HTTP 端点
@@ -16,6 +17,7 @@ Deep Research Ultra v4.0 — Layer 1: 学术直连引擎层
 
 import json
 import os
+import re
 import urllib.parse
 from typing import Dict, List, Optional
 
@@ -624,3 +626,201 @@ class PubmedEngine(SearchEngine):
             ))
 
         return results   # 取数成功但一条没解析出来＝0 结果，不是通道故障；None 会让断路器把引擎记成不可用
+
+
+def _strip_html(value) -> str:
+    """Europe PMC 的 abstractText 带结构化小标题（真件里是 `<h4>Background</h4>…`）。
+
+    标签直接入库会让报告里出现裸 HTML；换成空格而不是删掉，
+    否则 "Background" 与正文首句会粘成一个不存在的词。
+    """
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', str(value or ''))).strip()
+
+
+class EuropePmcEngine(SearchEngine):
+    """
+    Europe PMC 文献搜索（EBI  RESTful Web Services）
+
+    能力：search, academic
+    覆盖：MEDLINE 摘要 + PMC/PPR 等开放获取全文（真件里 hitCount 量级 2 万+）
+    API Key：无需（公开接口，直接 GET）
+    国内可用：✅（但实测本机出口对整条 /europepmc/webservices/rest 前缀回 HTTP 503，
+              换网络出口正常——是通道限制，不是查询写错）
+    独有优势：fullTextUrlList 会给出**开放获取全文的直链**（html/pdf），
+              PubMed 只回摘要页，这块补齐的是"能不能真读到正文"。
+
+    取到的 url 一律来自接口自己返回的 fullTextUrlList（不自己拼 URL）：
+    真件里 OA 条目回 `https://europepmc.org/articles/PMC…`，非 OA 条目只回 doi 链接。
+    一条都没有就丢掉该条——回不去原文的 claim 不该进账本。
+
+    API 文档：https://europepmc.org/RestfulWebService
+    """
+
+    SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+    PAGE_SIZE_MAX = 1000          # 接口上限，超了会 400，不能把调用方给的数原样塞进去
+
+    @property
+    def metadata(self) -> EngineMetadata:
+        return EngineMetadata(
+            name="europepmc",
+            layer=1,
+            description="Europe PMC 文献搜索（MEDLINE 摘要 + 开放获取全文直链，无需 Key）",
+            requires_config=False,
+            config_keys=[],
+            is_async_supported=False,
+            is_china_friendly=True,
+            priority=46,
+            capabilities=["search", "academic"],
+        )
+
+    def is_available(self) -> bool:
+        """真发一次最小请求：接口活着不等于这个主题到得了数据，这里只判通道。"""
+        try:
+            params = urllib.parse.urlencode({
+                'query': 'diabetes', 'format': 'json',
+                'pageSize': '1', 'resultType': 'core',
+            })
+            raw = _http_get(f"{self.SEARCH_URL}?{params}", timeout=15, max_retries=1,
+                            headers={'Accept': 'application/json'})
+            return raw is not None
+        except Exception:
+            return False
+
+    def search(self, query: str, max_results: int = 10, **kwargs) -> Optional[List[SearchResult]]:
+        """Europe PMC 搜索（一次请求即回核心字段，无需像 PubMed 分两步取详情）
+
+        Args:
+            query: 检索词。接口是布尔全文检索：整句长查询会大幅掉命中，
+                   中文原样发给它必然 0 条（与 arXiv/OpenAlex 同一形态，见 SKILL「检索词要按语料语言给」）
+            max_results: 结果数上限（pageSize，封顶 1000）
+            **kwargs: proxy 代理地址
+
+        Returns:
+            SearchResult 列表；None＝没取到数据（被拦/服务挂/非 JSON），[]＝调通了但 0 命中
+        """
+        page_size = max(1, min(int(max_results), self.PAGE_SIZE_MAX))
+        params = urllib.parse.urlencode({
+            'query': query, 'format': 'json',
+            'pageSize': str(page_size), 'resultType': 'core',
+        })
+        raw = _http_get(f"{self.SEARCH_URL}?{params}", timeout=25, proxy=kwargs.get('proxy'),
+                        headers={'Accept': 'application/json'})
+        if not raw:
+            return None
+        data = _json_loads(raw)
+        if not data:
+            # 网关页（实测 503 回的是 nginx HTML）不是 JSON：当成通道故障，不能报成 0 命中
+            return None
+
+        items = (data.get('resultList') or {}).get('result') or []
+        results: List[SearchResult] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            parsed = self._to_result(item, query)
+            if parsed:
+                results.append(parsed)
+        return results
+
+    def _to_result(self, item: dict, query: str) -> Optional[SearchResult]:
+        url = self._pick_url(item)
+        if not url:
+            return None
+
+        title = _strip_html(item.get('title'))
+        abstract = _strip_html(item.get('abstractText'))
+        journal_info = item.get('journalInfo') or {}
+        journal = (journal_info.get('journal') or {}).get('title', '') or ''
+        jissn = (journal_info.get('journal') or {}).get('issn', '') or ''
+        pub_date = (item.get('electronicPublicationDate')
+                    or item.get('firstPublicationDate')
+                    or journal_info.get('printPublicationDate')
+                    or item.get('pubYear') or '')
+
+        authors = [a.get('fullName', '') for a in
+                   (item.get('authorList') or {}).get('author', []) if a.get('fullName')]
+        author_str = '; '.join(authors[:10])
+        if len(authors) > 10:
+            author_str += f' et al. ({len(authors)} authors)'
+        if not author_str:
+            author_str = item.get('authorString', '') or ''
+
+        keywords = (item.get('keywordList') or {}).get('keyword', []) or []
+        mesh = [m.get('descriptorName', '') for m in
+                (item.get('meshHeadingList') or {}).get('meshHeading', [])
+                if m.get('descriptorName')]
+
+        parts = []
+        if abstract:
+            parts.append(abstract)
+        if keywords:
+            parts.append('[关键词] ' + ', '.join(keywords[:8]))
+        if mesh:
+            parts.append('[MeSH] ' + ', '.join(mesh[:8]))
+        if journal:
+            parts.append(f'[Journal] {journal}')
+        if item.get('doi'):
+            parts.append(f"[DOI] {_bare_doi(item['doi'])}")
+        if item.get('isOpenAccess') == 'Y':
+            parts.append('[开放获取全文]')
+
+        score = 0.0
+        if item.get('isOpenAccess') == 'Y':
+            score += 0.3          # 能真读到正文，不只是摘要
+        if item.get('doi'):
+            score += 0.2
+        if abstract:
+            score += 0.2
+        if journal:
+            score += 0.2
+        if mesh or keywords:
+            score += 0.1
+        score = min(score, 1.0)
+
+        return SearchResult(
+            title=title,
+            url=url,
+            content='\n'.join(parts),
+            source='europepmc',
+            score=score,
+            published_date=pub_date,
+            author=author_str,
+            engine='europepmc',
+            query=query,
+            raw=paper_meta(
+                item, title=title, abstract=abstract, published_date=pub_date,
+                venue=journal, issn=jissn, doi=_bare_doi(item.get('doi')),
+                authors=authors, citation_count=item.get('citedByCount'),
+                pmid=item.get('pmid', '') or (item.get('id') if item.get('source') == 'MED' else ''),
+                pmcid=item.get('pmcid', ''), license=item.get('license', ''),
+                is_open_access=item.get('isOpenAccess', ''),
+            ),
+        )
+
+    @staticmethod
+    def _pick_url(item: dict) -> str:
+        """全文链接优先级：OA 的正文页 > DOI > 其它返回的链接 > 本站记录页。
+
+        真件里非 OA 条目只有 DOI 一条，OA 条目会同时给 DOI/html/pdf 三条——
+        取第一条会撞上订阅墙，反查就读不到正文（档 B 的制品核对要落空）。
+        """
+        entries = (item.get('fullTextUrlList') or {}).get('fullTextUrl', []) or []
+        for want_oa_html in (True, False):
+            for entry in entries:
+                url = entry.get('url', '') or ''
+                if not url:
+                    continue
+                is_oa_html = (entry.get('availabilityCode') == 'OA'
+                              and entry.get('documentStyle') == 'html')
+                is_doi = entry.get('documentStyle') == 'doi' or entry.get('site') == 'DOI'
+                if want_oa_html and is_oa_html:
+                    return url
+                if not want_oa_html and is_doi:
+                    return url
+        for entry in entries:
+            if entry.get('url'):
+                return entry['url']
+        source, item_id = item.get('source', ''), item.get('id', '')
+        if source and item_id:
+            return f"https://europepmc.org/article/{source}/{item_id}"
+        return ''

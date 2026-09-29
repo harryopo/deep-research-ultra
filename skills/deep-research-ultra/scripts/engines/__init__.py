@@ -28,6 +28,7 @@ from .academic_engines import (
     OpenAlexEngine,
     SemanticScholarEngine,
     PubmedEngine,
+    EuropePmcEngine,
 )
 from .academic_fulltext import (
     ArxivFulltextEngine,
@@ -62,6 +63,8 @@ __all__ = [
     "ArxivMcpEngine", "PaperSearchMcpEngine",
     # Layer 1: 学术直连（v5.0 新增）
     "OpenAlexEngine", "SemanticScholarEngine", "PubmedEngine",
+    # Layer 1: 开放获取全文直链（v6.41 新增，无需 Key）
+    "EuropePmcEngine",
     # Layer 1: 学术全文+引用图谱（v5.1 新增）
     "ArxivFulltextEngine", "UnpaywallEngine", "CitationGraphEngine",
     # Layer 2: Skill

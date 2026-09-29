@@ -15,6 +15,47 @@
 
 ---
 
+## v6.41.0（2026-09-29）— 新增 Europe PMC 引擎，并把文档里的数据源计数钉到注册表上
+
+来自第三份流程清单问题 5 的另一半：学术检索的默认路径应当是官方 API（Crossref / OpenAlex /
+PubMed / Europe PMC），本包前三个都有，缺第四个。补上它的真正理由不是"多一个源"，
+而是**它是本包唯一能给出开放获取全文直链的学术源**——PubMed 只回摘要页，
+命中"某篇论文原文说 X"这类归属型 claim 时，能否真读到正文决定档 B 反查做得成做不成。
+
+**取证（2026-09-29，接口自报 version 6.9）**
+- 两条逐字真件记录做成夹具：`isOpenAccess=N` 只有 DOI 一条全文链接；`isOpenAccess=Y` 同时给
+  DOI + `europepmc.org/articles/PMC…`（html）+ `?pdf=render`（pdf），并带 `pmcid`/`license`/MeSH
+- 另测一次 `pageSize=1`：`resultList.result` 仍是数组（没有"单条折叠成对象"的怪癖，所以不写那条防御）
+- 命中量级：`OPEN_ACCESS:Y AND "hallucination"` hitCount 14257；`hallucination` hitCount 21499
+
+**新增**
+- `europepmc`（Layer 1，`requires_config=False`，无 Key、不绑卡）：`url` 按
+  OA 正文页 > DOI > 其它返回链接 > 本站记录页 取——取第一条会撞上订阅墙，反查读不到正文
+- 摘要里的 `<h4>Background</h4>` 一类结构化小标题按标签→空格剥离（直接删会把小节名与首句粘成一个词）
+- `raw` 保留原生键并归一 `venue/issn/citation_count/pmid/pmcid/license/doi`（裸 DOI，供档 B 跨标识符判等）
+- 接线齐全：注册表、`PROBE_QUERIES`、`ENGINE_CHAIN_MAP['academic']`、`tier.ACADEMIC_DOMAINS`
+  补 `europepmc.org`/`ebi.ac.uk` = 1
+
+**实测**
+- 本机用 `curl`/`urllib` 直发对整条 `/europepmc/webservices/rest` 前缀恒回 **HTTP 503**，
+  而 EBI 其它服务正常应答（同前缀换网络出口能取到数据）。走本包 `_http_get`（curl_cffi TLS 指纹）
+  则通：`--probe --sources europepmc` 回 ✅ 5 条。
+  这是通道差异，不是"该主题没资料"——`probe.py` 早把 `HTTP 503` 归入"上游暂停供服"一档，此处再次印证
+- 实跑 `research.py "citation hallucination large language models" --sources europepmc`：
+  10 条命中，相关性过滤丢 1 条噪声，9 条入库；首条正是夹具那篇（`europepmc.org/articles/PMC13506236`）
+
+**顺手纠了一处长期错数（并加钉）**
+`SKILL.md` §四 抬头写「28 个可搜索，20 个支持 --probe 自检」，实测加新引擎**之前**是 27 个可搜索、
+21 个登记探针——两处都错、错了很久没人发现，因为页面上的条数与 chip 有测试对数，文档抬头没有。
+现由 `test_v6410_source_count_pin.py` 把 SKILL/README 的计数与注册表对齐，
+并新增"可搜索引擎必须有功能探针"一条（漏登记会以"--list 绿、实跑 0 条"逃过闸门）。
+
+**计数变化**：数据源 32 → 33（Layer 1 11 → 12）｜无需配置 27 → 28 ｜
+可搜索 27 → 28 ｜已登记探针 21 → 22 ｜测试 817 → **834**（+14 解析与契约 +3 计数钉），
+全量 `783 passed`（scripts）+ `50 passed`（仓库根）。
+
+---
+
 ## v6.40.0（2026-09-29）— 第三份流程清单：claim 带上成立范围，派单加取证/预算/门禁三条
 
 实测依据（`D:/ai/zhixing-reader/docs/research/2026-09-29-调研流程问题清单.md`，另一项目对本包的流程复盘）。

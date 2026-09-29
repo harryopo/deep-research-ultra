@@ -45,7 +45,8 @@ VALID_QUERY_TYPES = {
 # 查询类型 -> 有序引擎链（动态引擎链生成的依据，与设计矩阵一致）
 # v6.1：开源链 = 项目源（GitHub/Gitee/ModelScope/oss-finder）+ 论文源（arxiv/openalex）双查 + 兜底
 ENGINE_CHAIN_MAP: Dict[str, List[str]] = {
-    'academic':    ['arxiv', 'paper-search', 'openalex', 'semantic-scholar', 'pubmed', 'baidu-xueshu'],
+    'academic':    ['arxiv', 'paper-search', 'openalex', 'semantic-scholar', 'pubmed',
+                    'europepmc', 'baidu-xueshu'],
     'opensource':  ['oss-finder', 'github-deep-search', 'gitee', 'modelscope',
                     'arxiv', 'openalex', 'tavily', 'open-websearch'],
     'community':   ['agent-reach', 'last30days', 'tavily', 'sogou-zhihu'],
