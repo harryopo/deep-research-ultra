@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.38.1
+# Deep Research Ultra — 超级深度调研工具 v6.39.0
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.38.1-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.39.0-brightgreen.svg)]()
 
 
 ---
@@ -426,7 +426,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
         │   ├── skill_engines.py  github_deep_search.py  platform_engines.py
         │   ├── cn_sources.py  builtin.py  crawl4ai_engine.py
         │   └── fallback.py           # 降级引擎 + curl_cffi TLS 指纹伪装
-        └── tests/                    # 73 个测试文件 / 754 用例
+        └── tests/                    # 75 个测试文件 / 762 用例
 ```
 
 ---
@@ -456,7 +456,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
 ## 🧪 测试
 
 ```bash
-# 单元测试（754 个用例）——在 skill 目录内
+# 单元测试（762 个用例）——在 skill 目录内
 cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 
 # 插件壳侧测试（握手 / MCP 工具 / Stop 钩子 / 安装器，50 个用例）——在仓库根
@@ -578,4 +578,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-*v6.38.1 · 2026-09-29 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 主题级查询词预演 + 检索词按语料语言给 + 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查，含 Release 与跨主机同内容判同）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验 + 抓回内容中的指令不影响裁决（含行首伪特权通道与指向留痕账的指令）+ 未取到的元数据如实标注 + 国内源解析修复 + 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*
+*v6.39.0 · 2026-09-29 · 四阶段范式 + Lead 内联编排 + 引擎功能自检 + Phase 0 环境闸门（不足即硬停并引导配置）+ 主题级查询词预演 + 检索词按语料语言给 + 文件化交付契约 + 两档 verified 判据（跨域三角 / 一手反查，含 Release 与跨主机同内容判同）+ 发布门按引用-证据对齐判定 + 报告防伪戳（--stamp / --verify-stamp）+ 仓库扫描五态（限流判 unknown）+ 下载制品四道校验 + 抓回内容中的指令不影响裁决（含行首伪特权通道与指向留痕账的指令）+ 未取到的元数据如实标注 + 国内源解析修复 + 环境指引禁推需绑卡的源 + 账本直出报告骨架（【待写】不删净就盖不了戳）；更新历史见 CHANGELOG.md*

@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.38.1
+version: 6.39.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 32 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -561,6 +561,8 @@ Lead（主 Agent）
    Lead 一轮内无法逐字回验，多出来的每一条都只把覆盖率的分母撑大、不会进 verified 的分子
    （deep 档 12 条/维度覆盖率 0.89，standard 档 32 条/维度同一套判据只剩 0.46）。
    挑证据最硬的留下，其余不写进账本——少写不是漏写，是让结论站得住。
+   12 是**默认**不是死数：证据密的维度可以由 Lead 在归并时显式改（`merge --claim-cap 16`），
+   改多高由谁负责要说清——上限由 Lead 调，逐字回验的责任也在 Lead，不许拿去当"多写无害"的许可。
 3) 每条 claim 只记录事实与来源，不做总结断言；status 一律 "pending"（verified 只能由 Lead 在
    归并阶段赋予）；发现矛盾写 "status": "conflict"
 4) 不碰任务清单：不要调用 TaskCreate / TaskUpdate / TodoWrite 之类的待办工具，也不要写计划或记忆文件。
@@ -1504,7 +1506,7 @@ python "${SKILL_DIR}/scripts/ledger.py" content-identity --session <dir> --claim
     --anchor <账本已有来源URL> --target <另一主机的同一内容URL>
     # 跨主机且无标识符的一对（文档站页面↔仓库 .md 源文件）：凭这条 claim 的逐字片段
     # 在两侧正文都命中判同；指错文件/空壳页/纯转述一律拒
-python "${SKILL_DIR}/scripts/ledger.py" merge --session <dir> --dir <分片所在目录>
+python "${SKILL_DIR}/scripts/ledger.py" merge --session <dir> --dir <分片所在目录> [--claim-cap N]
 python "${SKILL_DIR}/scripts/ledger.py" status --session <dir> [--topic <t>]   # 无 --topic 出 {"topics":…,"totals":…}
 python "${SKILL_DIR}/scripts/ledger.py" export --session <dir> --format json|md [--out <path>]
 

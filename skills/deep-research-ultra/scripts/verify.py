@@ -227,9 +227,16 @@ class CrossVerifier:
     # 来源独立性判断
     # ------------------------------------------------------------
 
+    # 跳转壳主机：原站藏在子域里（zhihu.sogou.com 是知乎文章、weixin.sogou.com 是公众号文章），
+    # 按"最后两段"取注册域会把两个不同原站压成同一个 sogou.com，中文侧的跨源计数于是系统性偏低
+    # ——一条知乎 + 一条微信明明是两个原站，却凑不满档 A 的"≥2 独立来源"。
+    # 只分桶不解壳：`link?url=` 里是搜狗自己的加密串，离线还原不出原站 URL，
+    # 也不许去抬独立来源数（同壳仍算一个域）。
+    _LINK_SHELL_SUFFIXES = ('.sogou.com',)
+
     @staticmethod
     def get_domain(url: str) -> str:
-        """提取域名（去掉子域名）"""
+        """提取域名（去掉子域名；跳转壳按原站子域分桶）"""
         if not url:
             return ''
         try:
@@ -238,6 +245,13 @@ class CrossVerifier:
             # 去掉 www. 前缀
             if domain.startswith('www.'):
                 domain = domain[4:]
+            host = domain.split('/')[0].lower()
+            for suffix in CrossVerifier._LINK_SHELL_SUFFIXES:
+                if host.endswith(suffix):
+                    sub = host[:-len(suffix)]
+                    if sub and sub not in ('www', 'm', 'mobile'):
+                        return 'link-shell:%s' % sub
+                    break
             # 提取主域名（最后两段）
             parts = domain.split('.')
             if len(parts) > 2:

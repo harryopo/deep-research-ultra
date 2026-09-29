@@ -918,7 +918,7 @@ class ResearchLedger:
                 for p in (self.entries_path, self.evidence_path, sess / 'session.json',
                           self.root / INJECTION_LOG, sess / INJECTION_LOG)}
 
-    def merge(self, src_dir: str) -> Tuple[int, int]:
+    def merge(self, src_dir: str, claim_cap: Optional[int] = None) -> Tuple[int, int]:
         """合并 src_dir 下的全部子产物（.jsonl / .json），按 id 去重。
 
         src_dir 也可以是单个分片文件——把文件路径写成目录路径是最常见的误用，
@@ -929,6 +929,7 @@ class ResearchLedger:
         让"有多少噪声被挡在门外"看得见，而不是静默变少。
         """
         src = Path(src_dir)
+        cap = self.SHARD_CLAIM_CAP if claim_cap is None else int(claim_cap)
         stats = {'files': 0, 'claims': 0, 'sources': 0, 'deduped': 0, 'rejected': 0,
                  'trails': 0}
         self.last_merge = stats
@@ -1026,11 +1027,11 @@ class ResearchLedger:
             tail = f'（{n} 条）' if n > 1 else ''
             print(f'拒收 {fname}: {reason}{tail}', file=sys.stderr)
         for fname, n in sorted(per_file.items()):
-            if n > self.SHARD_CLAIM_CAP:
+            if n > cap:
                 print(f'⚠️ {fname} 收到 {n} 条 claim，超每维度上限 '
-                      f'{self.SHARD_CLAIM_CAP} 条：条数本身不进 verified 分子，只会把覆盖率'
+                      f'{cap} 条：条数本身不进 verified 分子，只会把覆盖率'
                       '分母撑大。挑最硬的 '
-                      f'{self.SHARD_CLAIM_CAP} 条留下（要带逐字引文），其余删除或按子主题拆维度'
+                      f'{cap} 条留下（要带逐字引文），其余删除或按子主题拆维度'
                       '重派，别放着等发布门来问', file=sys.stderr)
                 stats['over_cap'] = stats.get('over_cap', 0) + 1
         return stats['claims'], stats['sources']
@@ -1380,8 +1381,17 @@ def _main(argv: Optional[List[str]] = None) -> int:
         if not src:
             print('缺少 --dir <src_dir>', file=sys.stderr)
             return 2
+        cap_raw = _opt('--claim-cap')
+        cap = None
+        if cap_raw:
+            if not cap_raw.isdigit() or int(cap_raw) <= 0:
+                print(f'--claim-cap 要的是正整数（每条/维度），收到 "{cap_raw}"；'
+                      f'不带这个参数就按默认 {ResearchLedger.SHARD_CLAIM_CAP} 条',
+                      file=sys.stderr)
+                return 2
+            cap = int(cap_raw)
         try:
-            c, s = ledger.merge(src)
+            c, s = ledger.merge(src, claim_cap=cap)
         except FileNotFoundError as e:
             print(str(e), file=sys.stderr)
             return 2
