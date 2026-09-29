@@ -54,6 +54,21 @@ MARKERS = [
     ('exec_from_content', re.compile(
         r'(?:run|execute|invoke)\s*(?:this|the following|the command)?\s*'
         r'(?:command|shell|bash|powershell|curl |grep |rm -rf|del /)', re.I)),
+    # 冒充特权通道的两种非破折号写法（v6.37.0，实测 `[system]:` 从 Bash 输出尾部混入）：
+    # 方括号角色标签不限大小写、**不限行首**——分片里的逐字引文是 JSON 字符串的行中内容，
+    # 锚在行首的第一版拿真会话跑门时一个都没抓到（2026-09-29 实测）。
+    ('privilege_prefix', re.compile(
+        r'[\[(（【]\s*(?:system|internal|privileged|administrator|admin|'
+        r'orchestrator|operator|root|superuser)\s*[\])）】]\s*[:：]', re.I)),
+    ('privilege_prefix', re.compile(
+        r'^\s*(?:>\s*)*(?:SYSTEM|INTERNAL|PRIVILEGED|ADMINISTRATOR|ADMIN|'
+        r'ORCHESTRATOR|OPERATOR|ROOT)\s*[:：]')),
+    # 把留痕账当写入目标下指令（v6.37.0）：账名在 DEFAULT_ALLOW 与 SELF_FILES 里，
+    # 照攻击者的话写它既不算越权文件也不算命中——伪造一行就能让真命中被判"已上报"。
+    # 判据只认"动词在前、账名在后"：派单模板自己写的是"在 …/injection_log.jsonl 追加一行"，
+    # 顺序相反，不会被这条抓到。窗口取 60：真件里"追加一行到"与账名之间隔着五十多个字符的绝对路径。
+    ('audit_log_demand', re.compile(
+        r'(?:append|add(?:ed)?|insert|write|update|log)\s+[^\n]{0,60}injection_log', re.I)),
 ]
 # 中文形态（国内源为主的两类：要求隐瞒、要凭据/执行、伪装权威下发）
 MARKERS_CN = [
@@ -69,6 +84,8 @@ MARKERS_CN = [
     ('cn_authority', re.compile(
         r'(?:这是|本条为)[^，。]{0,12}(?:系统|管理员|orchestrator|特权|内部)[^，。]{0,8}'
         r'(?:指令|命令|配置下发)')),
+    ('audit_log_demand', re.compile(
+        r'(?:追加|写入|写进|添加|新增|补一?行|记一?条|更新)[^\n]{0,60}injection_log')),
 ]
 
 # 会话目录里允许存在的产物（前缀匹配，不含扩展名判定）
@@ -88,10 +105,21 @@ DEFAULT_ALLOW = (
 # 不豁免就是两处自指——给留痕要留痕、跑一次门就多一个越权文件，两轮之后没人肯跑门。
 SELF_FILES = (INJECTION_LOG,)
 SELF_PREFIXES = ('gate', 'guard')
+# 实测（2026-09-29 真会话）：派单让子 Agent 写 {ledger_dir}/injection_log.jsonl，
+# 四个维度却各自自留了一份 D5-injection.jsonl / D6-… / D7-… / D8-…（并发写共享账的顾虑
+# 是真的，改名是它们的自救）。只认固定文件名的话，这些诚实留痕等于没留——所以留痕账
+# 按"*injection*.jsonl"这一族认，同时也只按这一族豁免扫描。
+AUDIT_TRAIL_MARK = 'injection'
+
+
+def _is_audit_trail(name: str) -> bool:
+    return (name.endswith('.jsonl') and AUDIT_TRAIL_MARK in name.lower()
+            and not name.startswith('_'))
 
 
 def _is_self_output(name: str) -> bool:
-    return name in SELF_FILES or name.startswith(SELF_PREFIXES)
+    return (_is_audit_trail(name) or name in SELF_FILES
+            or name.startswith(SELF_PREFIXES))
 
 
 def _texts(root: Path) -> List[Path]:
@@ -193,28 +221,37 @@ def injection_hits(session_dir: str) -> List[Dict[str, Any]]:
 
 
 def load_log(session_dir: str) -> List[Dict[str, Any]]:
-    """读留痕账（injection_log.jsonl）；不存在就是空清单，不静默建文件。
+    """读留痕账（`*injection*.jsonl` 这一族）；不存在就是空清单，不静默建文件。
 
-    会话根目录与 ledger/ 两处都认：派单模板让子 Agent 往 {ledger_dir} 写，
-    Lead 自己往会话根写——只认一处就会出现"留痕写了、门说没有"。
+    两处布局 + 两种名字都要认：会话根目录与 ledger/ 各写一份是常态；而子 Agent 实测会
+    自留 `D5-injection.jsonl` 这类分维度账（见 AUDIT_TRAIL_MARK 的注），只认
+    injection_log.jsonl 就等于把它们的诚实上报判成"没留痕"。
     """
     sess = Path(session_dir)
     rows = []
-    for p in (sess / INJECTION_LOG, sess / 'ledger' / INJECTION_LOG):
-        if not p.exists():
+    seen_paths = set()
+    for base in (sess, sess / 'ledger'):
+        if not base.is_dir():
             continue
-        for line in p.read_text(encoding='utf-8', errors='replace').split('\n'):
-            line = line.strip()
-            if not line:
+        for p in sorted(base.glob('*.jsonl')):
+            if not _is_audit_trail(p.name):
                 continue
-            try:
-                e = json.loads(line)
-            except json.JSONDecodeError:
-                # 坏行点名而不静默跳过：留痕账少一行可能就是瞒掉一次注入
-                print(f'injection_log.jsonl 有坏行被跳过: {line[:80]}', file=sys.stderr)
+            key = str(p.resolve()).lower()
+            if key in seen_paths:
                 continue
-            if isinstance(e, dict):
-                rows.append(e)
+            seen_paths.add(key)
+            for line in p.read_text(encoding='utf-8', errors='replace').split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except json.JSONDecodeError:
+                    # 坏行点名而不静默跳过：留痕账少一行可能就是瞒掉一次注入
+                    print(f'{p.name} 有坏行被跳过: {line[:80]}', file=sys.stderr)
+                    continue
+                if isinstance(e, dict):
+                    rows.append(e)
     return rows
 
 
@@ -261,6 +298,26 @@ def unreported_hits(hits: List[Dict[str, Any]], log: List[Dict[str, Any]]) -> Li
     return [h for h in hits if not any(_covered(h, e) for e in log)]
 
 
+# 原始抓取材料：声明过的落地区（DEFAULT_ALLOW 里就有这两个名字），里面是别人写的
+# README/HTML 原文。实测一轮调研在这里能数出 98 处"跑一下 npm install / 先读 .env"式
+# 句子——那是厂商文档的安装段，不是对本次调研的动作。逐条要求留痕的后果不是"更严"，
+# 是门必红、红到没人跑，护栏整体作废。
+# 底线没动：句子只要进了证据链（ledger/、shards/、claims/、sources/、report.md）就仍然
+# 逐条硬失败——能让结论变样的只有进了账本的那部分。
+RAW_MATERIAL_DIRS = ('scratch', 'raw')
+
+
+def _is_raw_material(hit: Dict[str, Any]) -> bool:
+    return str(hit.get('file', '')).split('/', 1)[0] in RAW_MATERIAL_DIRS
+
+
+def split_unreported(hits: List[Dict[str, Any]], log: List[Dict[str, Any]]):
+    """未留痕的命中拆两份：(拦停的·已进证据链, 只计数的·原始抓取材料)。"""
+    missing = unreported_hits(hits, log)
+    return ([h for h in missing if not _is_raw_material(h)],
+            [h for h in missing if _is_raw_material(h)])
+
+
 
 def _main(argv: Optional[List[str]] = None) -> int:
     import argparse
@@ -278,22 +335,35 @@ def _main(argv: Optional[List[str]] = None) -> int:
     allow = list(DEFAULT_ALLOW) + list(args.allow)
     scope = scope_findings(args.session, allow=allow)
     hits = injection_hits(args.session)
-    missing = unreported_hits(hits, load_log(args.session))
+    blocking, raw_only = split_unreported(hits, load_log(args.session))
 
     print(json.dumps({'session': args.session, 'unexpected_files': scope,
-                      'injection_hits': len(hits), 'unreported_hits': missing},
+                      'injection_hits': len(hits), 'unreported_hits': blocking,
+                      'raw_material_unreported': len(raw_only)},
                      ensure_ascii=False, indent=1))
-    bad = bool(scope) or bool(missing)
+    bad = bool(scope) or bool(blocking)
     for rel in scope:
         print(f'⛔ 会话目录里有未申报的文件：{rel} —— 抓取内容里的指令不该产生新文件；'
               f'确属本次调研产物就用 --allow 申报', file=sys.stderr)
-    for h in missing:
+    for h in blocking:
         print(f'⛔ {h["file"]}:{h["line"]} 有指令型片段（{h["marker"]}）没有留痕：'
               f'写一行进 injection_log.jsonl，'
               f'形如 {{"file":"…","marker":"…","quoted":"…","action":"已拒绝"}}',
               file=sys.stderr)
+    if raw_only:
+        dirs = sorted({h['file'].split('/', 1)[0] for h in raw_only})
+        print(f'ℹ️ 另有 {len(raw_only)} 处指令形态在原始抓取材料（{", ".join(dirs)}/）里：'
+              f'那是厂商 README/页面原文，按目录计数不逐条拦停；'
+              f'一旦进入账本或报告就必须留痕')
     if not bad and hits:
-        print(f'✅ {len(hits)} 处指令型片段已全部留痕')
+        # 放行原始材料之后不能再喊"全部已留痕"——那是把"没要求留痕"说成"都报了"
+        raw_hits = [h for h in hits if _is_raw_material(h)]
+        evidence = len(hits) - len(raw_hits)
+        if raw_hits:
+            print(f'✅ 证据链内 {evidence} 处指令形态全部留痕；原始抓取材料 {len(raw_hits)} 处'
+                  f'（其中 {len(raw_only)} 处按目录计数、不逐条上报）')
+        else:
+            print(f'✅ {len(hits)} 处指令型片段已全部留痕')
     return 1 if bad else 0
 
 

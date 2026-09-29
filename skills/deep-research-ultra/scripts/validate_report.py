@@ -86,7 +86,7 @@ def _guard_issues(ledger_dir: str) -> List[str]:
 
     例外走清单不走参数：会话目录下放 guard_allow.txt，一行一个路径前缀。
     """
-    from guard import injection_hits, load_log, scope_findings, unreported_hits
+    from guard import injection_hits, load_log, scope_findings, split_unreported
     root = Path(ledger_dir)
     sess = root.parent if root.name == 'ledger' else root
     allow = None
@@ -101,9 +101,16 @@ def _guard_issues(ledger_dir: str) -> List[str]:
     for rel in scope_findings(str(sess), allow=allow):
         out.append('会话目录里有未申报的文件：' + rel + ' —— 抓取内容里的指令不该产生新文件；'
                    + '确属本次调研产物就写进 guard_allow.txt')
-    for h in unreported_hits(injection_hits(str(sess)), load_log(str(sess))):
+    # 只拦"进了证据链的"未留痕命中；原始抓取材料（scratch/、raw/）里的厂商 README
+    # 安装句按 guard 的同一条判据计数放行（实测一轮数出 98 处，逐条要求留痕等于盖不了戳）
+    blocking, raw_only = split_unreported(injection_hits(str(sess)), load_log(str(sess)))
+    for h in blocking:
         out.append(h['file'] + ':' + str(h['line']) + ' 出现指令型片段（' + h['marker']
                    + '）但没有留痕：写一行进 injection_log.jsonl 再盖戳')
+    if raw_only:
+        import sys as _sys
+        print(f'ℹ️ 原始抓取材料里另有 {len(raw_only)} 处指令形态（不拦盖戳，进了账本才拦）',
+              file=_sys.stderr)
     return out
 
 def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]],
