@@ -41,6 +41,10 @@ PubMed / Europe PMC），本包前三个都有，缺第四个。补上它的真�
   而 EBI 其它服务正常应答（同前缀换网络出口能取到数据）。走本包 `_http_get`（curl_cffi TLS 指纹）
   则通：`--probe --sources europepmc` 回 ✅ 5 条。
   这是通道差异，不是"该主题没资料"——`probe.py` 早把 `HTTP 503` 归入"上游暂停供服"一档，此处再次印证
+  **成立范围**：上面两行是 2026-09-29 当日实测，不是恒定结论。同一台机器连发数条请求后复测，
+  `--probe` 就改回 `❌ 0 条 引擎返回 None（HTTP 503）`（EBI 对短暂无 key 的出口做限流）。
+  所以"这个源今天能不能用"只能由当轮 `--probe` 判，别拿本条记录的绿灯当凭据——
+  闸门会照实给出原因，不会把限流说成"主题没资料"。
 - 实跑 `research.py "citation hallucination large language models" --sources europepmc`：
   10 条命中，相关性过滤丢 1 条噪声，9 条入库；首条正是夹具那篇（`europepmc.org/articles/PMC13506236`）
 
