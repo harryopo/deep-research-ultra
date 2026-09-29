@@ -15,6 +15,48 @@
 
 ---
 
+## v6.38.0（2026-09-29）— 第二轮实测清单：CVE 通道状态、许可证本体、改名标注与三类新伪装形态
+
+实测依据（2026-09-29 `D:\ai\FDE\docs\问题报告-调研注入与执行层缺陷-2026-09-29.md`，A12–A21）。
+逐条对当前内核复现后动手，其中 A20/A21 已在 v6.37.0 修好、本会话复测不复现；A15 与第 5 节属报告侧
+写作纪律，不是本包缺陷；A19（每维度 12 条上限）是取舍，没动。
+
+- **A14 CVE 恒 0 条**：根因比报告的归因更基础——OSV `/v1/query` 的返回键是 `vulns`，
+  `_scan_osv` 读的是 `data['vulnerabilities']`，所以永远空。当场三连实测钉死：直连
+  `PyPI:requests` 回 16 条，走本包回 0 条。另外生态名大小写敏感：`pypi` 被拒成
+  `invalid ecosystem`、`npm:requests` 回空对象，旧代码把这两种都当"0 条"。现在
+  ① 生态名折成规范形再发；② 条数与通道状态分开（新增 `cve_status` = ok/unknown/skipped）；
+  ③ 取到 0 条时用对照包 `PyPI:requests` 自证通道活着，自证不过就判 unknown；
+  ④ unknown 时 `overall` 不再停在 low，正文印"CVE 未取到（不是 0 个）"并给出重取路径。
+- **A17 许可证本体**：字段 `NOASSERTION` 过去直接进结论。现在强制回读 `/repos/{o}/{r}/license`
+  的正文，按正文标题与标志句重新判级，落 `license_field / license_effective / license_body_url`
+  三项；本体读不出 SPDX 名就写"许可证未证实"，不写 NOASSERTION。真件复测：`vercel/ai`
+  字段 NOASSERTION → 本体判 Apache-2.0、风险等级 permissive，并记下 raw LICENSE 的 URL。
+  字段本来就是明确 SPDX 时不多打一次请求（有测试当成本）。
+- **A16 改名仓库**：`facts.name` 一直是终态名（GitHub 返回新主人元数据），缺的是"我请求的是
+  旧路径"这一半。新增 `requested / renamed / rename_note`，正文印"路径核对"一行。真件复测：
+  请求 `princeton-nlp/SWE-bench` → 回 `SWE-bench/SWE-bench` 并标 renamed=True。
+- **A18 计划里的未配置引擎**：v6.36.0 只过滤了 `--route` 的建议 `--sources`，`--plan-only`
+  这条路径没接同一判据。新增 `plan.prune_unconfigured_sources()`，摘掉配置没就绪的引擎并点名，
+  摘完没有数据源剩下的节点单独报出来。真跑复测：同一条命令改前 6/8 节点写着 tavily，
+  改后输出 `⛔ 计划里已摘掉 tavily, websearch`。
+- **A13 归并份数**：维度自留的 `D5-injection.jsonl` 这类同族账过去被当分片——既计入"收到 N 份"，
+  又逐条打"记录没有 type 字段"的拒收。现在按 `*injection*.jsonl` 这一族排除（判据与 `guard`
+  同源，不再两处各写一套），回执分列"收到 N 份分片（另有 M 份留痕账已排除）"。
+  排除只作用于留痕账实际所在那一层：子目录里恰好同名的真分片照收（v6.15.4 那条教训有测试守着）。
+- **注入形态 14 → 16 种**：新增 `global_persistence`（要把 skill/偏好/记忆落进全局目录或全局记忆，
+  实测 MinerU 主 README 的 `npx skills add … --global --yes` + "save it under the global skills
+  directory, not in the current project" + "record this preference"）与 `persist_outside_project`
+  （"别写进当前项目"这类让持久化躲开人眼的配套话术）。判据要"祈使动词 + 全局落点 + 对象"同句，
+  不取"安装"这个动词——否则每篇 README 的安装段都成攻击；两条正向对照测试锁住
+  `npm install --save-dev` 与叙述性文字不许被抓。
+- **A12 派单硬句**：模板写死"写账本只能追加、禁止整写覆盖、别人的分片一律不碰"——实测本轮
+  一个子 Agent 用整文件写覆盖共享留痕账，抹掉了另一个已登记的 4 行。
+
+用例数 723→750（测试文件 66→72），页面合计 773→800。
+
+---
+
 ## v6.37.0（2026-09-29）— 两类伪装形态进了机械门
 
 实测依据（2026-09-29 端到端实跑，D8 维度上报）：子研究员的 Bash 输出**尾部**两次出现伪装成

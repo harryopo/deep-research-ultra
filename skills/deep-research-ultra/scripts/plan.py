@@ -35,7 +35,7 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Set, Tuple
 
 
 # ============================================================
@@ -849,6 +849,38 @@ class PlanGenerator:
 # ============================================================
 # CLI 入口
 # ============================================================
+
+def prune_unconfigured_sources(plan: 'ResearchPlan',
+                               configured: Set[str]) -> Tuple[List[str], List[str]]:
+    """把子问题数据源里"配置没就绪"的引擎摘掉，返回 (摘掉的引擎名, 被打空的子问题 id)。
+
+    为什么要有这一刀：`--plan-only` 的数据源是 DataSourceMatcher 按查询类型给的推荐链，
+    它不看本机有没有配 key。实测一轮里同会话 `--probe` 已判 tavily 缺 TAVILY_API_KEY，
+    计划仍有 6/8 个子问题的数据源写着 tavily——Lead 照计划派子 Agent，子 Agent 撞上去
+    就回 0 条，看起来搜过了，实际一条请求都没打出去。
+
+    被打空的子问题必须点名：留一行空数据源，Lead 会当成"这一路已经排好了"。
+    """
+    dropped: List[str] = []
+    emptied: List[str] = []
+
+    def walk(q: 'SubQuestion') -> None:
+        kept = []
+        for name in q.data_sources:
+            if name in configured:
+                kept.append(name)
+            elif name not in dropped:
+                dropped.append(name)
+        if q.data_sources and not kept:
+            emptied.append(q.id)
+        q.data_sources = kept
+        for child in q.children:
+            walk(child)
+
+    for root in plan.issue_tree:
+        walk(root)
+    return sorted(dropped), emptied
+
 
 def _main():
     """命令行入口：python plan.py <topic> [--depth standard]"""

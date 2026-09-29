@@ -525,7 +525,7 @@ def cmd_probe(registry, args):
 # 命令：--plan-only
 # ============================================================
 
-def cmd_plan_only(args):
+def cmd_plan_only(args, registry):
     """仅生成 MECE 计划（v6.0：含多视角 + 待确认清单）"""
     from plan import PlanGenerator, IssueTree
 
@@ -547,6 +547,20 @@ def cmd_plan_only(args):
         region=args.region or '',
         perspectives=perspectives,
     )
+
+    # 数据源里的"配置没就绪"引擎摘掉（A18：同会话 --probe 已判缺 key，计划却照写）
+    from plan import prune_unconfigured_sources
+    from probe import agent_invoked as _agent_invoked
+    _cfg = {e.get_name() for e in registry.get_configured()}
+    _cfg -= {e.get_name() for e in registry.get_all() if _agent_invoked(e)}
+    dropped, emptied = prune_unconfigured_sources(plan, _cfg)
+    if dropped:
+        print(f"   ⛔ 计划里已摘掉 {', '.join(dropped)}：这些引擎配置没就绪，"
+              f"照原样派子 Agent 会一路回 0 条（缺的变量 --probe 按引擎逐条打印去哪申请）",
+              file=sys.stderr)
+    if emptied:
+        print(f"   ⚠️ 摘完之后没有数据源剩下的子问题：{', '.join(emptied)}——"
+              f"派单前先给它们改配引擎或补 key，别空着派出去", file=sys.stderr)
 
     # 构建 IssueTree 对象以便验证和可视化
     tree = IssueTree()
@@ -1473,7 +1487,7 @@ v3 兼容（自动降级到 Layer 4）:
         if not args.query:
             print("❌ --plan-only 需要指定调研主题", file=sys.stderr)
             sys.exit(1)
-        cmd_plan_only(args)
+        cmd_plan_only(args, registry)
         return
 
     if not args.query:

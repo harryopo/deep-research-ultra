@@ -47,6 +47,71 @@ STRONG_COPYLEFT = {'gpl-2.0', 'gpl-3.0', 'agpl-3.0', 'gpl-2.0-only', 'gpl-3.0-on
                    'agpl-3.0-or-later', 'sspl-1.0', 'cc-by-sa-4.0'}
 
 
+def _spdx_from_body(text: str) -> str:
+    """从 LICENSE 正文判 SPDX 名（只认正文里的标题行与标志性句子）。"""
+    head = (text or '')[:4000].lower()
+    if not head.strip():
+        return ''
+    if 'gnu affero general public license' in head:
+        return 'AGPL-3.0'
+    if 'gnu lesser general public license' in head:
+        return 'LGPL-3.0' if 'version 3' in head else 'LGPL-2.1'
+    if 'gnu general public license' in head:
+        return 'GPL-3.0' if 'version 3' in head else 'GPL-2.0'
+    if 'apache license' in head and 'version 2' in head:
+        return 'Apache-2.0'
+    if 'mozilla public license' in head:
+        return 'MPL-2.0'
+    if 'mit license' in head or 'permission is hereby granted, free of charge' in head:
+        return 'MIT'
+    if 'bsd' in head:
+        return 'BSD'
+    if 'isc license' in head:
+        return 'ISC'
+    if 'the unlicense' in head or 'unlicense' in head:
+        return 'Unlicense'
+    return ''
+
+
+def _resolve_license_body(h: 'RepoHealth', headers: Dict[str, str]) -> None:
+    """字段判不出（NOASSERTION / Other / 空）时回读 LICENSE 本体。
+
+    实测 4 例（2026-09-29）：`vercel/ai`、`openai/evals` 字段是 NOASSERTION 而本体分别是
+    纯 Apache-2.0 与逐字 MIT；`neo4j-graphrag-python` 本体 Apache-2.0+PSF；
+    `modelcontextprotocol/typescript-sdk` 本体已从 MIT 迁到 Apache-2.0，npm 发布件里仍标 MIT。
+    字段说什么就印什么，等于把"GitHub 没识别出来"写成"这个件用的是 Other"。
+    """
+    field = (h.facts.get('license_field') or '').strip().lower()
+    if field not in ('', 'noassertion', 'other', 'no-license', 'unknown', 'null'):
+        h.facts['license_effective'] = h.facts.get('license')
+        return
+    if h.host != 'github':
+        h.facts['license_effective'] = ''
+        h.facts['license_note'] = f'许可证未证实（{h.host} 无本体端点，字段值 {field or "空"}）'
+        return
+    status, data = fetch_json(f'https://api.github.com/repos/{h.owner}/{h.repo}/license',
+                              headers)
+    body, url = '', ''
+    if status == 200 and isinstance(data, dict):
+        url = data.get('download_url') or (data.get('url') or '')
+        try:
+            import base64
+            body = base64.b64decode(data.get('content') or '').decode('utf-8', errors='replace')
+        except Exception:
+            body = ''
+    detected = _spdx_from_body(body)
+    if detected:
+        h.facts['license_effective'] = detected
+        h.facts['license_body_url'] = url
+        h.facts['license_note'] = f'字段 {field or "空"} 与本体不符，按本体判为 {detected}'
+    else:
+        h.facts['license_effective'] = ''
+        h.facts['license_body_url'] = url
+        h.facts['license_note'] = ('许可证未证实（字段 ' + (field or '空') +
+                                   ('，本体取回但读不出 SPDX 名' if url else '，且本体没取到') +
+                                   '）——写结论前先人工看 LICENSE 文件，不许抄字段值')
+
+
 def license_risk(spdx_id: str) -> Tuple[str, str]:
     """返回 (风险等级, 说明)。等级：permissive/weak/strong/unknown。"""
     s = (spdx_id or '').strip().lower()
@@ -144,6 +209,8 @@ class RepoHealth:
     risks: List[Dict[str, Any]] = field(default_factory=list)  # {level, category, detail}
     cves: List[Dict[str, Any]] = field(default_factory=list)   # OSV 结果
     package_health: Dict[str, Any] = field(default_factory=dict)  # yanked/deprecated
+    cve_status: str = 'skipped'     # skipped / ok / unknown —— 条数与通道状态分开记
+    cve_note: str = ''
 
     def add_risk(self, level: str, category: str, detail: str) -> None:
         self.risks.append({'level': level, 'category': category, 'detail': detail})
@@ -151,6 +218,9 @@ class RepoHealth:
     def overall(self) -> str:
         # 没查到就判 unknown：限流是我们的问题，不是仓库的风险
         if self.verdict in UNVERIFIED:
+            return 'unknown'
+        # CVE 通道没取到时也不能停在 low：`cves: [] + overall: low` 会被下游照抄成"无已知漏洞"
+        if self.cve_status == 'unknown':
             return 'unknown'
         if any(r['level'] == 'high' for r in self.risks):
             return 'high'
@@ -197,6 +267,7 @@ def scan_repo(ref: str, with_cve_package: Optional[str] = None) -> RepoHealth:
 
     h.facts = {
         'name': data.get('full_name') or f'{h.owner}/{h.repo}',
+        'requested': f'{h.owner}/{h.repo}',
         'description': (data.get('description') or '')[:200],
         'language': data.get('language'),
         'stars': stars,
@@ -205,7 +276,21 @@ def scan_repo(ref: str, with_cve_package: Optional[str] = None) -> RepoHealth:
         'pushed_at': pushed,
         'archived': bool(data.get('archived', False)),
         'license': license_spdx or 'unknown',
+        'license_field': license_spdx,
+        'license_body_url': '',
+        'license_effective': license_spdx,
+        'license_note': '',
     }
+
+    # 改名仓库：GitHub 会把旧路径直接返回新主人的元数据，所以 facts['name'] 本来就是终态。
+    # 但 Lead 手里那条 URL 还是旧的——不写出"请求的是哪个"，旧链接就靠"已核对"的错觉
+    # 混进引用清单（实测本轮三件 org 迁移、一件 404 无重定向）。
+    resolved = (data.get('full_name') or '').strip().lower()
+    h.facts['renamed'] = bool(resolved) and resolved != f'{h.owner}/{h.repo}'.strip().lower()
+    if h.facts['renamed']:
+        h.facts['rename_note'] = (f'请求路径 {h.owner}/{h.repo} 已由仓库自报为 '
+                                  f'{data.get("full_name")}（改名/迁移）——'
+                                  '引用请改写成终态，旧 URL 随时可能断')
 
     # --- 维护状态（防停更/弃坑）---
     if pushed:
@@ -226,45 +311,120 @@ def scan_repo(ref: str, with_cve_package: Optional[str] = None) -> RepoHealth:
     if isinstance(stars, int) and stars < 10 and not h.facts.get('archived'):
         h.add_risk('medium', 'adoption', f'Star 仅 {stars}，社区采用度极低，注意试错成本')
 
-    # --- 许可证（合规）---
-    level, note = license_risk(license_spdx)
+    # --- 许可证（合规）：字段判不出就读本体，判据按本体结果下 ---
+    h.facts['license_field'] = license_spdx
+    _resolve_license_body(h, headers)
+    lic_effective = h.facts.get('license_effective') or ''
+    level, note = license_risk(lic_effective)
+    if not lic_effective:
+        level, note = 'unknown', h.facts.get('license_note') or note
     h.facts['license_risk'] = level
     if level == 'strong':
-        h.add_risk('high', 'license', f'{license_spdx or "未知许可"}：{note}')
+        h.add_risk('high', 'license', f'{lic_effective or "未知许可"}：{note}')
     elif level == 'weak':
-        h.add_risk('medium', 'license', f'{license_spdx}：{note}')
+        h.add_risk('medium', 'license', f'{lic_effective}：{note}')
     elif level == 'unknown':
         h.add_risk('medium', 'license', note)
 
     # --- 安全（OSV，按包可选）---
     if with_cve_package:
-        sch = _scan_osv(with_cve_package)
-        h.cves = sch.get('vulns', [])
-        h.package_health = sch.get('package', {})
-        if h.cves:
-            h.add_risk('medium', 'security',
-                       f'OSV 检出 {len(h.cves)} 个已知漏洞（含 {h.cves[0].get("id", "?")} 等）')
+        _apply_osv(h, with_cve_package)
 
     return h
 
 
+def _apply_osv(h: 'RepoHealth', pkg_ref: str) -> Dict[str, Any]:
+    """把一发 OSV 查询落到健康结构上：条数与通道状态分开，取不到就进风险清单。"""
+    sch = _scan_osv(pkg_ref)
+    h.cves = sch.get('vulns', [])
+    h.package_health = sch.get('package', {})
+    h.cve_status = sch.get('status', 'unknown')
+    h.cve_note = sch.get('note', '')
+    if h.cve_status == 'unknown':
+        h.add_risk('unknown', 'security',
+                   f'CVE 未取到（不是 0 个）：{h.cve_note or "OSV 回执不可判定"}'
+                   f'——别把这一路的空列表写进结论')
+    elif h.cves:
+        h.add_risk('medium', 'security',
+                   f'OSV 检出 {len(h.cves)} 个已知漏洞（含 {h.cves[0].get("id", "?")} 等）')
+    return sch
+
+
+_OSV_ECOSYSTEMS = {
+    'pypi': 'PyPI', 'npm': 'npm', 'nuget': 'NuGet', 'go': 'Go',
+    'crates.io': 'crates.io', 'crates': 'crates.io', 'rubygems': 'RubyGems',
+    'ruby': 'RubyGems', 'maven': 'Maven', 'packagist': 'Packagist',
+    'pub': 'pub', 'hugging face': 'Hugging Face', 'huggingface': 'Hugging Face',
+    'android': 'Android', 'osv': 'OSV', 'linux': 'Linux',
+}
+
+
+def _canon_ecosystem(raw: str) -> str:
+    """把用户写的生态名折成 OSV 认的规范形。
+
+    实测（2026-09-29）：OSV 对大小写敏感——`PyPI` 正常返回，`pypi` 直接 400
+    `invalid ecosystem`，而旧代码把这个拒答当成"0 条 CVE"写进结论。
+    """
+    key = (raw or '').strip().lower()
+    return _OSV_ECOSYSTEMS.get(key, (raw or '').strip())
+
+
+def _osv_vulns(payload: Any) -> Tuple[Optional[List[Dict[str, Any]]], str]:
+    """把一发 OSV 回执拆成 (条目列表 | None, 说明)。None 就是"这一发没取到"。"""
+    if payload is None:
+        return None, 'OSV 请求未成功（网络或 5xx）'
+    if not isinstance(payload, dict):
+        return None, f'OSV 返回形态不认识：{type(payload).__name__}'
+    if 'code' in payload or 'message' in payload:
+        return None, f"OSV 拒答：{payload.get('message') or payload.get('code')}"
+    # 键名是 vulns（实测）；vulnerabilities 是别处文档里的叫法，留着兜底但不当主路
+    for key in ('vulns', 'vulnerabilities'):
+        if isinstance(payload.get(key), list):
+            return payload[key], ''
+    return None, 'OSV 回执里没有 vulns 字段，无法判定是 0 条还是没取到'
+
+
 def _scan_osv(pkg_ref: str) -> Dict[str, Any]:
-    """OSV 查询：ref 形如 npm:vue 或 PyPI:requests。"""
+    """OSV 查询：ref 形如 npm:vue 或 PyPI:requests。
+
+    通道状态与命中条数分开报——`cves: []` + `overall: low` 会被下游照抄成"无已知漏洞"，
+    而实测这条路径上三种成因（键名读错／生态名被拒／请求失败）长得一模一样。
+    """
     if ':' not in pkg_ref:
         pkg_ref = f'pypi:{pkg_ref}'
     ecosystem, _, name = pkg_ref.partition(':')
-    data = _post_json('https://api.osv.dev/v1/query',
-                      {'package': {'ecosystem': ecosystem.strip(), 'name': name.strip()}})
-    vulns = []
-    if data and isinstance(data.get('vulnerabilities'), list):
-        for v in data['vulnerabilities'][:10]:
-            vulns.append({
-                'id': v.get('id', ''),
-                'aliases': (v.get('aliases') or [])[:3],
-                'summary': (v.get('summary') or '')[:160],
-                'severity': _osv_severity(v),
-            })
-    return {'package': {'ecosystem': ecosystem, 'name': name}, 'vulns': vulns}
+    eco = _canon_ecosystem(ecosystem)
+    payload = {'package': {'ecosystem': eco, 'name': name.strip()}}
+    raw, vulns, note = None, None, ''
+    got, why = _osv_vulns(_post_json('https://api.osv.dev/v1/query', payload))
+    if got is None:
+        note = why
+    elif got:
+        vulns = [_shape_osv_vuln(v) for v in got[:10]]
+        note = f'OSV 取到 {len(got)} 条' + ('（已截前 10）' if len(got) > 10 else '')
+    else:
+        # 0 条要先自证通道活着：对照包是当日实测必回 16 条的组合
+        canary, why = _osv_vulns(_post_json('https://api.osv.dev/v1/query', {
+            'package': {'ecosystem': 'PyPI', 'name': 'requests'}}))
+        if canary is None or not canary:
+            note = f'本查询 0 条，但对照包 PyPI:requests 同样取不到（{why or "回执为空"}）' \
+                   f'——OSV 这一发不可信，0 条不许当结论'
+        else:
+            vulns = []
+            note = f'0 条，已用对照包自证通道正常（PyPI:requests 同批取到 {len(canary)} 条）'
+    return {'package': {'ecosystem': eco, 'name': name.strip(),
+                        'requested_ecosystem': ecosystem.strip()},
+            'vulns': vulns or [], 'status': 'unknown' if vulns is None else 'ok',
+            'note': note}
+
+
+def _shape_osv_vuln(v: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        'id': v.get('id', ''),
+        'aliases': (v.get('aliases') or [])[:3],
+        'summary': (v.get('summary') or '')[:160],
+        'severity': _osv_severity(v),
+    }
 
 
 def _osv_severity(v: Dict[str, Any]) -> str:
@@ -312,13 +472,25 @@ def build_markdown(h: RepoHealth) -> str:
     lines.append('|----|----|')
     f = h.facts
     lines.append(f'| 描述 | {f.get("description") or "-"} |')
+    if f.get('rename_note'):
+        lines.append(f'| 路径核对 | 🔴 {f.get("rename_note")} |')
     lines.append(f'| 语言 | {f.get("language") or "-"} |')
     lines.append(f'| Star | {f.get("stars") if f.get("stars") is not None else "-"} |')
     lines.append(f'| Fork | {f.get("forks") if f.get("forks") is not None else "-"} |')
     lines.append(f'| Open Issues | {f.get("open_issues") if f.get("open_issues") is not None else "-"} |')
     lines.append(f'| 最近提交 | {f.get("pushed_at") or "-"}（{f.get("days_since_push", "-")} 天前） |')
     lines.append(f'| 已归档 | {"是（停更）" if f.get("archived") else "否"} |')
-    lines.append(f'| 许可证 | {f.get("license")}（{f.get("license_risk", "-")}） |')
+    lic_eff = f.get('license_effective') or ''
+    lic_field = f.get('license_field') or ''
+    lic_show = lic_eff or '未证实'
+    if lic_field and lic_eff and lic_field.lower() != lic_eff.lower():
+        lic_show = f'{lic_eff}（字段写 {lic_field}，按 LICENSE 本体）'
+    lic_url = f.get('license_body_url') or ''
+    lic_note = f.get('license_note') or ''
+    lines.append(f'| 许可证 | {lic_show}（{f.get("license_risk", "-")}） |')
+    if lic_note:
+        lines.append(f'| 许可证备注 | {lic_note}'
+                     + (f'　本体：{lic_url}' if lic_url else '') + ' |')
     lines.append('')
     lines.append('### 风险清单')
     if not h.risks:
@@ -329,10 +501,21 @@ def build_markdown(h: RepoHealth) -> str:
     if h.risks:
         lines.append(f'\n**综合风险等级：{h.overall().upper()}**')
     lines.append('')
-    if h.cves:
+    if h.cve_status == 'unknown':
+        lines.append('## 已知安全漏洞（OSV）')
+        lines.append(f'- ⚠️ **CVE 未取到（不是 0 个）**：{h.cve_note or "OSV 回执不可判定"}')
+        lines.append('- 需要 CVE 数字时：直接打 `api.osv.dev/v1/query` 或 GitHub Advisory，'
+                     '把请求体与返回条数一起记进证据，别引用本节的空结果')
+        lines.append('')
+    elif h.cves:
         lines.append(f'## 已知安全漏洞（OSV，{len(h.cves)} 个）')
         for c in h.cves:
             lines.append(f"- `{c['id']}` 严重度:{c['severity']} {c['summary']}")
+        lines.append('')
+    elif h.cve_status == 'ok':
+        lines.append('## 已知安全漏洞（OSV，0 个）')
+        lines.append(f'- 查询：`{h.package_health.get("ecosystem")}:{h.package_health.get("name")}`'
+                     f' 未列已知漏洞（{h.cve_note}）')
         lines.append('')
     lines.append('---')
     lines.append('> 说明：本扫描提供"事实与部分风险信号"；技术适配性、二次开发成本、')
@@ -358,6 +541,7 @@ def _main(argv: Optional[List[str]] = None) -> int:
             'verdict': h.verdict, 'http_status': h.http_status, 'anonymous': h.anonymous,
             'detected_at': h.detected_at, 'facts': h.facts,
             'risks': h.risks, 'cves': h.cves,
+            'cve_status': h.cve_status, 'cve_note': h.cve_note,
             'package_health': h.package_health, 'overall': h.overall(),
         }, ensure_ascii=False, indent=2))
     else:

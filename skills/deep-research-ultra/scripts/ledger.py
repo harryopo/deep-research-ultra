@@ -38,9 +38,13 @@ except ImportError:
     effective_independent_count = lambda srcs, **kw: len(srcs)  # type: ignore
 
 try:
-    from guard import INJECTION_LOG
+    from guard import INJECTION_LOG, is_audit_trail
 except ImportError:  # 独立运行/测试无 guard 时用同一个默认名
     INJECTION_LOG = 'injection_log.jsonl'
+
+    def is_audit_trail(name: str) -> bool:      # type: ignore[misc]
+        return (str(name).endswith('.jsonl') and 'injection' in str(name).lower()
+                and not str(name).startswith('_'))
 
 VALID_STATUS = {'pending', 'searching', 'verified', 'conflict', 'supplementing', 'completed'}
 
@@ -925,7 +929,8 @@ class ResearchLedger:
         让"有多少噪声被挡在门外"看得见，而不是静默变少。
         """
         src = Path(src_dir)
-        stats = {'files': 0, 'claims': 0, 'sources': 0, 'deduped': 0, 'rejected': 0}
+        stats = {'files': 0, 'claims': 0, 'sources': 0, 'deduped': 0, 'rejected': 0,
+                 'trails': 0}
         self.last_merge = stats
         if not src.exists():
             raise FileNotFoundError(
@@ -937,8 +942,19 @@ class ResearchLedger:
             # --dir 与 --session 同目录是 SKILL.md 写的标准用法，此时 rglob 会扫到
             # 账本自己的文件——它们是合并的结果，不是子 Agent 的产物
             own = self._own_paths()
-            files = [f for f in sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json'))
-                     if os.path.normcase(str(f.resolve())) not in own]
+            candidates = [f for f in sorted(src.rglob('*.jsonl')) + sorted(src.rglob('*.json'))
+                          if os.path.normcase(str(f.resolve())) not in own]
+            # 留痕账（含各维度自留的 D5-injection.jsonl 这一族）不是分片：它们记录的是
+            # "谁尝试了什么"，逐条按 claim 判形状必然全被拒收，还会把份数顶得对不上派发路数。
+            # 只跳留痕账实际待的那一层（账本目录与会话目录直属）：子目录里叫这个名字的文件
+            # 按 v6.15.4 的教训是真分片，按名字全域跳会把产物静默吞掉。
+            trail_dirs = {self.root.resolve(),
+                          (self.root.parent if self.root.name == 'ledger'
+                           else self.root).resolve()}
+            trails = [f for f in candidates
+                      if is_audit_trail(f.name) and f.parent.resolve() in trail_dirs]
+            self.last_merge['trails'] = len(trails)
+            files = [f for f in candidates if f not in trails]
         stats['files'] = len(files)
         if not files:
             print(f'{src} 下没有 *.json / *.jsonl 分片，本次没有可合并的子产物',
@@ -1372,7 +1388,9 @@ def _main(argv: Optional[List[str]] = None) -> int:
         st = ledger.last_merge
         if not st['files']:
             return 0        # 一份分片都没看见，别再打一行像是成功 receipts 的统计
-        print(f'合并完成：收到 {st["files"]} 份分片，新增 claim {c} 条，source {s} 条，'
+        print(f'合并完成：收到 {st["files"]} 份分片'
+              + (f'（另有 {st["trails"]} 份留痕账已排除，不当分片）' if st.get('trails') else '')
+              + f'，新增 claim {c} 条，source {s} 条，'
               f'去重 {st["deduped"]} 条，拒收 {st["rejected"]} 条'
               '（拒收＝点不回原文、缺类型或编码不对的记录，不会进账本；逐条原因已按文件名打在 stderr）')
         return 0

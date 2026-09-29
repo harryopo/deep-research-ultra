@@ -69,6 +69,22 @@ MARKERS = [
     # 顺序相反，不会被这条抓到。窗口取 60：真件里"追加一行到"与账名之间隔着五十多个字符的绝对路径。
     ('audit_log_demand', re.compile(
         r'(?:append|add(?:ed)?|insert|write|update|log)\s+[^\n]{0,60}injection_log', re.I)),
+    # 要把东西落到"全局"的形态（v6.38.0，实测 MinerU 主 README）：一次性执行命令还能被看见，
+    # 落进全局 skill 目录 / 全局记忆就是跨会话长期生效的偏好，等于持久后门。
+    # 判据取"祈使动词 + 全局落点 + skill/记忆/配置这类对象"三者同句，不取"安装"这个动词——
+    # 否则每一篇 README 的安装段都成攻击。
+    ('global_persistence', re.compile(
+        r'(?:install|add|save|write|copy|place|put|record)\b[^\n]{0,80}'
+        r'\b(?:global|user-level|system-wide|per-user)\b[^\n]{0,40}'
+        r'\b(?:skills?|memor(?:y|ies)|settings|config(?:uration)?|directori(?:es|y))\b', re.I)),
+    ('global_persistence', re.compile(
+        r'\b(?:global memory|global memor(?:y|ies)|global skills? director(?:y|ies)'
+        r'|global (?:skill|agent) config)\b', re.I)),
+    # "别写进当前项目"是让持久化躲开人眼的配套话术，单独一条
+    ('persist_outside_project', re.compile(
+        r'\b(?:do not|don\'t|never|not|instead of)\b[^\n]{0,36}\b(?:in|to|into|under)\s+'
+        r'\b(?:the|this|your)\s+(?:current|project(?:\'s)?)\s*(?:directory|project|folder|repo)\b',
+        re.I)),
 ]
 # 中文形态（国内源为主的两类：要求隐瞒、要凭据/执行、伪装权威下发）
 MARKERS_CN = [
@@ -86,6 +102,12 @@ MARKERS_CN = [
         r'(?:指令|命令|配置下发)')),
     ('audit_log_demand', re.compile(
         r'(?:追加|写入|写进|添加|新增|补一?行|记一?条|更新)[^\n]{0,60}injection_log')),
+    ('global_persistence', re.compile(
+        r'(?:安装|写入|写进|记入|记录|保存|放到|存到|存进)[^\n]{0,20}'
+        r'(?:全局|用户级|所有项目)[^\n]{0,16}(?:skill|技能|记忆|配置|目录)')),
+    ('persist_outside_project', re.compile(
+        r'(?:不要|别|切勿|请勿|不得)[^\n]{0,12}(?:写进|写入|放到|存进|保存进)[^\n]{0,12}'
+        r'(?:当前|本|该|项目)(?:项目|目录|仓库|文件夹)')),
 ]
 
 # 会话目录里允许存在的产物（前缀匹配，不含扩展名判定）
@@ -112,13 +134,18 @@ SELF_PREFIXES = ('gate', 'guard')
 AUDIT_TRAIL_MARK = 'injection'
 
 
-def _is_audit_trail(name: str) -> bool:
+def is_audit_trail(name: str) -> bool:
+    """留痕账这一族：主账 injection_log.jsonl 与各维度自留的 D5-injection.jsonl 等。
+
+    ledger.merge 也 import 这同一个判据——两处各写一套的话，"门认的留痕账"与
+    "归并跳过的留痕账"就会漂移（实测过只认固定文件名的版本把维度自留账当分片拒收）。
+    """
     return (name.endswith('.jsonl') and AUDIT_TRAIL_MARK in name.lower()
             and not name.startswith('_'))
 
 
 def _is_self_output(name: str) -> bool:
-    return (_is_audit_trail(name) or name in SELF_FILES
+    return (is_audit_trail(name) or name in SELF_FILES
             or name.startswith(SELF_PREFIXES))
 
 
@@ -234,7 +261,7 @@ def load_log(session_dir: str) -> List[Dict[str, Any]]:
         if not base.is_dir():
             continue
         for p in sorted(base.glob('*.jsonl')):
-            if not _is_audit_trail(p.name):
+            if not is_audit_trail(p.name):
                 continue
             key = str(p.resolve()).lower()
             if key in seen_paths:
