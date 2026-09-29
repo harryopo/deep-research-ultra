@@ -43,6 +43,7 @@ PROBE_QUERIES: Dict[str, str] = {
     'semantic-scholar': 'retrieval augmented generation',
     'pubmed': 'diabetes',
     'europepmc': 'diabetes',   # 与 pubmed 同词；该接口对常用医学词命中量级够（实测 'hallucination' hitCount 21499）
+    'crossref': 'retrieval augmented generation',   # 实测本机直发 HTTP 200，total-results 259784
     'arxiv-fulltext': 'cat:cs.CL',   # 宽查询（如 transformer）实测被 arXiv 判 406，探针用分类查询
     's2-citation-graph': 'retrieval augmented generation',  # search() 委托 S2，实测匿名被 429 限流
     # Layer 1 MCP（要连 server；单次预算见 MCP_PROBE_BUDGET）

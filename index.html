@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Deep Research Ultra — 可溯源的超级深度调研 · v7.0.0</title>
-<meta name="description" content="33 个数据源、四层架构的深度调研编排层：证据账本溯源、来源分级、发布前校验门与环境闸门。Python 3.10+，一个第三方依赖，解包即用。">
+<meta name="description" content="34 个数据源、四层架构的深度调研编排层：证据账本溯源、来源分级、发布前校验门与环境闸门。Python 3.10+，一个第三方依赖，解包即用。">
 <meta name="theme-color" content="#0c0e10">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -189,7 +189,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
     <span class="rise" style="animation-delay:.27s">做成<span class="u">能溯源</span>的档案</span>
   </h1>
   <p class="lede rise" style="animation-delay:.4s">
-    Lead Agent 并行派发子 Agent 检索 <b>33 个数据源</b>，每条结论落成 claim 挂上一手来源与 Tier 分级；
+    Lead Agent 并行派发子 Agent 检索 <b>34 个数据源</b>，每条结论落成 claim 挂上一手来源与 Tier 分级；
     发布前过机器校验门并盖防伪戳——<b>没戳就等于没校验</b>。环境不足时硬停并给出配置指引，不静默降级开跑。
   </p>
   <div class="acts rise" style="animation-delay:.5s">
@@ -200,7 +200,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
   <div class="meta rise" style="animation-delay:.6s">
     <div><strong>32</strong><span>数据源 · 四层</span></div>
     <div><strong>4</strong><span>阶段范式 PESR</span></div>
-    <div><strong>834</strong><span>项测试，解包后实测</span></div>
+    <div><strong>852</strong><span>项测试，解包后实测</span></div>
     <div><strong>1</strong><span>个第三方依赖（ddgs）</span></div>
     <div><strong>3.10+</strong><span>Python 版本要求</span></div>
   </div>
@@ -228,16 +228,16 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
 
 <section id="sources"><div class="wrap">
   <div class="sechead" data-rv><div class="num">02</div><div>
-    <h2>33 个数据源，按四层分级调用</h2>
+    <h2>34 个数据源，按四层分级调用</h2>
     <p>下面的清单与计数来自 <span class="mono">research.py --list</span> 的实际输出。虚线框的那批要先配 key 才解锁。</p>
   </div></div>
   <div class="layers" data-rv>
     <div class="layer"><div class="tag">L1</div><div>
-      <h3>MCP 服务器 + 学术直连<span class="cnt">12 个</span></h3>
+      <h3>MCP 服务器 + 学术直连<span class="cnt">13 个</span></h3>
       <div class="sub">优先走带全文与引用图谱的学术通道，同行评审论文稳定落进高 Tier</div>
       <div class="chips">
         <span class="chip">OpenAlex 474M+</span><span class="chip">Semantic Scholar</span><span class="chip">PubMed</span>
-        <span class="chip">Europe PMC 全文</span>
+        <span class="chip">Europe PMC 全文</span><span class="chip">Crossref DOI</span>
         <span class="chip">arXiv 全文</span><span class="chip">Unpaywall OA</span><span class="chip">引用图谱</span>
         <span class="chip key">Tavily</span><span class="chip key">Firecrawl</span><span class="chip">open-websearch</span>
         <span class="chip">paper-search</span><span class="chip">arXiv 搜索</span>
@@ -264,7 +264,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
       <div class="chips"><span class="chip">DuckDuckGo (ddgs)</span><span class="chip key">SearXNG</span><span class="chip">百度 HTML</span><span class="chip">Bing HTML</span></div>
     </div></div>
   </div>
-  <p class="legend" data-rv>33 个源里 <b>5 个</b>要先配 key 或服务，其余 <b>28 个</b>开箱即用——这个分配只取决于配置，用 <span class="mono">--list</span> 查一次就是定数。至于某个源此刻到底还出不出数据，那是 <span class="mono">--probe</span> 的实测范围，别拿静态数字当结论。</p>
+  <p class="legend" data-rv>34 个源里 <b>5 个</b>要先配 key 或服务，其余 <b>29 个</b>开箱即用——这个分配只取决于配置，用 <span class="mono">--list</span> 查一次就是定数。至于某个源此刻到底还出不出数据，那是 <span class="mono">--probe</span> 的实测范围，别拿静态数字当结论。</p>
 </div></section>
 
 <section id="gates"><div class="wrap">
@@ -330,7 +330,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
     <div class="r">
       <div class="fact"><span>文件</span><b>deep-research-ultra-v7.0.0.zip</b></div>
       <div class="fact"><span>内容</span><b>源码 + 校验脚本 + 全量测试</b></div>
-      <div class="fact"><span>内核版本</span><b>6.41.0</b></div>
+      <div class="fact"><span>内核版本</span><b>6.42.0</b></div>
       <div class="fact"><span>插件壳版本</span><b>7.0.0</b></div>
       <div class="fact" style="border:0"><span>许可</span><b>MIT</b></div>
     </div>
@@ -338,7 +338,7 @@ footer{border-top:1px solid var(--rule);padding:38px 0 46px;margin-top:40px}
 </div></section>
 
 <footer><div class="wrap f">
-  <span>◍ Deep Research Ultra · 内核 6.41.0 / 插件壳 7.0.0</span>
+  <span>◍ Deep Research Ultra · 内核 6.42.0 / 插件壳 7.0.0</span>
   <span class="lk"><a href="https://github.com/harryopo/deep-research-ultra">GitHub</a><a href="https://github.com/harryopo/deep-research-ultra/releases">Releases</a><a href="#top">回到顶部</a></span>
   <span>© 2026 harryopo · MIT License</span>
 </div></footer>

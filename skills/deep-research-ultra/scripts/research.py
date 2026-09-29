@@ -82,6 +82,7 @@ def build_registry():
         TavilyMcpEngine, FirecrawlMcpEngine, OpenWebsearchMcpEngine,
         ArxivMcpEngine, PaperSearchMcpEngine,
         OpenAlexEngine, SemanticScholarEngine, PubmedEngine, EuropePmcEngine,
+        CrossrefEngine,
         ArxivFulltextEngine, UnpaywallEngine, CitationGraphEngine,
         AgentReachEngine, OssFinderEngine, Last30DaysEngine,
         SciverseEngine, DefuddleEngine, Context7Engine,
@@ -102,6 +103,8 @@ def build_registry():
         OpenAlexEngine, SemanticScholarEngine, PubmedEngine,
         # Layer 1: Europe PMC（v6.41 新增：唯一能给开放获取全文直链的学术源）
         EuropePmcEngine,
+        # Layer 1: Crossref（v6.42 新增：DOI 注册方，带出版方落地页与引用数）
+        CrossrefEngine,
         # Layer 1: 学术全文+引用图谱（v5.1 新增）
         ArxivFulltextEngine, UnpaywallEngine, CitationGraphEngine,
         # Layer 2: Skill

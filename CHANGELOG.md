@@ -15,6 +15,46 @@
 
 ---
 
+## v6.42.0（2026-09-29）— 新增 Crossref 引擎；派单模板补上"默认走官方 API"通道规则
+
+第三份流程清单问题 5 推荐的学术检索默认路径是 Crossref / OpenAlex / PubMed / Europe PMC，
+v6.41 补了 Europe PMC，这次补 Crossref——它是 **DOI 的注册方**，其余学术源的 DOI 最终都指向它。
+加它的实际收益不是"多一路命中"，而是 `resource.primary.URL` 给的是**出版方落地页**
+（实测 ACL 那条回 `aclweb.org/anthology/...`）：与 Crossref 自己的 `doi.org` 链接是同一制品的两条通道，
+档 B 反查正好缺这种"换个域名读同一篇"的材料。
+
+**取证（2026-09-29，本机直发，`message-version` 1.0.0）**
+- 两条逐字真件做夹具：期刊论文（有 JATS 摘要 + 两条 license + ORCID + 精确到日）、
+  会议论文（**无** abstract、**无** license、`issued.date-parts` 只有 `[2020]`、有 `page`、affiliation 空数组）
+- 同批实测到：会议名里带 `&amp;` 实体（Optuna 那条）；`total-results` 量级 259784
+- **两次 HTTP 400 是我自己写错参数造成的**：第一次 `select` 里混了不存在的字段，
+  第二次只给 `order=relevance` 没配 `sort`。去掉之后 200。是按"空结果先怀疑检索式"这条走才定位到的，
+  没有把它写成"Crossref 不可用"
+- **键名坑**：总数是 `message.total-results`。写成 `totalResults` 不报错、不异常，
+  只会静默变成"0 条"——正是本包反复在修的那类"缺项印成 0"。测试里单独立一条把键名钉死
+
+**新增**
+- `crossref`（Layer 1，`requires_config=False`；可选 `CROSSREF_MAILTO` 进 polite pool，
+  实测不配也回 200，所以不当阻塞项）：`url` 用接口自己给的 `URL`（doi.org），
+  `raw` 归一 `venue/issn/citation_count/doi(裸)/publisher_url/license_url/work_type/page/indexed_version`
+- 日期按精度放行：`[[2026,7,15]]`→`2026-07-15`、`[[2020]]`→`2020`，**只有年份的不补成 01-01**
+- 正文清洗顺序定为"先删标签→再解实体"：真件里既有字面 `<jats:p>`，又有表示小于号的 `&lt;`，
+  反过来解出的 `<` 会被下一步当标签吃掉（`_strip_html` 现在 Europe PMC 与 Crossref 共用）
+- license 取 `vor` 不取 `tdm`：报告要说的是读者能拿到的那份许可，tdm 是给机器挖掘的
+- 接线：注册表、`PROBE_QUERIES`、`ENGINE_CHAIN_MAP['academic']`（排在 semantic-scholar 之后）
+- 派单模板新增 **5d 通道规则**（收口清单问题 5 与 6）：论文走官方 API、
+  仓库元数据用 `gh api` 而非匿名 `curl`（实测匿名 403 / 60 次每小时），只有"网页此刻怎么说"才用 WebSearch
+
+**跨源对账实测**：`10.1002/ca.70187` 这篇同时被 Europe PMC（回 `doi.org` 链接）与 Crossref 命中，
+两条来源域名不同、DOI 相同——档 B 的跨标识符判等正好吃到这条。
+
+**计数变化**：数据源 33 → 34（Layer 1 12 → 13）｜无需配置 28 → 29 ｜
+可搜索 28 → 29 ｜已登记探针 22 → 23 ｜测试 834 → **852**（+18）。
+上一版给 SKILL/README 计数加的那条钉这次立刻见效：改完全量测试红 4 条，
+逐条点名的正是"页面 chip 33≠34、四层 12≠13、SKILL 写 (33,28,22) 而注册表是 (34,29,23)"。
+
+---
+
 ## v6.41.0（2026-09-29）— 新增 Europe PMC 引擎，并把文档里的数据源计数钉到注册表上
 
 来自第三份流程清单问题 5 的另一半：学术检索的默认路径应当是官方 API（Crossref / OpenAlex /

@@ -6,6 +6,7 @@ Deep Research Ultra v4.0 — Layer 1: 学术直连引擎层
 - SemanticScholarEngine: AI2 语义学术（200M+ 论文，含 TLDR 与 influential citations）
 - PubmedEngine: NCBI PubMed 医学文献（36M+ 医学文献，含 MeSH 词表）
 - EuropePmcEngine: Europe PMC（MEDLINE 摘要 + PMC 开放获取全文直链，无需 Key）
+- CrossrefEngine: Crossref（2 亿+ DOI 注册元数据，跨出版方的引用数/许可/发表日期，无需 Key）
 
 设计说明：
 - 这些引擎直接调用各大学术 API 的官方 HTTP 端点
@@ -15,6 +16,7 @@ Deep Research Ultra v4.0 — Layer 1: 学术直连引擎层
 - 优先级数字小于 Layer 4 降级引擎，确保学术查询优先走专业源
 """
 
+import html as _html
 import json
 import os
 import re
@@ -629,12 +631,14 @@ class PubmedEngine(SearchEngine):
 
 
 def _strip_html(value) -> str:
-    """Europe PMC 的 abstractText 带结构化小标题（真件里是 `<h4>Background</h4>…`）。
+    """学术接口的正文字段普遍混着标记语言：Europe PMC 用 `<h4>`，Crossref 用 JATS `<jats:p>`，
+    同一批真件里还有 `&amp;`/`&lt;` 这类实体（会议名里的 `&`、摘要里的 `p < 0.001`）。
 
-    标签直接入库会让报告里出现裸 HTML；换成空格而不是删掉，
-    否则 "Background" 与正文首句会粘成一个不存在的词。
+    顺序必须是**先删标签、再解实体**：反过来会把 `&lt;` 解成真 `<`，
+    下一步删标签时就把从那里起的正文当标签吃掉了。
     """
-    return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', str(value or ''))).strip()
+    text = _html.unescape(re.sub(r'<[^>]+>', ' ', str(value or '')))
+    return re.sub(r'\s+', ' ', text).strip()
 
 
 class EuropePmcEngine(SearchEngine):
@@ -823,4 +827,194 @@ class EuropePmcEngine(SearchEngine):
         source, item_id = item.get('source', ''), item.get('id', '')
         if source and item_id:
             return f"https://europepmc.org/article/{source}/{item_id}"
+        return ''
+
+
+def _date_parts(node) -> str:
+    """Crossref 的日期是 date-parts 数组，精度按真件里出现过的三种都放行：
+
+    `[[2026, 7, 15]]` → '2026-07-15'；`[[2020, 7]]` → '2020-07'；`[[2020]]` → '2020'。
+    只有年份时**不许补成 01-01**——那等于凭空造出发表月日，下游按日期筛选就会被误导。
+    """
+    parts = ((node or {}).get('date-parts') or [[]])[0]
+    if not parts:
+        return ''
+    if len(parts) == 1:
+        return str(parts[0])
+    if len(parts) == 2:
+        return f'{parts[0]}-{parts[1]:02d}'
+    return f'{parts[0]}-{parts[1]:02d}-{parts[2]:02d}'
+
+
+class CrossrefEngine(SearchEngine):
+    """
+    Crossref 学术元数据搜索（DOI 注册表本体）
+
+    能力：search, academic
+    覆盖：2 亿+ DOI 元数据，跨出版方（含会议/期刊/数据集），带 is-referenced-by-count
+    API Key：无需（公开 REST；可选 CROSSREF_MAILTO 进 polite pool，不配也能查——实测 200）
+    国内可用：✅（2026-09-29 本机直发 HTTP 200）
+    独特价值：它是 DOI 的**注册方**，OpenAlex/S2/Europe PMC 的 DOI 最终都指向这里；
+              同一条论文在 Europe PMC 拿到的是 europepmc/DOI 页，这里能拿到
+              `resource.primary.URL`（出版方落地页）——档 B 反查要的正是"同一制品的另一条通道"。
+
+    实测过的形状（别按想当然写）：
+    - 总数键是 `message.total-results`，**不是** `totalResults`（读错键不报错，只会静默 0 条）
+    - `title` / `container-title` 是**数组**；正文混 JATS 标签与 `&amp;`/`&lt;` 实体
+    - 会议条目常常没有 abstract 与 license；`issued.date-parts` 可以只有年份
+    - 参数写错回 HTTP 400 + JSON 错误体（没有 message.items）——那是通道故障，不是 0 命中
+
+    API 文档：https://api.crossref.org/works （query.bibliographic 为相关性检索入口）
+    """
+
+    API_URL = "https://api.crossref.org/works"
+    ROWS_MAX = 1000               # 接口上限，超了会被拒
+
+    @property
+    def metadata(self) -> EngineMetadata:
+        return EngineMetadata(
+            name="crossref",
+            layer=1,
+            description="Crossref DOI 元数据搜索（2 亿+ 注册条目 + 引用数，无需 Key）",
+            requires_config=False,
+            config_keys=["CROSSREF_MAILTO"],
+            is_async_supported=False,
+            is_china_friendly=True,
+            priority=45,
+            capabilities=["search", "academic"],
+        )
+
+    def is_available(self) -> bool:
+        try:
+            params = urllib.parse.urlencode({
+                'query.bibliographic': 'transformer', 'rows': '1',
+            })
+            raw = _http_get(f"{self.API_URL}?{params}", timeout=15, max_retries=1,
+                            headers={'Accept': 'application/json'})
+            return raw is not None
+        except Exception:
+            return False
+
+    def search(self, query: str, max_results: int = 10, **kwargs) -> Optional[List[SearchResult]]:
+        """Crossref 相关性搜索（一次请求即回，无需二跳）
+
+        Args:
+            query: 检索词。走 `query.bibliographic`——整句长查询与中文原样发给它会大幅掉命中
+                   （与 arXiv/OpenAlex 同一形态，见 SKILL「检索词要按语料语言给」）
+            max_results: rows（封顶 1000）
+            **kwargs: proxy 代理地址；mailto 覆盖环境变量
+
+        Returns:
+            SearchResult 列表；None＝没取到数据（被拦/坏参数/非 JSON），[]＝调通了但 0 命中
+        """
+        rows = max(1, min(int(max_results), self.ROWS_MAX))
+        params = {'query.bibliographic': query, 'rows': str(rows)}
+        mailto = kwargs.get('mailto') or os.environ.get('CROSSREF_MAILTO', '')
+        if mailto:
+            params['mailto'] = mailto
+        raw = _http_get(f"{self.API_URL}?{urllib.parse.urlencode(params)}",
+                        timeout=25, proxy=kwargs.get('proxy'),
+                        headers={'Accept': 'application/json'})
+        if not raw:
+            return None
+        data = _json_loads(raw)
+        if not data or not isinstance(data.get('message'), dict):
+            # 错误信封（实测 400 回 {"status":400,"message":"..."}）没有 items 可读：
+            # 当成通道故障，不能报成"这个主题 0 条"
+            return None
+
+        items = data['message'].get('items') or []
+        results: List[SearchResult] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            parsed = self._to_result(item, query)
+            if parsed:
+                results.append(parsed)
+        return results
+
+    def _to_result(self, item: dict, query: str) -> Optional[SearchResult]:
+        doi = _bare_doi(item.get('DOI'))
+        title = _strip_html((item.get('title') or [''])[0])
+        if not doi or not title:
+            return None           # 点不回原文或没有标题的条目不进账本
+        url = item.get('URL') or f"https://doi.org/{doi}"
+
+        venue = _strip_html((item.get('container-title') or [''])[0])
+        abstract = _strip_html(item.get('abstract'))
+        cited = item.get('is-referenced-by-count')
+        pub_date = (_date_parts(item.get('issued'))
+                    or _date_parts(item.get('published'))
+                    or _date_parts(item.get('published-online'))
+                    or _date_parts(item.get('published-print')))
+
+        names = []
+        for a in (item.get('author') or []):
+            given, family = a.get('given', ''), a.get('family', '')
+            name = f'{given} {family}'.strip() or a.get('name', '')
+            if name:
+                names.append(name)
+        author_str = '; '.join(names[:10])
+        if len(names) > 10:
+            author_str += f' et al. ({len(names)} authors)'
+
+        parts = []
+        if abstract:
+            parts.append(abstract)
+        if venue:
+            parts.append(f'[Journal/Proc.] {venue}')
+        parts.append(f'[DOI] {doi}')
+        if item.get('page'):
+            parts.append(f'[页码] {item["page"]}')
+        if item.get('publisher'):
+            parts.append(f'[出版方] {item["publisher"]}')
+        content = '\n'.join(parts)
+
+        score = 0.2                                   # 有 DOI 就有的底分
+        if cited:
+            score += 0.2
+        if abstract:
+            score += 0.2
+        if venue:
+            score += 0.2
+        if item.get('type') in ('journal-article', 'proceedings-article'):
+            score += 0.2
+        score = min(score, 1.0)
+
+        return SearchResult(
+            title=title,
+            url=url,
+            content=content,
+            source='crossref',
+            score=score,
+            published_date=pub_date,
+            author=author_str,
+            engine='crossref',
+            query=query,
+            raw=paper_meta(
+                item, title=title, abstract=abstract, published_date=pub_date,
+                venue=venue, issn=(item.get('ISSN') or [''])[0], doi=doi,
+                authors=names, citation_count=cited,
+                publisher=item.get('publisher', ''), work_type=item.get('type', ''),
+                page=item.get('page', ''),
+                publisher_url=((item.get('resource') or {}).get('primary') or {}).get('URL', ''),
+                license_url=self._pick_license(item),
+                indexed_version=str((item.get('indexed') or {}).get('version', '') or ''),
+            ),
+        )
+
+    @staticmethod
+    def _pick_license(item: dict) -> str:
+        """真件里一条论文给了两条 license（vor 正式版 + tdm 文本挖掘版）。
+
+        取 vor：报告要说的是"读者能拿到的那份"的许可，tdm 许可是给机器挖掘的，
+        拿它当开放许可会把限制说松。
+        """
+        entries = item.get('license') or []
+        for entry in entries:
+            if entry.get('content-version') == 'vor' and entry.get('URL'):
+                return entry['URL']
+        for entry in entries:
+            if entry.get('URL'):
+                return entry['URL']
         return ''
