@@ -387,7 +387,15 @@ class GitHubDeepSearchEngine(SearchEngine):
         if topics:
             content_parts.append(f"[Topics] {', '.join(topics[:5])}")
         if updated_at:
-            content_parts.append(f"[Updated] {updated_at}")
+            # updated_at 是「元数据最后被动过」的时间（改描述、加 star、调 topic 都会推后它）。
+            # 实测：citation-check-skill pushed_at=2026-01-26 而 updated_at=2026-09-28，
+            # 印成 [Updated] 就把八个月没提交的仓库说成昨天刚动过。
+            # 有 pushed_at 就印推送时间；只能拿到元数据时间时，必须把这一点写在同一行里。
+            if pushed_at:
+                content_parts.append(f"[Pushed] {pushed_at}")
+            else:
+                content_parts.append(
+                    f"[Updated] {updated_at}（元数据更新时间，不代表有提交）")
         if archived:
             content_parts.append("[Archived] ⚠️ 此仓库已归档")
         content = '\n'.join(content_parts)

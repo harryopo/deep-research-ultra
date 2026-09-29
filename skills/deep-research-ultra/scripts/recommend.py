@@ -252,9 +252,14 @@ class GitHubRecommender:
         updated_at = repo_data.get('updated_at', '')
         score = 50  # 基础分
 
-        if updated_at:
+        # 维护状态看**最后一次推送**：updated_at 只要有人改描述、加 star 就会推后，
+        # 实测 citation-check-skill pushed_at=2026-01-26 / updated_at=2026-09-28，
+        # 按元数据时间加分会把八个月没动的仓库评成"维护活跃"（maintenance 90/100）。
+        # 补不到 pushed_at（code search 的瘦身对象）才退回 updated_at。
+        maintenance_at = repo_data.get('pushed_at', '') or updated_at
+        if maintenance_at:
             try:
-                updated_date = datetime.strptime(updated_at[:10], '%Y-%m-%d')
+                updated_date = datetime.strptime(maintenance_at[:10], '%Y-%m-%d')
                 days_since = (datetime.now() - updated_date).days
                 if days_since <= 30:
                     score += 40
