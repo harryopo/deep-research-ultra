@@ -15,6 +15,38 @@
 
 ---
 
+## v6.38.1（2026-09-29）— 全局落点那两条形态按真会话收紧：描述句不算要求
+
+实测依据：v6.38.0 的新形态在真会话（`D:/ai/FDE/.research/2026-09-29-module2-exec`）复跑门时
+命中 5 处，逐条人工判只有 1 处是真要求——`npx skills add j4rk0r/claude-skills --yes --global`。
+其余四处都是描述句：
+
+- `cc_sandbox.md:176` "sandboxed commands **can write to** the current working directory,
+  the per-user temp directory"（讲沙箱能写哪些地方）
+- `cc_worktrees.md:317` "The `--local` flag **writes** the LFS filter into the repository's own
+  `.git/config` rather than **your global git config**"（讲 --local 的作用范围）
+- `hol-guard docs:173` "does not **auto-write user-level** Copilot config"（声明自己不做）
+- `claude-code-guide:1284` "it does not scaffold **in the current project**"（讲工具默认落点）
+
+误伤的成本不是多写一行日志，是 Lead 分不清哪条是真注入（09-28 那份清单的 A8 就是这么收口的）。
+攻击原文的共性是**祈使**或**命令行**，不是"出现全局字样"。判据据此重写成三条边界：
+
+- 动词必须在句首边界（`^` 或 `.;:!?` 之后，容忍引号与 please/first/then 这类引导词）——
+  `can write to` / `writes the LFS` / `auto-write` 都不在边界上，不再命中；
+- 或者句子长成一条命令：`--global` 与 skill/plugin/memory/config 在同一小段内互为前后邻；
+- `global memory` / `global skills directory` 这类结构性短语保留（MinerU 第二句靠它命中）。
+- `persist_outside_project` 只认祈使否定 `do not / don't / never`，去掉裸 `not`——
+  "it does not scaffold in the current project" 从此不再命中；中文陈述句（"未向全局 skill 目录写入"）
+  同样有测试守着。
+
+四条描述句与两条真原文都进了测试当夹具（正例反例成对，防止"谁都不抓"也能过）。
+真会话复测：新形态命中从 5 处降到 1 处，就是那条 `npx skills add … --global`；
+拦停仍是账本内 4 处、原始材料计数 99 处。
+
+用例数 750→754（测试文件 72→73），页面合计 800→804。
+
+---
+
 ## v6.38.0（2026-09-29）— 第二轮实测清单：CVE 通道状态、许可证本体、改名标注与三类新伪装形态
 
 实测依据（2026-09-29 `D:\ai\FDE\docs\问题报告-调研注入与执行层缺陷-2026-09-29.md`，A12–A21）。

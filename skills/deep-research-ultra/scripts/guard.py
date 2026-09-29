@@ -69,22 +69,29 @@ MARKERS = [
     # 顺序相反，不会被这条抓到。窗口取 60：真件里"追加一行到"与账名之间隔着五十多个字符的绝对路径。
     ('audit_log_demand', re.compile(
         r'(?:append|add(?:ed)?|insert|write|update|log)\s+[^\n]{0,60}injection_log', re.I)),
-    # 要把东西落到"全局"的形态（v6.38.0，实测 MinerU 主 README）：一次性执行命令还能被看见，
-    # 落进全局 skill 目录 / 全局记忆就是跨会话长期生效的偏好，等于持久后门。
-    # 判据取"祈使动词 + 全局落点 + skill/记忆/配置这类对象"三者同句，不取"安装"这个动词——
-    # 否则每一篇 README 的安装段都成攻击。
+    # 要把东西落到"全局"的形态（v6.38.0，实测 MinerU 主 README；v6.38.1 按真会话收紧）：
+    # 一次性执行命令还能被看见，落进全局 skill 目录 / 全局记忆就是跨会话长期生效的偏好，等于持久后门。
+    # 判据只认三种"要你落到全局"的写法，不接受任何"全局"字样的组合——真会话里 5 处命中
+    # 4 处是描述句（"commands can write to the per-user temp directory"、"--local flag writes …
+    # rather than your global git config"、"does not auto-write user-level config"），
+    # 攻击原文的共性是**祈使**或**命令行**，所以动词必须在句首边界，或句子长成一条命令。
     ('global_persistence', re.compile(
-        r'(?:install|add|save|write|copy|place|put|record)\b[^\n]{0,80}'
-        r'\b(?:global|user-level|system-wide|per-user)\b[^\n]{0,40}'
+        r'(?:^|[.;:!?])\s*[`"\'“]?(?:please\s+|first\s+|also\s+|then\s+|需要\s*)?'
+        r'(?:install|add|save|write|copy|place|put|record|update)\b[^\n]{0,80}'
+        r'\b(?:global|user-level|system-wide)\b[^\n]{0,40}'
         r'\b(?:skills?|memor(?:y|ies)|settings|config(?:uration)?|directori(?:es|y))\b', re.I)),
+    ('global_persistence', re.compile(
+        r'--global\b[^\n]{0,40}\b(?:skills?|plugins?|memor(?:y|ies)|config(?:uration)?)\b'
+        r'|\b(?:skills?|plugins?)\b[^\n]{0,30}--global\b', re.I)),
     ('global_persistence', re.compile(
         r'\b(?:global memory|global memor(?:y|ies)|global skills? director(?:y|ies)'
         r'|global (?:skill|agent) config)\b', re.I)),
-    # "别写进当前项目"是让持久化躲开人眼的配套话术，单独一条
+    # "别写进当前项目"是让持久化躲开人眼的配套话术。只认祈使否定（do not / 不要），
+    # 陈述式 "it does not scaffold in the current project" 讲的是工具默认落点，不算要求。
     ('persist_outside_project', re.compile(
-        r'\b(?:do not|don\'t|never|not|instead of)\b[^\n]{0,36}\b(?:in|to|into|under)\s+'
-        r'\b(?:the|this|your)\s+(?:current|project(?:\'s)?)\s*(?:directory|project|folder|repo)\b',
-        re.I)),
+        r'\b(?:do not|don\'t|never)\b[^\n]{0,36}\b(?:in|to|into|under)\s+'
+        r'\b(?:the|this|your)\s+(?:current|project(?:\'s)?)[^\n]{0,12}'
+        r'\b(?:directory|project|folder|repo|skills?)\b', re.I)),
 ]
 # 中文形态（国内源为主的两类：要求隐瞒、要凭据/执行、伪装权威下发）
 MARKERS_CN = [
