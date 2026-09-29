@@ -583,12 +583,16 @@ class ResearchLedger:
     def add_claim(self, claim: str, topic: str = 'general',
                   status: str = 'pending', perspective: str = 'general',
                   confidence: float = 0.5, claim_id: Optional[str] = None,
-                  note: str = '') -> Dict[str, Any]:
+                  note: str = '', scope: str = '') -> Dict[str, Any]:
         """写入一条 claim。
 
         status ∈ {verified, conflict, supplementing, pending, completed}
         注意：默认 pending——verified 必须由交叉验证（≥2 独立来源）显式赋予，
         未验证的搜索结果一律 pending，防止账本覆盖率虚高。
+
+        scope 是这条结论的**成立范围**（样本 / 数据源 / 年份 / 是否同行评议 / 是不是一手）。
+        实测教训：两路结论方向相反，差别全藏在一个限定语里（"读者自打标签"vs"纯书单"），
+        各自省略后看起来像互相打脸；数字少了这行就会被当成普适结论引用。
         """
         status = status if status in VALID_STATUS else 'pending'
         cid = claim_id or f'c-{uuid.uuid4().hex[:10]}'
@@ -597,7 +601,7 @@ class ResearchLedger:
             'topic': str(topic).strip() or 'general',
             'status': status, 'perspective': perspective,
             'confidence': float(min(max(confidence, 0.0), 1.0)),
-            'note': note, 'created_at': _now(),
+            'note': note, 'scope': _one_line(scope), 'created_at': _now(),
         }
         _atomic_append(self.entries_path, json.dumps(entry, ensure_ascii=False))
         return entry
@@ -999,6 +1003,7 @@ class ResearchLedger:
                         perspective=item.get('perspective', 'general'),
                         confidence=item.get('confidence', 0.5),
                         claim_id=item.get('id'), note=item.get('note', ''),
+                        scope=item.get('scope', ''),
                     )
                     existing.add(item.get('id'))    # 同一份产物里重复 id 也算去重
                     stats['claims'] += 1
@@ -1254,6 +1259,7 @@ def _main(argv: Optional[List[str]] = None) -> int:
             confidence=float(_opt('--confidence', '0.5')),
             claim_id=_opt('--id', '') or None,
             note=_opt('--note', ''),
+            scope=_opt('--scope', ''),
         )
         print(json.dumps(entry, ensure_ascii=False))
         return 0
@@ -1331,19 +1337,21 @@ def _main(argv: Optional[List[str]] = None) -> int:
             print(str(e), file=sys.stderr)
             return 2
         ids = [i.strip() for i in _opt('--claim-id').split(',') if i.strip()]
-        status, text = _opt('--status'), _opt('--text')
+        status, text, scope = _opt('--status'), _opt('--text'), _opt('--scope')
         if not ids:
             print('缺少 --claim-id', file=sys.stderr)
             return 2
-        if not status and not text:
-            print('缺少 --status（改状态）或 --text（就地更正原文），至少给一个',
-                  file=sys.stderr)
+        if not status and not text and not scope:
+            print('缺少 --status（改状态）、--text（就地更正原文）或 --scope（补成立范围），'
+                  '至少给一个', file=sys.stderr)
             return 2
         changed = ledger.set_status(ids, status or None, note=_opt('--note'),
-                                    text=text)
+                                    text=text,
+                                    extra={'scope': _one_line(scope)} if scope else None)
         print(f'已更新 {changed} 条 claim'
               + (f' → {status}' if status else '')
-              + ('（原文已就地更正）' if text else ''))
+              + ('（原文已就地更正）' if text else '')
+              + ('（已补成立范围）' if scope else ''))
         return 0 if changed else 1
 
     if cmd == 'status':
