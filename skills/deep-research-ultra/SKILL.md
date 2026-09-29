@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.42.0
+version: 6.43.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -610,6 +610,10 @@ Lead（主 Agent）
    `--sources` 直接点名）；仓库元数据（star、许可证、最近推送）→ **`gh api`**，
    不要用匿名 `curl https://api.github.com/...`——实测匿名 403/60 次每小时，`gh api` 一次就通。
    只有查"网页上此刻怎么说"才用 WebSearch/WebFetch。
+   ⚠️ 判断"这仓库还活着吗"**只认 `pushed_at`**（引擎摘要里标 `[Pushed]`）。`updated_at` 是元数据
+   被动过的时间，改描述、加 star、调 topic 都会把它推后：实测 `citation-check-skill` 最后一次推送
+   2026-01-26、元数据时间 2026-09-28，拿后者写"最近仍在维护"就是错的（v6.43 起引擎不再单列元数据时间，
+   除非 `pushed_at` 取不到，那时会带上"不代表有提交"的说明）。
 6) 临时脚本/中间文件只写 Lead 指定的会话目录（{ledger_dir} 的父目录下的 scratch/，没有就新建），
    **禁止写系统 /tmp 或用户主目录之外任何公共位置**。护栏的作用域是会话目录：写在 /tmp 的 helper
    既不进越权文件检查看见的范围，也没有任何账能跟踪它（实测就发生过一次——helper 写在 /tmp，
@@ -656,6 +660,11 @@ id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_
 > ② 反查制品与 claim 既有来源制品不一致 → 拒（拿一篇无关博客"验证"某仓库升不上去）。
 > 通过的会把 `verify_method` 与反查 URL 写进账本留痕。实测一次调研有 ~110 条归属型 claim 因只有档 A 一条路而全卡在 pending，导致发布门覆盖率虚低。
 > **所以反查必须真换通道**：论文 `/abs` → 去读 `/pdf` 或 `/html` 或 OAI；仓库文件 blob 页 → 去读 `raw.githubusercontent.com` 或 `api.github.com/repos/.../contents/...`。
+>
+> 还有第三条硬拒（v6.43，代码执行）：**原文行首自标「【未复核】」或「【待办】」的 claim 拒绝升 verified**。
+> 这类条目是子 Agent 的登记待办（"这个数字还没回正文核"），它手上有没有 ≥2 个跨域名来源都不构成"已核实"。
+> 实测一次调研 17 条 verified 里混进 3 条这种登记条目——机械判据只看来源数就放行了，骨架随即把它们当结论渲染。
+> 要它进结论：先真去核实，再用 `set-status --text` 重写原文（去掉那个标记），然后重跑升级命令。
 >
 > `--session` 传的是 **`{ledger_dir}` 本身**（里面有 `ledger.jsonl`），不是它的父目录：`set-status`/`verify-primary` 现在会先 `require()`，账本不存在直接报错退出，而不是静默建一个空账本再返回"升级 0 条"（v6.7）。
 
@@ -1239,7 +1248,7 @@ export GITHUB_TOKEN=your_token
 |------|----------------|------|
 | popularity（人气） | 0.15 | log10(stars+1) 对数缩放 |
 | activity（活跃度） | 0.15 | 最近 commit/push 时间 + release 频率 |
-| maintenance（维护） | 0.15 | 是否归档 + issue 响应 + 最后更新 |
+| maintenance（维护） | 0.15 | 是否归档 + issue 响应 + **最后推送时间 `pushed_at`**（v6.43 起不再用 `updated_at`：那是元数据被动过的时间，改描述、加 star 都会推后它，实测八个月没提交的仓库按它评成 90/100） |
 | community（社区） | 0.10 | contributors + forks + watchers |
 | docs（文档） | 0.10 | README 长度 + 是否有文档站 |
 | dependency（依赖健康） | 0.10 | 依赖是否过时（有数据时评） |

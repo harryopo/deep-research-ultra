@@ -15,6 +15,37 @@
 
 ---
 
+## v6.43.0（2026-09-30）— 第四轮端到端实跑：登记待办不再进 verified，仓库活跃度改用推送时间
+
+本轮用 v6.41/v6.42 的两个新学术源跑了一次完整调研（主题「LLM 生成文献引用的造假与检测」，
+effort=deep，4 路子 Agent 并行），67 条 claim / 117 个来源，报告过门并盖防伪戳。
+`claim.scope` 第一次在全程链路上落地：骨架里 67 处「成立范围」全部由账本渲染，
+来源表里 Europe PMC 16 条、doi.org 44 条，两个新引擎都取到了真数据。
+
+**修的两处**
+
+1. `ledger.py`：升 verified 时跳过原文**行首**自标「【未复核】」或「【待办】」的 claim，
+   拒绝时点名是哪条、并说明出路（先核实，再用 `--text` 改写原文去掉标记，然后重跑升级）。
+   本轮这类条目原本各有 ≥2 个跨域名来源，机械判据只看来源数就放行了，骨架随即把登记条目当结论渲染；
+   三条已降回 pending（verified 17 → 14，覆盖率 0.21）。
+2. `github-deep-search` / `recommend`：结果摘要的时间行改用 `pushed_at` 并标 `[Pushed]`，
+   维护分同样按推送时间评。2026-09-30 `gh api` 实测：
+   `citation-check-skill` pushed 2026-01-26 / updated 2026-09-28，
+   `citegate` pushed 2026-08-30 / updated 2026-09-04——按 `updated_at` 显示与评分
+   会把八个月没有推送的仓库说成"昨天刚动过"，维护分给到 90/100。
+   取不到 `pushed_at`（code search 的瘦身对象）时才退回 `updated_at`，
+   并在同一行写明"元数据更新时间，不代表有提交"。
+
+**复测后未采纳的一条反馈**：子研究员报"控制台中文输出乱码 / GBK 崩溃"。本机两种复测均未复现——
+强制 `PYTHONIOENCODING=gbk` 跑 `--probe`，`✅` 与 `🤖` 照常输出、退出码 0；
+输出重定向到文件后可按 UTF-8 整份解码、按 GBK 解不开（写出的就是 UTF-8 字节）。未作改动。
+
+**测试**：852 → 864 项（`scripts/tests` 814 + 仓库根 `tests` 50），全绿。
+新增 `test_v6430_todo_claim_no_promote.py`（8 项）与 `test_v6430_pushed_not_updated.py`（4 项）；
+落地页的测试数声明由 `test_test_count_matches_what_is_on_disk` 钉住，本次同步。
+
+---
+
 ## v6.42.0（2026-09-29）— 新增 Crossref 引擎；派单模板补上"默认走官方 API"通道规则
 
 第三份流程清单问题 5 推荐的学术检索默认路径是 Crossref / OpenAlex / PubMed / Europe PMC，
