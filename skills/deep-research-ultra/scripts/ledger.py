@@ -367,6 +367,17 @@ def _one_line(text) -> str:
     """
     return re.sub(r'\s+', ' ', str(text or '')).strip()
 
+
+_TODO_RE = re.compile(r'^\s*【\s*(未复核|待办)')
+
+
+def _todo_marker(text) -> bool:
+    """这条 claim 是不是子 Agent 自己标了「未复核 / 待办」的登记条目。
+
+    只认行首：正文中途提到"待办"的正当结论不该被误杀。
+    """
+    return bool(_TODO_RE.match(str(text or '')))
+
 def _now() -> str:
     return datetime.now().isoformat(timespec='seconds')
 
@@ -670,6 +681,11 @@ class ResearchLedger:
         text 非空时同时就地更正 claim 原文：反查常会发现"有一句写错了"，
         只加 note 会让错误原文作为 verified 结论永久留在交付物里。
         status 传 None 表示只改文字不动状态——改错一句话不该顺手把 pending 判成 verified。
+
+        升 verified 时跳过原文自带「未复核/待办」标记的条目：v6.42 实跑 17 条
+        verified 里混进 3 条这类登记条目——它们手上确实有 ≥2 个不同域名的来源，
+        机械判据就放行了，skeleton 随即把它们当结论渲染。自己声明没核实过的东西，
+        不可能被来源数判成已核实。
         """
         if status is not None and status not in VALID_STATUS:
             return 0
@@ -678,8 +694,12 @@ class ResearchLedger:
             return 0
         entries = list(_iter_entries(self.entries_path))
         changed = 0
+        refused = []
         for e in entries:
             if e.get('type') == 'claim' and e.get('id') in wanted:
+                if status == 'verified' and _todo_marker(e.get('text', '')):
+                    refused.append(e.get('id'))
+                    continue
                 if status is not None:
                     e['status'] = status
                     e['promoted_at'] = _now()
@@ -691,6 +711,11 @@ class ResearchLedger:
                 for k, v in (extra or {}).items():
                     e[k] = v
                 changed += 1
+        for cid in refused:
+            print(f'拒绝把 {cid} 升为 verified：这条原文行首自带「未复核/待办」标记，'
+                  f'它是登记待办不是结论，来源数再多也判不实。'
+                  f'真要它进结论：先去核实，再用 set-status --text 重写原文（去掉该标记），'
+                  f'然后重跑本命令。', file=sys.stderr)
         if changed:
             tmp = self.entries_path.with_suffix('.jsonl.tmp')
             with open(tmp, 'w', encoding='utf-8') as f:
@@ -1221,6 +1246,8 @@ def _main(argv: Optional[List[str]] = None) -> int:
   python ledger.py set-status --session <dir> --claim-id <id>[,<id>...]
                     [--status <s>] [--note <n>] [--text <就地更正后的 claim 原文>]
                     # --status 与 --text 至少给一个；只给 --text 时状态原样不动
+                    # 升 verified 时，原文行首自标【未复核】/【待办】的条目点名拒绝
+                    # （登记待办不是结论，来源数再多也判不实；先核实再 --text 去掉标记）
   python ledger.py verify-primary --session <dir> --claim-id <id>[,<id>...] \
       --check-url <一手制品URL> [--check-title <t>] [--method repo_health]
   python ledger.py content-identity --session <dir> --claim-id <id>[,...] \
