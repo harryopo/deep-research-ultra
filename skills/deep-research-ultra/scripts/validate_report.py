@@ -350,6 +350,7 @@ def validate_report(report_md: str,
         qres = check_quotes(ledger_dir, raw_dir, report=report_path or ('report.md', report_md))
         report.stats['quote_checked'] = qres['checked']
         report.stats['quote_misses'] = len(qres['misses'])
+        report.stats['quote_unchecked'] = len(qres.get('unchecked') or [])
         if qres['error']:
             report.issues.append(f'引文对账无从判断：{qres["error"]}')
         elif qres['misses']:
@@ -360,6 +361,12 @@ def validate_report(report_md: str,
             report.issues.append(
                 f'{len(qres["misses"])} 段标着逐字的引文与抓取材料对不上：{sample}'
                 f'——按原文逐字改写，自造口径改用〔〕（『「“ 是逐字标记）')
+        elif report.stats['quote_unchecked']:
+            # 短于阈值（默认 15 字）的『「“段没判过，但括号承诺的就是逐字——不能当作已核
+            report.warnings.append(
+                f'{report.stats["quote_unchecked"]} 段短引文未对账'
+                f'（{("、".join("『%s』" % f[:14] for f in qres["unchecked"][:3]))} 等）'
+                f'——自造口径应改写为〔〕，逐字引文请补足长度或人工回验')
 
     # 每 topic 至少 1 verified（v6.3：从 warning 升级为 issue——账本分主题后无已证实结论即拦截）
     for t, s in stats.items():

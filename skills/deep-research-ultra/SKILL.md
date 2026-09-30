@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.46.0
+version: 6.47.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -629,6 +629,9 @@ Lead（主 Agent）
    引号即承诺（v6.46 收口成一条约定）：`『』/「」/“”` = **逐字引文**，必须命中原始材料；
    〔〕 = **Lead 自己的措辞**（术语、归纳、检索词），两套引号识别都不收它、也不参与对账。
    自造话别套 `『』`——那一挡会被门一直拦，去掉括号又丢了语义；转述一律写进 `〔〕`。
+   短于 15 字的 `『「“` 段**不参与判定但仍算承诺**，回执会把它们数成"未对账 N 段"点名出来（v6.47）：
+   实跑一轮里门只抓得到 8 段长引文，剩下 35 段中文短术语（『支撑性』『已接地所以无造假』）
+   全靠人手扫才看得见——长度不是豁免理由，看不见就得说出来。
 
 分片 schema（{slug} 换成你的维度代号，如 D1-gates）：
 {
@@ -856,7 +859,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 | **独立来源强度（v6.3）**：每条 verified claim 独立来源 ≥2；**v6.7 起档 B（`evidence_tier=B` 且有 `verify_method`）豁免**——归属型断言不该被要求第二个域 | 补交叉验证或降级 pending |
 | **六维要素（v6.3）**：报告含仓库链接时，风险标签/许可证/维护/适配/落地/量化齐备 | 按 7.0b 六维质量门补写 |
 | 占位内容（v6.14）：报告里不得残留 `【待写】`（skeleton.py 的待写标记） | 把该段写完并删掉标记，或按"一个 session 一轮"推到下一轮；不许带着标记盖戳 |
-| **引文逐字对账（v6.44，给 `--raw` 时生效；v6.46 起连报告正文一起查）**：账本每段 `『…』` 与报告每段 `「…」` 必须在抓回的原始材料里逐字命中；只折叠空白，**不换字符形态**（`0–3` 写成 `0-3`、`κ` 写成 `kappa` 都算 MISS） | 按正文原字符改写引文；自造口径改用 `〔…〕`（`『「“` 是逐字承诺，`〔〕` 不是）；材料没存档就先存档——"没查"不等于"查过了没问题"，缺材料或缺待查文本时这条门都直接报错退 2，不报"通过" |
+| **引文逐字对账（v6.44，给 `--raw` 时生效；v6.46 起连报告正文一起查；v6.47 起短段列"未对账"）**：账本每段 `『…』` 与报告每段 `「…」` 必须在抓回的原始材料里逐字命中；只折叠空白，**不换字符形态**（`0–3` 写成 `0-3`、`κ` 写成 `kappa` 都算 MISS） | 按正文原字符改写引文；自造口径改用 `〔…〕`（`『「“` 是逐字承诺，`〔〕` 不是）；材料没存档就先存档——"没查"不等于"查过了没问题"，缺材料或缺待查文本时这条门都直接报错退 2，不报"通过" |
 | 必需章节：执行摘要/方法/结论/来源 | 补写章节 |
 | 低质源占比：Tier4 < 30%（告警） | 建议补权威源后复核 |
 | 执行摘要 ≤ 1200 字 | 精简摘要 |
@@ -1647,7 +1650,7 @@ scripts/
 ├── panel.py                 # 专家团评审清单生成（多视角 + 红蓝对抗契约）
 ├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素/占位标记）+ 防伪戳 --stamp/--verify-stamp
 ├── skeleton.py              # 报告骨架生成（v6.14）：从账本出引用编号+来源登记表，正文留【待写】给 Lead
-├── verify_quotes.py         # 引文逐字对账（v6.44）：账本『…』与报告「…」段须在存档原始材料里逐字命中（v6.46 起含 --report），缺材料或缺待查文本退 2
+├── verify_quotes.py         # 引文逐字对账（v6.44）：账本『…』与报告「…」段须在存档原始材料里逐字命中（v6.46 起含 --report；v6.47 短段列未对账），缺材料或缺待查文本退 2
 ├── engines/
 │   ├── __init__.py          # 引擎导出聚合（34 个数据源，29 个可搜索）
 │   ├── base.py              # SearchEngine 抽象基类 + EngineMetadata + EngineRegistry
@@ -1789,7 +1792,7 @@ python -m pytest tests/ -v
 # - ledger.py: ResearchLedger（并发追加 / merge / status / export_md）
 # - panel.py: PanelReviewer（perspectives / review_outline / review_draft）
 # - validate_report.py: validate_report（引用一致性 / 反查 / 覆盖率 / 章节 / Tier4 占比 / 六维要素 / 引文逐字对账）
-# - verify_quotes.py: check_quotes（账本 claim + 报告正文的『「“段 vs 存档原始材料，逐字命中才算过；misses 用 where 报到行号）
+# - verify_quotes.py: check_quotes（账本 claim + 报告正文的『「“段 vs 存档原始材料，逐字命中才算过；misses 用 where 报到行号，短于阈值的段列 unchecked）
 # - console.py: GBK 控制台冒烟（CLI 不崩 + 中文以 UTF-8 落管道）
 # - probe.py: 功能自检判定（0 结果 ≠ 可用 / 缺配置可见 / 异常归失败）
 # - platform_engines.py: Gitee 需 token / 空数组≠不可用 / ModelScope 仅详情

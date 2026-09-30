@@ -19,6 +19,11 @@
   没有这条约定时，把转述加引号会被门一直拦、去掉引号又丢语义，只能靠"另加一句非原文"打补丁。
   实跑一轮账本 67 条 claim 里数出 8 段自造话被写成了『』。
 
+回执说清查了多少（v6.47）：短于 `--min-len`（默认 15）的引号段**不参与判定**，但这对括号承诺的
+就是逐字、与长度无关，所以它们会被数进 `unchecked` 并在回执点名——有未对账段时回执不再写
+"全部逐字命中"。同一轮实跑里，门点名的是 8 段长引文，人手扫出来的却是 35 段 4–14 字的中文术语
+（『支撑性』『已接地所以无造假』），后者从来没被看过一眼。
+
 用法:
   python verify_quotes.py --ledger <ledger_dir> --raw <抓取材料目录或单文件>
                           [--claim-id id[,id...]] [--min-len 15] [--json]
@@ -47,15 +52,26 @@ QUOTE_PATTERNS = (
     re.compile(r'“([^”]{15,})”', re.S),
 )
 
+# 同一套括号、但先不管长度：用来数"承诺了逐字、却因为太短而没被对账"的那一段。
+# 『』 这对括号的承诺与长度无关，门只看得到长段，就得把"短段没看"说出口。
+_BRACKETS = (('『', '』'), ('「', '」'), ('“', '”'))
 
-def quoted_fragments(text, min_len=15):
+
+def quoted_spans(text, floor=2):
+    """文本里所有引号段（折叠空白后），不参与判定，只用于统计未对账的那些。"""
     out = []
-    for pat in QUOTE_PATTERNS:
+    for open_, close_ in _BRACKETS:
+        pat = re.compile('%s([^%s]{%d,})%s' % (re.escape(open_), re.escape(close_),
+                                               floor, re.escape(close_)), re.S)
         for m in pat.finditer(str(text or '')):
             frag = _fold(m.group(1))
-            if len(frag) >= min_len and frag not in out:
+            if frag and frag not in out:
                 out.append(frag)
     return out
+
+
+def quoted_fragments(text, min_len=15):
+    return [f for f in quoted_spans(text) if len(f) >= min_len]
 
 
 def _fold(text):
@@ -149,17 +165,22 @@ def collect_sources(ledger_dir=None, report=None, claim_ids=None):
 def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
     corpus = load_corpus(raw)
     if not corpus:
-        return {'checked': 0, 'misses': [], 'corpus_files': 0, 'sources': 0,
+        return {'checked': 0, 'misses': [], 'corpus_files': 0, 'sources': 0, 'unchecked': [],
                 'error': '没有可比对的原始材料（%s 下没有非空的 txt/html/xml/md）——'
                          '引文对账需要抓回的正文或页面存档，缺它无法判定，不能当作通过' % raw}
     sources = collect_sources(ledger_dir, report, claim_ids)
     if not sources:
         return {'checked': 0, 'misses': [], 'corpus_files': len(corpus), 'sources': 0,
+                'unchecked': [],
                 'error': '没有待查文本：--ledger 指向的账本里没有 claim，也没给 --report'
                          '——"没东西可查"不等于"查过了没问题"，不能报通过'}
     checked = 0
     misses = []
+    unchecked = []
     for where, text in sources:
+        for frag in quoted_spans(text):
+            if len(frag) < min_len and frag not in unchecked:
+                unchecked.append(frag)
         for frag in quoted_fragments(text, min_len):
             frag = _fold(frag)
             if len(frag) < min_len:
@@ -170,7 +191,7 @@ def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
             misses.append({'where': where, 'fragment': frag,
                            'suggest': _suggest(frag, corpus)})
     return {'checked': checked, 'misses': misses, 'corpus_files': len(corpus),
-            'sources': len(sources), 'error': None}
+            'sources': len(sources), 'unchecked': unchecked, 'error': None}
 
 
 def main(argv=None):
@@ -208,11 +229,17 @@ def main(argv=None):
             if m['suggest']:
                 print('      正文写法 『%s』' % m['suggest'][:80], file=sys.stderr)
         if res['misses']:
-            print('共 %d 处标着逐字的引文与原始材料对不上——按原文逐字改写，'
-                  '或把自造口径改用〔〕（『「“ 是逐字标记，不参与对账的自造话别用它们）'
-                  % len(res['misses']), file=sys.stderr)
+            print('共 %d 处标着逐字的引文与原始材料对不上——按原文逐字改写，自造口径改用〔〕'
+                  '（『「“ 是逐字标记）' % len(res['misses']), file=sys.stderr)
             return 1
-        print('✅ 全部逐字命中')
+        if res['unchecked']:
+            print('另有未对账 %d 段：短于 %d 字的『「“段不参与逐字判定，'
+                  '但这对括号承诺的就是逐字——自造口径请改写为〔〕'
+                  % (len(res['unchecked']), args.min_len))
+            print('      例：%s' % '、'.join('『%s』' % f[:20] for f in res['unchecked'][:6]))
+            print('✅ 已对账的 %d 段逐字命中（短段未判，不算已核）' % res['checked'])
+        else:
+            print('✅ 全部逐字命中')
     return 1 if res['misses'] else 0
 
 
