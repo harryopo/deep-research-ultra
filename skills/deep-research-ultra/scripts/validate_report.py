@@ -193,8 +193,12 @@ def validate_report(report_md: str,
                     min_coverage: float = DEFAULT_MIN_COVERAGE,
                     min_sources_per_claim: int = DEFAULT_MIN_SOURCES,
                     max_summary_chars: int = DEFAULT_MAX_SUMMARY_CHARS,
-                    raw_dir: Optional[str] = None) -> ValidationReport:
-    """执行全部校验项。ledger 与 ledger_dir 二选一。"""
+                    raw_dir: Optional[str] = None,
+                    report_path: Optional[str] = None) -> ValidationReport:
+    """执行全部校验项。ledger 与 ledger_dir 二选一。
+
+    report_path 只服务引文对账：给得到路径就报行号，给不到就用 'report.md' 当标签。
+    """
     report = ValidationReport(passed=True, stats={
         'with_ledger': ledger is not None or ledger_dir is not None,
     })
@@ -343,19 +347,19 @@ def validate_report(report_md: str,
     # 只有拿原文比才看得见。不给 --raw 时不判（许多调研只留摘要级证据）。
     if raw_dir and rep is not None:
         from verify_quotes import check_quotes
-        qres = check_quotes(ledger_dir, raw_dir)
+        qres = check_quotes(ledger_dir, raw_dir, report=report_path or ('report.md', report_md))
         report.stats['quote_checked'] = qres['checked']
         report.stats['quote_misses'] = len(qres['misses'])
         if qres['error']:
             report.issues.append(f'引文对账无从判断：{qres["error"]}')
         elif qres['misses']:
             sample = '；'.join(
-                f'{m["claim_id"]}『{m["fragment"][:34]}…』'
+                f'{m["where"]}『{m["fragment"][:34]}…』'
                 + (f'（正文写作『{m["suggest"][:34]}…』）' if m['suggest'] else '')
                 for m in qres['misses'][:3])
             report.issues.append(
                 f'{len(qres["misses"])} 段标着逐字的引文与抓取材料对不上：{sample}'
-                f'——按原文逐字改写，或把转述明确标成转述')
+                f'——按原文逐字改写，自造口径改用〔〕（『「“ 是逐字标记）')
 
     # 每 topic 至少 1 verified（v6.3：从 warning 升级为 issue——账本分主题后无已证实结论即拦截）
     for t, s in stats.items():
@@ -563,6 +567,7 @@ def _main(argv: Optional[List[str]] = None) -> int:
         min_sources_per_claim=int(_opt('--min-sources', '1')),
         max_summary_chars=int(_opt('--max-summary', '1200')),
         raw_dir=_opt('--raw', '') or None,
+        report_path=report_path,
     )
     import json
     print(json.dumps({

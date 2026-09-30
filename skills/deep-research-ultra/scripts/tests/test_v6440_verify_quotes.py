@@ -58,7 +58,7 @@ def test_en_dash_与连字符的差必须报MISS(tmp_path):
         ('c-2', '原文『Reference Hallucination Scale (0-3): score 0 = fully accurate』')])
     res = check_quotes(str(led), str(raw))
     assert len(res['misses']) == 1
-    assert res['misses'][0]['claim_id'] == 'c-2'
+    assert res['misses'][0]['where'] == 'c-2'
 
 
 def test_kappa_写成kappa必须报MISS(tmp_path):

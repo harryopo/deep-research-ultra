@@ -10,12 +10,21 @@
 三条固定规则：
 - 只按**逐字**判：允许折叠空白（PDF/HTML 抽出来必然带换行与多空格），**不允许**换字符形态；
 - fail-closed：没有可比对的原始材料时直接报错退出，不报"通过"——"没查"不等于"查过了没问题"；
+  同样地，**没有待查文本**（账本里没有 claim 且没给报告）也报错退出，不许打印"全部命中"；
 - 每条 MISS 顺手给出"正文里近似的那串"（按 dash/引号归一后定位），让改的人一眼看出差在哪个字符。
+
+引号即承诺（本 skill 的书面约定）：
+- 『…』/「…」/“…” = **逐字引文**，必须命中原始材料，否则本门拦停；
+- 〔…〕 = **Lead 自己的措辞**（术语、归纳、检索词），不是引文，两套引号识别都不收它。
+  没有这条约定时，把转述加引号会被门一直拦、去掉引号又丢语义，只能靠"另加一句非原文"打补丁。
+  实跑一轮账本 67 条 claim 里数出 8 段自造话被写成了『』。
 
 用法:
   python verify_quotes.py --ledger <ledger_dir> --raw <抓取材料目录或单文件>
                           [--claim-id id[,id...]] [--min-len 15] [--json]
-  退出码：0 全部逐字命中；1 有 MISS；2 参数/IO 错误（含"没有可比对材料"）
+  python verify_quotes.py --report <report.md> --raw <抓取材料目录>
+                          # 报告正文里的引文同样要逐字——交付的是报告
+  退出码：0 全部逐字命中；1 有 MISS；2 参数/IO 错误（含"没有可比对材料""没有待查文本"）
 """
 import argparse
 import io
@@ -30,7 +39,23 @@ _SUGGEST_TABLE = str.maketrans({
     '\u00a0': ' ', '　': ' ', '，': ',', '：': ':',
 })
 
-QUOTE_RE = re.compile(r'[『「]([^』」]{15,})[』」]')
+# 与 ledger._QUOTE_PATTERNS 同一套括号：判同认为"这是逐字引文"的，对账也必须认为是——
+# 两边认得不一样就会出现"一侧说没引文、另一侧说引文没命中"的死锁（v6.44 实跑撞到）。
+QUOTE_PATTERNS = (
+    re.compile(r'『([^』]{15,})』', re.S),
+    re.compile(r'「([^」]{15,})」', re.S),
+    re.compile(r'“([^”]{15,})”', re.S),
+)
+
+
+def quoted_fragments(text, min_len=15):
+    out = []
+    for pat in QUOTE_PATTERNS:
+        for m in pat.finditer(str(text or '')):
+            frag = _fold(m.group(1))
+            if len(frag) >= min_len and frag not in out:
+                out.append(frag)
+    return out
 
 
 def _fold(text):
@@ -93,56 +118,98 @@ def iter_claim_texts(ledger_dir, claim_ids=None):
         yield rec.get('id') or '(无 id)', rec.get('text') or ''
 
 
-def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15):
+def iter_report_texts(report):
+    """报告正文逐行产出 (定位标签, 文本)。report 可以是路径，也可以是 (标签, 全文)。
+
+    交付物是报告而不是账本：账本改对了、报告里还留着旧写法，是这一轮实跑数出来的
+    （账本 83/83 全过，报告正文却有 45 段对不上抓取材料）。所以门必须量到真正交出去的那份文本。
+    给路径才能报到行号；validate_report 手上只有正文，就按 (标签, 全文) 传进来。
+    """
+    if isinstance(report, tuple):
+        label, text = report
+        for n, line in enumerate(str(text).splitlines(), 1):
+            yield '%s:%d' % (label, n), line
+        return
+    text = io.open(report, encoding='utf-8', errors='replace').read()
+    name = os.path.basename(report)
+    for n, line in enumerate(text.splitlines(), 1):
+        yield '%s:%d' % (name, n), line
+
+
+def collect_sources(ledger_dir=None, report=None, claim_ids=None):
+    """待查文本 = 账本 claim（可选）+ 报告正文（可选）；两边都不给就没有东西可对账。"""
+    out = []
+    if ledger_dir:
+        out += list(iter_claim_texts(ledger_dir, claim_ids))
+    if report:
+        out += list(iter_report_texts(report))
+    return out
+
+
+def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
     corpus = load_corpus(raw)
     if not corpus:
-        return {'checked': 0, 'misses': [], 'corpus_files': 0,
+        return {'checked': 0, 'misses': [], 'corpus_files': 0, 'sources': 0,
                 'error': '没有可比对的原始材料（%s 下没有非空的 txt/html/xml/md）——'
                          '引文对账需要抓回的正文或页面存档，缺它无法判定，不能当作通过' % raw}
+    sources = collect_sources(ledger_dir, report, claim_ids)
+    if not sources:
+        return {'checked': 0, 'misses': [], 'corpus_files': len(corpus), 'sources': 0,
+                'error': '没有待查文本：--ledger 指向的账本里没有 claim，也没给 --report'
+                         '——"没东西可查"不等于"查过了没问题"，不能报通过'}
     checked = 0
     misses = []
-    for cid, text in iter_claim_texts(ledger_dir, claim_ids):
-        for frag in QUOTE_RE.findall(text):
+    for where, text in sources:
+        for frag in quoted_fragments(text, min_len):
             frag = _fold(frag)
             if len(frag) < min_len:
                 continue
             checked += 1
             if any(frag in body for _p, body in corpus):
                 continue
-            misses.append({'claim_id': cid, 'fragment': frag,
+            misses.append({'where': where, 'fragment': frag,
                            'suggest': _suggest(frag, corpus)})
     return {'checked': checked, 'misses': misses, 'corpus_files': len(corpus),
-            'error': None}
+            'sources': len(sources), 'error': None}
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='verify_quotes.py', description=__doc__.split('\n')[0])
-    ap.add_argument('--ledger', required=True, help='账本目录（里面有 ledger.jsonl）')
+    ap.add_argument('--ledger', default='', help='账本目录（里面有 ledger.jsonl）；与 --report 至少给一个')
+    ap.add_argument('--report', default='', help='报告 markdown 文件——交付的是报告，正文引文同样要逐字')
     ap.add_argument('--raw', required=True, help='抓取材料目录或单文件')
     ap.add_argument('--claim-id', default='', help='只查这几条 claim（逗号分隔）')
     ap.add_argument('--min-len', type=int, default=15, help='参与对账的最短引文字数')
     ap.add_argument('--json', action='store_true', help='机器可读输出')
     args = ap.parse_args(argv)
 
-    if not os.path.isdir(args.ledger):
+    if not args.ledger and not args.report:
+        print('既没有 --ledger 也没有 --report：没有任何待查文本，不能报通过', file=sys.stderr)
+        return 2
+    if args.ledger and not os.path.isdir(args.ledger):
         print('账本目录不存在：%s' % args.ledger, file=sys.stderr)
         return 2
-    res = check_quotes(args.ledger, args.raw,
+    if args.report and not os.path.isfile(args.report):
+        print('报告文件不存在：%s' % args.report, file=sys.stderr)
+        return 2
+    res = check_quotes(args.ledger or None, args.raw,
                        [c.strip() for c in args.claim_id.split(',') if c.strip()],
-                       args.min_len)
+                       args.min_len, report=args.report or None)
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
     else:
         if res['error']:
             print('⛔ ' + res['error'], file=sys.stderr)
             return 2
-        print('语料 %d 份，对账引文 %d 段' % (res['corpus_files'], res['checked']))
+        print('语料 %d 份，待查文本 %d 处，对账引文 %d 段'
+              % (res['corpus_files'], res['sources'], res['checked']))
         for m in res['misses']:
-            print('MISS [%s] 『%s』' % (m['claim_id'], m['fragment'][:80]), file=sys.stderr)
+            print('MISS [%s] 『%s』' % (m['where'], m['fragment'][:80]), file=sys.stderr)
             if m['suggest']:
                 print('      正文写法 『%s』' % m['suggest'][:80], file=sys.stderr)
         if res['misses']:
-            print('共 %d 处引文与原始材料对不上——按正文逐字改写，或把转述明确标成转述'
+            print('共 %d 处标着逐字的引文与原始材料对不上——按原文逐字改写，'
+                  '或把自造口径改用〔〕（『「“ 是逐字标记，不参与对账的自造话别用它们）'
                   % len(res['misses']), file=sys.stderr)
             return 1
         print('✅ 全部逐字命中')

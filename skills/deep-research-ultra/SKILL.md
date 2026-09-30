@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.44.0
+version: 6.46.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -622,9 +622,13 @@ Lead（主 Agent）
    （HTML/纯文本都行，PDF 请先转成文本；一个页面一份文件，别拼）。理由：引文对不对，只有拿原文比才看得出来。
    v6.42 实跑第五轮补正文时，Lead 自己写的 11 条"正文逐字"里有 6 处对不上原文——`Scale (0–3)` 打成 `(0-3)`、
    `κ = 0.91` 打成 `kappa`、目录项之间自加 ` / `，还有一条把摘要转述当成了正文引文。
-   出稿前跑 `verify_quotes.py --ledger <账本目录> --raw <会话目录>/raw`，对不上就不许盖戳；
+   出稿前跑 `verify_quotes.py --ledger <账本目录> --report <report.md> --raw <会话目录>/raw`，
+   对不上就不许盖戳。**报告正文也要过这道门**（v6.46）：账本改对了不等于报告写对了——
+   实跑一轮账本 83 段全过，报告正文却数出 45 段对不上抓取材料（旧写法留在 Lead 手写的段落里）。
    **材料没存档时这条门直接报错退出，不会因为"引文是照抄的"就放行**——没查过不等于查过了没问题。
-   转述就写成转述，别套 `『』`：那对括号在本包里等于"逐字"的承诺。
+   引号即承诺（v6.46 收口成一条约定）：`『』/「」/“”` = **逐字引文**，必须命中原始材料；
+   〔〕 = **Lead 自己的措辞**（术语、归纳、检索词），两套引号识别都不收它、也不参与对账。
+   自造话别套 `『』`——那一挡会被门一直拦，去掉括号又丢了语义；转述一律写进 `〔〕`。
 
 分片 schema（{slug} 换成你的维度代号，如 D1-gates）：
 {
@@ -660,7 +664,8 @@ id 你自己定但必须全局唯一（建议带维度前缀）；sources.claim_
 > —— 它查 Semantic Scholar 的 `externalIds` 并写一条 `type=identity` 记录进账本，`verify-primary`
 > 只认已存在的记录；解析失败或记录里没有那个标识符一律不绑，口头声明"它们是一篇"不作数。
 >
-> 档 B 的**已知反查不出通道**（实测撞到的，别当没看见）：出版方落地页与 DOI 的同一性要解析才知道，URL 文本推不出（19 条卡在这）；文档站渲染页与其 `.md` 源、官方 API 视图、以及 `/en-us/`↔`/zh-cn/` 语言段也未归一；Wayback 在部分网络环境整机不可达。这些 claim 按规则只能保持 pending，报告里渲染为「⚠️ 仅作线索」——**不要为了过门把它们记成已验证**。
+> 档 B 的**已知反查不出通道**（实测撞到的，别当没看见）：出版方落地页与 DOI 的同一性要解析才知道，URL 文本推不出（19 条卡在这）；文档站渲染页与其 `.md` 源、官方 API 视图、以及 `/en-us/`↔`/zh-cn/` 语言段也未归一；Wayback 在部分网络环境整机不可达。
+> 另两类只有拿真件跑过才看得见（v6.44 实跑撞到的）：**① 锚点页是单页应用外壳**——`europepmc.org/articles/PMC…` 静态抓只有 4-5 KB、不含正文句子，`content-identity` 在锚点侧就命不中，这类 claim 换 Europe PMC 的全文 XML 当来源才有文本可比；**② 同一句话在不同通道字符形态不同**——PMID 记录写 `0.86-0.96`（连字符）、全文 XML 写 `0.86–0.96`（en dash），逐字判同按定义不许换字符形态，于是判不同。这两类按规则只能保持 pending，报告里渲染为「⚠️ 仅作线索」——**不要为了过门把它们记成已验证**（也别改判据去凑：放宽成"忽略 dash"就等于放行真抄错）。
 >
 > 档 B 不是后门，两条硬拒（v6.15 起由代码执行，不再靠自觉）：
 > ① **反查 URL 与账本里已有的来源是同一条 → 拒**（重填一遍没有任何验证动作；实测前一版把它做成"想过就把已有 URL 再填一次"的自批通道）；
@@ -851,7 +856,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 | **独立来源强度（v6.3）**：每条 verified claim 独立来源 ≥2；**v6.7 起档 B（`evidence_tier=B` 且有 `verify_method`）豁免**——归属型断言不该被要求第二个域 | 补交叉验证或降级 pending |
 | **六维要素（v6.3）**：报告含仓库链接时，风险标签/许可证/维护/适配/落地/量化齐备 | 按 7.0b 六维质量门补写 |
 | 占位内容（v6.14）：报告里不得残留 `【待写】`（skeleton.py 的待写标记） | 把该段写完并删掉标记，或按"一个 session 一轮"推到下一轮；不许带着标记盖戳 |
-| **引文逐字对账（v6.44，给 `--raw` 时生效）**：账本里每段 `『…』` 必须在抓回的原始材料里逐字命中；只折叠空白，**不换字符形态**（`0–3` 写成 `0-3`、`κ` 写成 `kappa` 都算 MISS） | 按正文原字符改写引文，或把转述明确标成转述（去掉 `『』`）；材料没存档就先存档——"没查"不等于"查过了没问题"，缺材料时这条门直接报错退 2 |
+| **引文逐字对账（v6.44，给 `--raw` 时生效；v6.46 起连报告正文一起查）**：账本每段 `『…』` 与报告每段 `「…」` 必须在抓回的原始材料里逐字命中；只折叠空白，**不换字符形态**（`0–3` 写成 `0-3`、`κ` 写成 `kappa` 都算 MISS） | 按正文原字符改写引文；自造口径改用 `〔…〕`（`『「“` 是逐字承诺，`〔〕` 不是）；材料没存档就先存档——"没查"不等于"查过了没问题"，缺材料或缺待查文本时这条门都直接报错退 2，不报"通过" |
 | 必需章节：执行摘要/方法/结论/来源 | 补写章节 |
 | 低质源占比：Tier4 < 30%（告警） | 建议补权威源后复核 |
 | 执行摘要 ≤ 1200 字 | 精简摘要 |
@@ -1568,9 +1573,13 @@ python "${SKILL_DIR}/scripts/tier.py" "https://www.gov.cn/x"                    
 #    （v6.15：未验证 claim 渲染成 ⚠️ 仅作线索，不再逐条留待写标记）
 python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger -o report.md --title "报告标题"
 
-# 6b. 引文逐字对账（v6.44）：账本里每段『…』都必须在存档的原始材料里逐字命中
+# 6b. 引文逐字对账（v6.44）：账本每段『…』与报告每段「…」都必须在存档的原始材料里逐字命中
 #     只折叠空白、不换字符形态（0–3 写成 0-3 就算 MISS）；材料没存档 → 退 2，不报通过
+#     自造口径写〔…〕：它不是引文承诺，两套引号识别都不收（v6.46）
 python "${SKILL_DIR}/scripts/verify_quotes.py" --ledger .research/session/ledger --raw .research/session/raw
+python "${SKILL_DIR}/scripts/verify_quotes.py" --report report.md --raw .research/session/raw
+#     两个来源一起查：--ledger 与 --report 至少给一个，都不给 → 退 2（没东西可查不等于通过）
+python "${SKILL_DIR}/scripts/verify_quotes.py" --ledger .research/session/ledger --report report.md --raw .research/session/raw
 
 # 7. 发布前校验门（exit 0=通过）+ 防伪戳
 python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .research/session/ledger --raw .research/session/raw --stamp
@@ -1638,7 +1647,7 @@ scripts/
 ├── panel.py                 # 专家团评审清单生成（多视角 + 红蓝对抗契约）
 ├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素/占位标记）+ 防伪戳 --stamp/--verify-stamp
 ├── skeleton.py              # 报告骨架生成（v6.14）：从账本出引用编号+来源登记表，正文留【待写】给 Lead
-├── verify_quotes.py         # 引文逐字对账（v6.44）：账本『…』段须在存档原始材料里逐字命中，缺材料退 2
+├── verify_quotes.py         # 引文逐字对账（v6.44）：账本『…』与报告「…」段须在存档原始材料里逐字命中（v6.46 起含 --report），缺材料或缺待查文本退 2
 ├── engines/
 │   ├── __init__.py          # 引擎导出聚合（34 个数据源，29 个可搜索）
 │   ├── base.py              # SearchEngine 抽象基类 + EngineMetadata + EngineRegistry
@@ -1780,7 +1789,7 @@ python -m pytest tests/ -v
 # - ledger.py: ResearchLedger（并发追加 / merge / status / export_md）
 # - panel.py: PanelReviewer（perspectives / review_outline / review_draft）
 # - validate_report.py: validate_report（引用一致性 / 反查 / 覆盖率 / 章节 / Tier4 占比 / 六维要素 / 引文逐字对账）
-# - verify_quotes.py: check_quotes（账本『…』段 vs 存档原始材料，逐字命中才算过）
+# - verify_quotes.py: check_quotes（账本 claim + 报告正文的『「“段 vs 存档原始材料，逐字命中才算过；misses 用 where 报到行号）
 # - console.py: GBK 控制台冒烟（CLI 不崩 + 中文以 UTF-8 落管道）
 # - probe.py: 功能自检判定（0 结果 ≠ 可用 / 缺配置可见 / 异常归失败）
 # - platform_engines.py: Gitee 需 token / 空数组≠不可用 / ModelScope 仅详情
