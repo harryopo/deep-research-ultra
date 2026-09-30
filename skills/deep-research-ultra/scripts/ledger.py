@@ -493,6 +493,10 @@ MIN_IDENTITY_QUOTE = 20
 # 于是真有凭据的 claim 被判成"没命中"（实跑 c-d4-05 假阴性）。
 _QUOTE_PATTERNS = (
     re.compile(r'「([^」]{20,}?)」', re.S),
+    # 『』是本包规定的"逐字引文"标记（派单模板与 verify_quotes.py 都用它）。
+    # 少了这一条会出现同包分叉：一处说"这是逐字引文"，判同那边说"原文没引文、是转述"，
+    # 于是两侧正文都写着同一句话的 claim 永远升不上去（v6.44 实跑 NCC 三条栽在这）。
+    re.compile(r'『([^』]{20,}?)』', re.S),
     re.compile(r'“([^”]{20,}?)”', re.S),
     re.compile(r'"([^"]{20,}?)"', re.S),
     re.compile(r'`([^`]{20,}?)`', re.S),
