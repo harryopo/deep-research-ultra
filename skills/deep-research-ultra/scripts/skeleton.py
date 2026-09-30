@@ -72,7 +72,12 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
             if c['status'] == 'verified':
                 lines.append(f"- {_one_line(c['text'])} {cite}{scope}")
             elif c['status'] == 'conflict':
-                lines.append(f"- ⚠️ 冲突待裁决：{_one_line(c['text'])} {cite}{scope}")
+                # 标签只说账本里查得到的事实：有没有留过取舍、留的是什么。
+                # 过去一律印"待裁决"，第七轮把三组冲突裁完并写了 note 之后，
+                # 这个标签就成了对过程状态的谎报——读者以为还没给结论，账本里每条都记着取舍。
+                note = _one_line(c.get('note'))
+                tag = f'（账本留痕：{note}）' if note else '（未裁决）'
+                lines.append(f"- ⚠️ 来源冲突{tag}：{_one_line(c['text'])} {cite}{scope}")
                 lines.append(f'  {PLACEHOLDER} 写清两方证据、分歧根源与本报告的取舍')
             else:
                 # 未验证项渲染成"仅作线索"，不逐条留【待写】：标准档一次 60 条 claim
@@ -86,7 +91,7 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
     lines += ['## 调研方法',
               f'{PLACEHOLDER} 写检索窗口、数据源分层、子 Agent 分工与 verified 判据（档 A/档 B）',
               f'账本事实：claims {len(claims)} 条（verified {verified} / 仅作线索 {hedged}'
-              f' / 冲突待裁决 {conflicts}），'
+              f' / 来源冲突 {conflicts}），'
               f'来源 {len(sources)} 条，独立域名 {len({_host(s.get("url", "")) for s in sources})} 个。']
     # 校验门见到仓库链接就要求六维（风险/许可证/维护/适配/落地/量化）。报告里只是
     # 引某个仓库当证据时，这六项不相关——给一行可改的声明位，默认按选型调研从严。

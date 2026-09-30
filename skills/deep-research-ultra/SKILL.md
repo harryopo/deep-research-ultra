@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.47.0
+version: 6.48.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -430,7 +430,7 @@ pending → searching → verified | conflict | supplementing → completed
 | `pending` | 待搜索 |
 | `searching` | 搜索中 |
 | `verified` | 已验证（≥2 独立来源） |
-| `conflict` | 矛盾（来源冲突） |
+| `conflict` | 矛盾（来源冲突）——骨架把这条印成 `⚠️ 来源冲突（账本留痕：<note>）`：留痕写过就显示取舍内容，没写过就显示 `（未裁决）`。**别把状态留着不改写而只在正文里说"已裁决"**，读者看的是标签；反过来给了取舍也不等于消解，缺跨域复现就继续留 `conflict` |
 | `supplementing` | 补充中（Drill-down） |
 | `completed` | 已完成 |
 
@@ -1649,7 +1649,7 @@ scripts/
 ├── repo_health.py           # 仓库健康扫描（官方 API 事实 + 停更 + 许可证传染 + OSV CVE；verdict 五态，限流判 unknown）
 ├── panel.py                 # 专家团评审清单生成（多视角 + 红蓝对抗契约）
 ├── validate_report.py       # 发布前校验门（引用一致性/反查/覆盖率/章节/Tier4占比/六维要素/占位标记）+ 防伪戳 --stamp/--verify-stamp
-├── skeleton.py              # 报告骨架生成（v6.14）：从账本出引用编号+来源登记表，正文留【待写】给 Lead
+├── skeleton.py              # 报告骨架生成（v6.14）：从账本出引用编号+来源登记表，正文留【待写】给 Lead（v6.48：conflict 行带出账本留痕，没留痕才写"未裁决"）
 ├── verify_quotes.py         # 引文逐字对账（v6.44）：账本『…』与报告「…」段须在存档原始材料里逐字命中（v6.46 起含 --report；v6.47 短段列未对账），缺材料或缺待查文本退 2
 ├── engines/
 │   ├── __init__.py          # 引擎导出聚合（34 个数据源，29 个可搜索）
