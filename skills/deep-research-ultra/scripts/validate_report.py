@@ -192,7 +192,8 @@ def validate_report(report_md: str,
                     ledger_dir: Optional[str] = None,
                     min_coverage: float = DEFAULT_MIN_COVERAGE,
                     min_sources_per_claim: int = DEFAULT_MIN_SOURCES,
-                    max_summary_chars: int = DEFAULT_MAX_SUMMARY_CHARS) -> ValidationReport:
+                    max_summary_chars: int = DEFAULT_MAX_SUMMARY_CHARS,
+                    raw_dir: Optional[str] = None) -> ValidationReport:
     """执行全部校验项。ledger 与 ledger_dir 二选一。"""
     report = ValidationReport(passed=True, stats={
         'with_ledger': ledger is not None or ledger_dir is not None,
@@ -335,6 +336,26 @@ def validate_report(report_md: str,
         report.warnings.append(
             f'{len(marked_pending)} 处引用已标 ⚠️ 明示待补证据：'
             f'{"、".join(map(str, marked_pending[:5]))}（不阻断交付，需后续补验证）')
+
+    # ---------- 校验 2d（v6.44）：引文逐字对账 ----------
+    # 给了抓取材料就必须逐字命中。v6.42 实跑第五轮自查出 6 处"标着逐字其实对不上"
+    # （en dash/κ 写成 ASCII、自加 / 分隔、把摘要转述当正文引文），人眼扫不出来，
+    # 只有拿原文比才看得见。不给 --raw 时不判（许多调研只留摘要级证据）。
+    if raw_dir and rep is not None:
+        from verify_quotes import check_quotes
+        qres = check_quotes(ledger_dir, raw_dir)
+        report.stats['quote_checked'] = qres['checked']
+        report.stats['quote_misses'] = len(qres['misses'])
+        if qres['error']:
+            report.issues.append(f'引文对账无从判断：{qres["error"]}')
+        elif qres['misses']:
+            sample = '；'.join(
+                f'{m["claim_id"]}『{m["fragment"][:34]}…』'
+                + (f'（正文写作『{m["suggest"][:34]}…』）' if m['suggest'] else '')
+                for m in qres['misses'][:3])
+            report.issues.append(
+                f'{len(qres["misses"])} 段标着逐字的引文与抓取材料对不上：{sample}'
+                f'——按原文逐字改写，或把转述明确标成转述')
 
     # 每 topic 至少 1 verified（v6.3：从 warning 升级为 issue——账本分主题后无已证实结论即拦截）
     for t, s in stats.items():
@@ -506,6 +527,8 @@ def _main(argv: Optional[List[str]] = None) -> int:
         print('''\n用法:
   python validate_report.py --report <report.md> --ledger <ledger_dir>
             [--min-coverage 0.6] [--min-sources 1] [--max-summary 1200]
+            [--raw <抓取材料目录>]
+            # --raw：给了就把账本里每段『…』引文与抓取材料逐字对账，对不上算 issue
   python validate_report.py --report <report.md> --ledger <ledger_dir> --stamp
             # 过门后盖防伪戳（不过门只留问题清单，不留戳）
   python validate_report.py --report <report.md> [--ledger <ledger_dir>] --verify-stamp
@@ -539,6 +562,7 @@ def _main(argv: Optional[List[str]] = None) -> int:
         min_coverage=float(_opt('--min-coverage', '0.6')),
         min_sources_per_claim=int(_opt('--min-sources', '1')),
         max_summary_chars=int(_opt('--max-summary', '1200')),
+        raw_dir=_opt('--raw', '') or None,
     )
     import json
     print(json.dumps({
