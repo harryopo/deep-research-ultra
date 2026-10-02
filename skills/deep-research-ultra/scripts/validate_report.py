@@ -153,6 +153,11 @@ def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]],
             ids = {i for i in ids if i == owner}
         (marked if '⚠' in line else unmarked).update(ids)
     return unmarked, marked
+def _has_verbatim_marker(text: str) -> bool:
+    """文本里有没有逐字引文标记（『 「 “）。〔〕是自造口径，不算。"""
+    return bool(re.search(r'[『「“]', str(text or '')))
+
+
 MIN_OWN_SECTION_CHARS = 120
 _OWN_SECTIONS = {
     'conclusion': re.compile(r'结论|建议|conclusion|recommendation', re.I),
@@ -231,14 +236,51 @@ def registry_number_conflicts(report_md: str) -> Dict[int, List[str]]:
     return {n: sorted(u) for n, u in by_num.items() if len(u) > 1}
 
 
+def _section_body(md: str, keywords: List[str]) -> str:
+    """取出命中关键词的那个章节的正文（不含标题行本身）。
+
+    v6.50：此前只做标题子串匹配，于是四个标题下面**一个字都没有**的报告
+    也能过门（实测：passed=True、issues为空）。节标题在、正文空，
+    等于交了一份空壳——比缺章节更隐蔽，因为它看起来"结构完整"。
+    """
+    lines = md.splitlines()
+    level = 0
+    collecting = False
+    body: List[str] = []
+    for line in lines:
+        h = _HEADING.match(line)
+        if h:
+            lv = len(h.group(1))
+            if lv <= 2:
+                collecting = False
+                if lv == 2 and any(kw.lower() in h.group(2).lower() for kw in keywords):
+                    collecting = True
+                    level = lv
+            # 三级及更深的标题属于本节内容，但它本身不算正文
+            continue
+        if collecting:
+            body.append(line)
+    return '\n'.join(body)
+
+
 def _section_missing(md: str, section: str, keywords: List[str]) -> bool:
-    """只有标题行（# 开头）参与章节关键词匹配，避免正文提及造成误判。"""
+    """章节缺失 = 标题不存在 **或** 该节没有实质正文。
+
+    「实质正文」排除：空行、标题行、表格行、引用块、分隔线。
+    只认这些的话，节等于没写——但标题还在，看着像"写了"。
+    """
     heading = ' '.join(l for l in md.splitlines() if re.match(r'^#{1,4}\s', l))
     low = heading.lower()
-    for kw in keywords:
-        if kw.lower() in low:
-            return False
-    return True
+    if not any(kw.lower() in low for kw in keywords):
+        return True
+    body = _section_body(md, keywords)
+    substantive = [
+        l for l in body.splitlines()
+        if l.strip()
+        and not re.match(r'^\s*\|', l)
+        and not re.match(r'^\s*[>#\-*]{1,2}\s*$', l)
+    ]
+    return not substantive
 
 
 def _repo_key(url: str) -> str:
@@ -275,7 +317,19 @@ def validate_report(report_md: str,
     # ---------- 校验 3：必需章节 ----------
     for section, kws in REQUIRED_SECTIONS.items():
         if _section_missing(report_md, section, kws):
-            report.issues.append(f'「{section}」章节缺失（关键词: {"/".join(kws[:2])}）')
+            # v6.50：区分"标题都没有"与"标题在、正文空"——后者曾能过门，
+            # 交一份空壳报告比缺章节更隐蔽（它看起来结构完整）。
+            has_heading = any(
+                kw.lower() in ' '.join(
+                    l for l in report_md.splitlines()
+                    if re.match(r'^#{1,4}\s', l)).lower() for kw in kws)
+            if has_heading:
+                report.issues.append(
+                    f'「{section}」章节是空的：标题在、下面没有任何正文——'
+                    f'空壳报告不算交付')
+            else:
+                report.issues.append(
+                    f'「{section}」章节缺失（关键词: {"/".join(kws[:2])}）')
 
     # ---------- 校验 3b：占位内容（v6.14）----------
     # skeleton.py 生成的骨架带【待写】标记。深档一轮写不完时，过去的做法是糊一份
@@ -411,31 +465,56 @@ def validate_report(report_md: str,
             f'{"、".join(map(str, marked_pending[:5]))}（不阻断交付，需后续补验证）')
 
     # ---------- 校验 2d（v6.44）：引文逐字对账 ----------
-    # 给了抓取材料就必须逐字命中。v6.42 实跑第五轮自查出 6 处"标着逐字其实对不上"
+    # 给了抓取材料就必须逐字命中。v6.42 实跑第五轮自查出6 处"标着逐字其实对不上"
     # （en dash/κ 写成 ASCII、自加 / 分隔、把摘要转述当正文引文），人眼扫不出来，
-    # 只有拿原文比才看得见。不给 --raw 时不判（许多调研只留摘要级证据）。
-    if raw_dir and rep is not None:
-        from verify_quotes import check_quotes
-        qres = check_quotes(ledger_dir, raw_dir, report=report_path or ('report.md', report_md))
-        report.stats['quote_checked'] = qres['checked']
-        report.stats['quote_misses'] = len(qres['misses'])
-        report.stats['quote_unchecked'] = len(qres.get('unchecked') or [])
-        if qres['error']:
-            report.issues.append(f'引文对账无从判断：{qres["error"]}')
-        elif qres['misses']:
-            sample = '；'.join(
-                f'{m["where"]}『{m["fragment"][:34]}…』'
-                + (f'（正文写作『{m["suggest"][:34]}…』）' if m['suggest'] else '')
-                for m in qres['misses'][:3])
-            report.issues.append(
-                f'{len(qres["misses"])} 段标着逐字的引文与抓取材料对不上：{sample}'
-                f'——按原文逐字改写，自造口径改用〔〕（『「“ 是逐字标记）')
-        elif report.stats['quote_unchecked']:
-            # 短于阈值（默认 15 字）的『「“段没判过，但括号承诺的就是逐字——不能当作已核
-            report.warnings.append(
-                f'{report.stats["quote_unchecked"]} 段短引文未对账'
-                f'（{("、".join("『%s』" % f[:14] for f in qres["unchecked"][:3]))} 等）'
-                f'——自造口径应改写为〔〕，逐字引文请补足长度或人工回验')
+    # 只有拿原文比才看得见。
+    #
+    # v6.50：不给--raw 时不再是"不判"，而是"账本里声称逐字的 claim 一律拦"。
+    # 原来的理由是"许多调研只留摘要级证据"——但那个前提把两类东西混在了一起：
+    #   · 只到摘要层的 claim        → 本来就不该有逐字引文，不该被要求补材料
+    #   · 声称写了逐字引文的 claim  → 必须有材料能验，否则是空头承诺
+    # 实测（v6.49 审计）：账本里放一条完全捏造的引文，补足两个不同域来源让其它
+    # 检查全部通过，不传 --raw →盖戳通过。整条对账机制能被一个可选参数关掉。
+    # 口径与 verify_quotes 对"无材料"的既有说法一致：没查过不等于查过了没问题。
+    if rep is not None:
+        if raw_dir:
+            from verify_quotes import check_quotes
+            qres = check_quotes(ledger_dir, raw_dir,
+                                report=report_path or ('report.md', report_md))
+            report.stats['quote_checked'] = qres['checked']
+            report.stats['quote_misses'] = len(qres['misses'])
+            report.stats['quote_unchecked'] = len(qres.get('unchecked') or [])
+            if qres['error']:
+                report.issues.append(f'引文对账无从判断：{qres["error"]}')
+            elif qres['misses']:
+                sample = '；'.join(
+                    f'{m["where"]}『{m["fragment"][:34]}…』'
+                    + (f'（正文写作『{m["suggest"][:34]}…』）' if m['suggest'] else '')
+                    for m in qres['misses'][:3])
+                report.issues.append(
+                    f'{len(qres["misses"])} 段标着逐字的引文与抓取材料对不上：{sample}'
+                    f'——按原文逐字改写，自造口径改用〔〕（『「“ 是逐字标记）')
+            elif report.stats['quote_unchecked']:
+                # 短于阈值（默认 15 字）的『「“段没判过，但括号承诺的就是逐字——不能当作已核
+                report.warnings.append(
+                    f'{report.stats["quote_unchecked"]} 段短引文未对账'
+                    f'（{("、".join("『%s』" % f[:14] for f in qres["unchecked"][:3]))} 等）'
+                    f'——自造口径应改写为〔〕，逐字引文请补足长度或人工回验')
+        else:
+            from verify_quotes import collect_sources
+            try:
+                pending = collect_sources(ledger_dir, None, None)
+            except Exception:
+                pending = []
+            marked = [w for w, t in pending if _has_verbatim_marker(t)]
+            report.stats['quote_unverifiable'] = len(marked)
+            if marked:
+                sample = '、'.join(sorted({m[0] for m in marked})[:6])
+                report.issues.append(
+                    f'账本里有 {len(marked)} 条 claim 用了『「“逐字引文标记，'
+                    f'但本次没给 --raw 抓取材料，无法核验（{sample} …）——'
+                    f'要么补 --raw 让它逐字对账，要么把对不上的改写成〔〕自造口径；'
+                    f'"没查过"不等于"查过了没问题"')
 
     # 每 topic 至少 1 verified（v6.3：从 warning 升级为 issue——账本分主题后无已证实结论即拦截）
     for t, s in stats.items():

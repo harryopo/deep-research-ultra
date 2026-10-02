@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.49.0
+version: 6.50.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -894,6 +894,21 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 中途快撑不住（上下文/turn/时间接近上限）时，**先把当前版本的 report.md 落盘再说话**，
 并在摘要里写明"未完成的部分"——留下可用的半成品，好过什么都不留下。
 
+#### 两条 v6.50 新增的流程红线
+
+**① 改过账本状态就必须重跑 `skeleton.py`。**
+`set-status` / `verify-primary` 会改 claim 的 status，而 report.md 里那几行
+是骨架按**当时**的状态渲染的——升了 verified 却没重生成骨架，正文仍写着
+「⚠️ 仅作线索」，而门按行归因会认为"已验证的 claim 还在标未验证"而拦下。
+实测一轮：11 条已verified 的 claim 被报"被引用但没有验证"，根因就是没重生成。
+顺序固定为：`set-status` → `skeleton.py`（覆盖 report.md，Lead 写的段落要重新贴回）
+→ `validate_report --stamp`。
+
+**② `--raw` 不再是可选项。**
+账本里只要有 claim 用了 `『「“` 逐字标记，不给 `--raw` 就会被拦——
+"没查过"不等于"查过了没问题"。纯摘要级 claim（本就没有逐字引文）不受影响，
+照常交付。真要交纯摘要证据，就把对不上的引文改写成 `〔〕` 自造口径标记。
+
 **最终回复模板（≤25 行，严格按此结构）**：
 
 ```
@@ -1560,6 +1575,11 @@ python "${SKILL_DIR}/scripts/ledger.py" content-identity --session <dir> --claim
     # 在两侧正文都命中判同；指错文件/空壳页/纯转述一律拒
 python "${SKILL_DIR}/scripts/ledger.py" merge --session <dir> --dir <分片所在目录> [--claim-cap N]
 python "${SKILL_DIR}/scripts/ledger.py" status --session <dir> [--topic <t>]   # 无 --topic 出 {"topics":…,"totals":…}
+python "${SKILL_DIR}/scripts/ledger.py" status --session <dir> --needs-cross    # 逐条列出"只挂了一个注册域"的孤证
+    # v6.50：status 只报主题总数，不指出**具体哪几条 claim 只差一个跨域来源**。
+    # 归并后先跑这条，它直接给出该派哪几轮交叉补强——别再人工翻 claim 逐个查域。
+    # 口径同档 A：按不同注册域计，同一作品的多个通道（arXiv /abs 与 /pdf、
+    # 仓库页与 raw）折叠成一个域。verified 与 conflict 不出现在清单里。
 python "${SKILL_DIR}/scripts/ledger.py" export --session <dir> --format json|md [--out <path>]
 
 # 4. 专家团评审清单生成（供主 Agent 消化执行）

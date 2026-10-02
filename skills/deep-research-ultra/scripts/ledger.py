@@ -352,6 +352,20 @@ def _same_url(a: str, b: str) -> bool:
     return bool(f(a)) and f(a) == f(b)
 
 
+def _registrable_domain(url: str) -> str:
+    """取注册域（去www.），空串表示取不到。
+
+    只用于"这条来源算不算一个独立来源"的粗筛；与档 A 正式判据同口径
+    （≥2 个不同注册域），刻意不做内容指纹去重——那层由
+    `similarity.effective_independent_count` 在校验门里兜。
+    """
+    m = re.match(r'^https?://([^/\s?#]+)', str(url or '').strip())
+    if not m:
+        return ''
+    host = m.group(1).lower().split('@')[-1].split(':')[0]
+    return host[4:] if host.startswith('www.') else host
+
+
 def _is_clone_url(url: str) -> bool:
     """是不是 git 克隆地址（`…/x.git`、大小写与尾斜杠都容）。"""
     path = re.split(r'[?#]', str(url or '').strip(), maxsplit=1)[0]
@@ -1111,6 +1125,49 @@ class ResearchLedger:
         return [e for e in self._all()
                 if e.get('type') == 'source' and e.get('claim_id') == claim_id]
 
+    def needs_cross_verification(self) -> List[Dict[str, Any]]:
+        """逐条列出"只挂了一个注册域"的待验证 claim（v6.50）。
+
+        `status()` 只按主题报总数与覆盖率，不指出**具体哪些 claim 只差一个跨域
+        来源就能升 verified**。v6.49 实跑里 Lead 是人工翻82 条 claim、逐个查
+        注册域，才判断出该派 D3X/D2X 两轮交叉补强——本该是机械输出。
+
+        口径与档 A 一致：按**不同注册域**计数，且同一作品的多个通道
+        （arXiv /abs 与 /pdf、GitHub 仓库页与 raw）折叠成一个域——它们不是
+        独立来源。只统计 pending / supplementing：verified 已经过验证，
+        conflict 是有意的对立面，两者都不该出现在"待补交叉"清单里。
+
+        Returns:
+            [{'claim_id', 'topic', 'domains', 'source_count', 'need_more_domains'}]
+        """
+        domains_by_claim: Dict[str, set] = {}
+        for e in self._all():
+            if e.get('type') != 'source':
+                continue
+            cid = str(e.get('claim_id') or '')
+            host = _registrable_domain(e.get('url', ''))
+            if cid and host:
+                domains_by_claim.setdefault(cid, set()).add(host)
+
+        out: List[Dict[str, Any]] = []
+        for e in self._all():
+            if e.get('type') != 'claim':
+                continue
+            if e.get('status') not in ('pending', 'supplementing'):
+                continue
+            cid = str(e.get('id') or '')
+            doms = domains_by_claim.get(cid) or set()
+            if len(doms) >= 2 or not doms:
+                continue
+            out.append({
+                'claim_id': cid,
+                'topic': e.get('topic', 'general'),
+                'domains': sorted(doms),
+                'source_count': len(doms),
+                'need_more_domains': 2 - len(doms),
+            })
+        return out
+
     def status(self, topic: Optional[str] = None) -> Dict[str, Any]:
         """按 topic 统计状态与证据充分性。"""
         topics: Dict[str, Dict[str, Any]] = {}
@@ -1409,6 +1466,24 @@ def _main(argv: Optional[List[str]] = None) -> int:
 
     if cmd == 'status':
         topic = _opt('--topic', '') or None
+        # v6.50：--needs-cross 把"该补交叉验证的孤证"逐条打出来。
+        # status 只报主题总数，Lead 得人工翻 claim 才知道哪几条只差一个跨域
+        # 来源——v6.49 实跑里就是这么人工找出 D3X/D2X 两轮补强目标的。
+        if '--needs-cross' in args:
+            gaps = ledger.needs_cross_verification()
+            if topic is not None:
+                gaps = [g for g in gaps if g['topic'] == topic]
+            if not gaps:
+                print('没有待补交叉验证的孤证'
+                      '（每条待验证 claim 都已挂 ≥2 个不同注册域，或本身无来源）')
+                return 0
+            print(f'待补交叉验证：{len(gaps)} 条 claim 只挂了一个注册域，'
+                  f'补一个不同域的独立来源即可升 verified\n')
+            for g in gaps:
+                print(f"  {g['claim_id']}  [{g['topic']}]  "
+                      f"已有：{'、'.join(g['domains'])}  "
+                      f"还差 {g['need_more_domains']} 个不同域")
+            return 0
         data = ledger.status(topic)
         if topic is not None:
             if not data:
