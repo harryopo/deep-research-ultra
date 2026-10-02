@@ -25,7 +25,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from ledger import ResearchLedger
@@ -153,6 +153,66 @@ def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]],
             ids = {i for i in ids if i == owner}
         (marked if '⚠' in line else unmarked).update(ids)
     return unmarked, marked
+MIN_OWN_SECTION_CHARS = 120
+_OWN_SECTIONS = {
+    'conclusion': re.compile(r'结论|建议|conclusion|recommendation', re.I),
+    'summary': re.compile(r'执行摘要|摘要|executive summary', re.I),
+}
+
+
+def audit_conclusion_citations(report_md: str) -> Tuple[List[str], Dict[str, Any]]:
+    """审计 Lead 手写的「结论与建议」「执行摘要」是否带账本引用（v6.16）。
+
+    `cited_claim_ids()` 按行归因：某行的 [N] 只代表"这条 claim 被引用"。
+    骨架渲染的 claim 行因此能被管住，而Lead 自己写的两段没有 claim 行归属——
+    实测一轮1791 字的结论段0 个 [N] 照样盖戳。SKILL.md 十六自己写着
+    「禁止结论无账本引用」，但那条铁律此前只落在 claim 行上，Lead 的判断是盲区。
+
+    这不是查"编号存不存在"（那是引用反查项的事），而是查**判断段有没有落到账本上**：
+    一段两百字以上的结论/摘要，如果一个 [N] 都没有，说明它是纯判断而非证据推导。
+
+    Returns:
+        (issues, stats)。issue 为空表示通过。
+    """
+    issues: List[str] = []
+    stats: Dict[str, Any] = {}
+    buckets: Dict[str, List[str]] = {k: [] for k in _OWN_SECTIONS}
+    current: Optional[str] = None
+    for line in report_md.splitlines():
+        h = _HEADING.match(line)
+        if h:
+            level, title = len(h.group(1)), h.group(2)
+            # 子标题（###/####）继承父节：结论段里常有「### 一句话结论」
+            # 这类子标题，遇到它就清空 current 会只量到子标题之前那几行，
+            # 把 1791 字的结论段量成 136 字（实测踩过）。
+            if level > 2:
+                continue
+            current = None
+            for key, pat in _OWN_SECTIONS.items():
+                if pat.search(title):
+                    current = key
+                    break
+            continue
+        if current:
+            buckets[current].append(line)
+
+    labels = {'conclusion': '结论与建议', 'summary': '执行摘要'}
+    for key, lines in buckets.items():
+        # 去掉标题行残留、表格行、引用登记表行与空行，只量散文正文
+        body = ' '.join(l for l in lines
+                        if l.strip() and not l.lstrip().startswith(('|', '>')))
+        chars = len(re.sub(r'\s+', '', body))
+        cites = len(_CITATION.findall(body))
+        stats[f'{key}_chars'] = chars
+        stats[f'{key}_citations'] = cites
+        if chars >= MIN_OWN_SECTION_CHARS and cites == 0:
+            issues.append(
+                f'「{labels[key]}」{chars} 字却没有任何 [N] 引用——'
+                f'这段是纯判断，不是从账本推出来的；'
+                f'给每个关键结论挂上编号，或明确标注为推断')
+    return issues, stats
+
+
 def registry_number_conflicts(report_md: str) -> Dict[int, List[str]]:
     """来源登记表里同一编号映射到多个不同 URL 的情况。
 
@@ -237,6 +297,15 @@ def validate_report(report_md: str,
                 f'执行摘要过长（{summary_chars} 字 > 上限 {max_summary_chars}），建议精简')
     else:
         report.stats['summary_chars'] = 0
+
+    # ---------- 校验 5b（v6.16）：Lead 手写段的引用落地 ----------
+    # 骨架渲染的 claim 行由 cited_claim_ids 按行归因管着；结论与建议、
+    # 执行摘要这两段是 Lead 自己写的，没有 claim 行归属，此前是盲区——
+    # 实测 1791 字零引用的结论段照样盖戳，与 SKILL.md 十六
+    # 「禁止结论无账本引用」直接冲突。
+    _own_issues, _own_stats = audit_conclusion_citations(report_md)
+    report.stats.update(_own_stats)
+    report.issues.extend(_own_issues)
 
     if rep is None:
         # 无账本时只能做文本级校验

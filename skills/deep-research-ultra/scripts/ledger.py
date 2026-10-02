@@ -352,9 +352,27 @@ def _same_url(a: str, b: str) -> bool:
     return bool(f(a)) and f(a) == f(b)
 
 
+def _is_clone_url(url: str) -> bool:
+    """是不是 git 克隆地址（`…/x.git`、大小写与尾斜杠都容）。"""
+    path = re.split(r'[?#]', str(url or '').strip(), maxsplit=1)[0]
+    return path.rstrip('/').lower().endswith('.git')
+
+
 def _is_traceable(url: str) -> bool:
-    """能不能点回原文：站内相对链接（/link?url=…）与 javascript: 之类一律不算来源。"""
-    return bool(re.match(r'^https?://[^\s/]+', str(url or '').strip()))
+    """能不能点回原文：站内相对链接（/link?url=…）与 javascript: 之类一律不算来源。
+
+    v6.16：连`https://` 开头的**克隆地址**也不收。`https://github.com/x/y.git`
+    协议对、域名合法，但浏览器打开不返回仓库页、更不返回正文——它是给
+    `git clone` 用的。此前判据只测协议，于是这类地址照样拿到一个
+    `primary_index` 进报告的引用登记表，读者点进去发现什么也没有
+    （实测：子Agent 把"作者仓库"记成克隆地址，门一路放行到发布前才被
+    引用反查项点名）。与 test_v6155 拦站内相对链接/ 口头指代同源：
+    **假溯源不得占引用编号**。
+    """
+    u = str(url or '').strip()
+    if not re.match(r'^https?://[^\s/]+', u):
+        return False
+    return not _is_clone_url(u)
 
 
 def _one_line(text) -> str:
@@ -631,6 +649,10 @@ class ResearchLedger:
         """
         url = str(url).strip()
         if not _is_traceable(url):
+            if _is_clone_url(url):
+                raise ValueError(
+                    f'来源 {url[:60]} 是 git 克隆地址，点不开网页正文 —— '
+                    f'换成仓库页（如 https://github.com/owner/repo）')
             raise ValueError(f'来源 {url[:60] or "(空)"} 点不回原文，是假溯源 —— '
                              f'只收 http(s) 绝对地址')
         t = int(tier) if tier is not None else (domain_tier(url) if domain_tier else 3)

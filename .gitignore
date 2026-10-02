@@ -7,3 +7,6 @@ project_memory.md
 hooks/.drux-hook-stop.log
 hooks/.drux-hook-stop.raw
 dist/
+
+# 本机MCP 运行时配置（setup-mcp.sh 生成，按机器不同）
+.mcp.json

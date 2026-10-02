@@ -87,6 +87,16 @@ class TestInventoryUnchanged:
     def test_total_sources_and_config_split_are_untouched(self):
         reg = build_registry()
         assert len(reg.get_all()) == 34
-        assert len(reg.get_configured()) == 29
+        # v6.16：不锁 `get_configured()` 的**个数**。它数的是"当前机器上配置就绪
+        # 的引擎"，而配置就绪取决于运行环境的 .mcp.json / 环境变量——实测在
+        # 本机 `setup-mcp.sh --core` 配了 3 个 MCP 后，这个数从 29 变成 30，
+        # 与代码改动无关。换台机器数字就不同，拿它当护栏等于给自己埋一颗
+        # 环境炸弹（v6.15 实跑时被它绊过一次）。
+        # 真正的不变量是**集合关系**：配置态必须是全集的子集，且装了就一定在。
+        configured = {e.get_name() for e in reg.get_configured()}
+        allnames = {e.get_name() for e in reg.get_all()}
+        assert configured <= allnames, \
+            f'配置态里有不在总清单里的引擎：{configured - allnames}'
+        assert len(reg.get_configured()) <= len(reg.get_all())
         assert 'unpaywall' in {e.get_name() for e in reg.get_configured()}, \
             'unpaywall 有占位 email 兜底，DOI 通道实测可用，不该被算成需配置'
