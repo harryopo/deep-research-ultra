@@ -266,7 +266,7 @@ def _score_result(item: Dict, query: str) -> float:
                 score += 7
             elif '2023' in str(pub_date):
                 score += 4
-        except:
+        except Exception:  # 日期字段是外部脏值，判不了年份就按无日期计分
             pass
 
     return round(score, 1)
