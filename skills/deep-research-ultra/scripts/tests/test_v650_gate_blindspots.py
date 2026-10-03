@@ -109,6 +109,77 @@ def test_needs_cross_ignores_empty_source_claims(tmp_path):
     assert L.needs_cross_verification() == []
 
 
+# ---------------------------------------------------------------- 域归一：不能自己另立一套
+def test_needs_cross_treats_api_subdomain_as_same_domain(tmp_path):
+    """api.github.com + github.com 是同一份制品的两个入口，不是两个来源。
+
+    v6.50 初版在 needs_cross_verification 里另写了一个只剥 www. 的粗筛，
+    把 api.github.com 当独立域，于是这类同源配对被误判成"已跨域"——
+    孤证清单会虚报解除。门禁口径只有 `_registered_domain` 一套。
+    """
+    one = tmp_path / 'one'
+    L = _seed(one, [
+        ('c-api', 'T', 'pending', ['https://api.github.com/repos/owner/repo']),
+    ])
+    assert len(L.needs_cross_verification()) == 1, '单源仍是孤证'
+
+    both = tmp_path / 'both'
+    L2 = _seed(both, [
+        ('c-both', 'T', 'pending', ['https://api.github.com/repos/owner/repo',
+                                    'https://github.com/owner/repo']),
+    ])
+    got = L2.needs_cross_verification()
+    assert len(got) == 1, '仓库页 + REST API 折叠成一个域，仍是孤证'
+    assert got[0]['domains'] == ['github.com'], got
+
+
+def test_needs_cross_treats_registry_subdomain_as_same_domain(tmp_path):
+    L = _seed(tmp_path, [
+        ('c-npm', 'T', 'pending', ['https://registry.npmjs.org/@scope/pkg',
+                                   'https://npmjs.com/package/@scope/pkg']),
+    ])
+    assert L.needs_cross_verification() == []
+
+
+def test_needs_cross_still_separates_genuinely_different_hosts(tmp_path):
+    """归一不能过头：openalex 与 crossref 是真的两个库。"""
+    L = _seed(tmp_path, [
+        ('c-two', 'T', 'pending', ['https://api.crossref.org/works/10.1/x',
+                                  'https://api.openalex.org/works/W1']),
+    ])
+    assert L.needs_cross_verification() == []
+
+
+# ============================================================
+# 静默无操作：比报错危险
+# ============================================================
+
+def test_set_status_rejects_string_claim_ids(tmp_path):
+    """`set_status('c-d1-08', ...)` 传字符串会按字符迭代，一个都匹配不上。
+
+    实测返回 0、不报错、账本纹丝不动——Lead 会以为改好了。
+    v6.50.1 补那次 cross-verification 时真的踩了：以为 note 写进去了，
+    复读账本才发现根本没有。现在直接拒。
+    """
+    L = ResearchLedger(str(tmp_path / 'ledger')).init()
+    cid = L.add_claim('原始论断', topic='T')['id']
+    with pytest.raises(TypeError) as e:
+        L.set_status(cid, status='verified', note='x')
+    assert '列表' in str(e.value)
+    # 账本没被动过
+    c = [x for x in L.export_json()['claims'] if x['id'] == cid][0]
+    assert c['status'] == 'pending'
+
+
+def test_set_status_accepts_single_element_list(tmp_path):
+    L = ResearchLedger(str(tmp_path / 'ledger')).init()
+    cid = L.add_claim('原始论断', topic='T')['id']
+    n = L.set_status([cid], status='verified', note='交叉验证 2 来源')
+    assert n == 1
+    c = [x for x in L.export_json()['claims'] if x['id'] == cid][0]
+    assert c['status'] == 'verified'
+
+
 # ============================================================
 # 盲区一：不传 --raw 时，声称逐字的 claim 必须拦
 # ============================================================

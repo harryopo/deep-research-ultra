@@ -352,20 +352,6 @@ def _same_url(a: str, b: str) -> bool:
     return bool(f(a)) and f(a) == f(b)
 
 
-def _registrable_domain(url: str) -> str:
-    """取注册域（去www.），空串表示取不到。
-
-    只用于"这条来源算不算一个独立来源"的粗筛；与档 A 正式判据同口径
-    （≥2 个不同注册域），刻意不做内容指纹去重——那层由
-    `similarity.effective_independent_count` 在校验门里兜。
-    """
-    m = re.match(r'^https?://([^/\s?#]+)', str(url or '').strip())
-    if not m:
-        return ''
-    host = m.group(1).lower().split('@')[-1].split(':')[0]
-    return host[4:] if host.startswith('www.') else host
-
-
 def _is_clone_url(url: str) -> bool:
     """是不是 git 克隆地址（`…/x.git`、大小写与尾斜杠都容）。"""
     path = re.split(r'[?#]', str(url or '').strip(), maxsplit=1)[0]
@@ -726,7 +712,17 @@ class ResearchLedger:
         verified 里混进 3 条这类登记条目——它们手上确实有 ≥2 个不同域名的来源，
         机械判据就放行了，skeleton 随即把它们当结论渲染。自己声明没核实过的东西，
         不可能被来源数判成已核实。
+
+        v6.50.1：claim_ids 传字符串会**静默无操作**——按字符迭代，逐个去查
+        'c','-','d'… 这样的 id，全不匹配，于是改 0 条、返回 0、不报错。
+        Lead 会以为改好了（实测踩过一次：以为 note 写进去了，其实没有）。现在直接拒。
         """
+        if isinstance(claim_ids, str):
+            raise TypeError(
+                f'claim_ids 要传列表（如 ["c-d1-08"]），收到字符串 {claim_ids!r}——'
+                f'按字符迭代会一个都匹配不上，静默改 0 条。单个 id 也写成 ["{claim_ids}"]。')
+        claim_ids = list(claim_ids)
+
         if status is not None and status not in VALID_STATUS:
             return 0
         wanted = {c.strip() for c in claim_ids if c and c.strip()}
@@ -1132,10 +1128,15 @@ class ResearchLedger:
         来源就能升 verified**。v6.49 实跑里 Lead 是人工翻82 条 claim、逐个查
         注册域，才判断出该派 D3X/D2X 两轮交叉补强——本该是机械输出。
 
-        口径与档 A 一致：按**不同注册域**计数，且同一作品的多个通道
-        （arXiv /abs 与 /pdf、GitHub 仓库页与 raw）折叠成一个域——它们不是
-        独立来源。只统计 pending / supplementing：verified 已经过验证，
-        conflict 是有意的对立面，两者都不该出现在"待补交叉"清单里。
+        口径与档 B 一致：用 `_registered_domain()`——它把 `api.github.com` 与
+        `github.com` 归一为同一域，因为同一份制品有仓库页 / REST API / raw 字节流
+        三个合法入口，那是**一个**来源而不是三个。只统计 pending / supplementing：
+        verified 已经过验证，conflict 是有意的对立面，两者都不该出现在待补清单里。
+
+        （v6.50.1 修：初版这里另写了一个只剥 `www.` 的粗筛，把 `api.github.com`
+        当成独立域，于是 `api.github.com` + `github.com` 这种同源配对被误判成
+        "已跨域"——`needs_cross_verification` 会虚报孤证已解除。门禁口径只有一个，
+        不许自己另立一套。）
 
         Returns:
             [{'claim_id', 'topic', 'domains', 'source_count', 'need_more_domains'}]
@@ -1145,7 +1146,7 @@ class ResearchLedger:
             if e.get('type') != 'source':
                 continue
             cid = str(e.get('claim_id') or '')
-            host = _registrable_domain(e.get('url', ''))
+            host = _registered_domain(e.get('url', ''))
             if cid and host:
                 domains_by_claim.setdefault(cid, set()).add(host)
 
