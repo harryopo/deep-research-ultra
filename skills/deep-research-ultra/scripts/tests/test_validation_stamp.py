@@ -20,6 +20,10 @@ from validate_report import _main
 STAMP_RE = re.compile(r'^<!--\s*drux:validated\b.*-->\s*$', re.M)
 
 GOOD = '''# 报告
+## 一页拍板
+直接结论：选 A（维护活跃、MIT 许可）[1][2]。
+主要风险：迁移成本未验证。
+下一步：跑一次小规模试点。
 ## 执行摘要
 结论A [1] 与结论B [2]。
 ## 调研范围与方法

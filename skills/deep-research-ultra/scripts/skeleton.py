@@ -55,6 +55,10 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
     hedged = len(claims) - verified - conflicts
 
     lines: List[str] = [f'# {title or "调研报告"}', '']
+    lines += ['## 一页拍板',
+              f'{PLACEHOLDER} 给"要拍板的人"用：直接给结论/推荐（该选哪个、或这件事该怎么做）、'
+              '主要风险、以及下一步动作。每条判断挂 [N]。'
+              '决策类调研必须写出明确推荐——"各有优劣、看你需求"不算结论。', '']
     lines += ['## 执行摘要',
               f'{PLACEHOLDER} 3-5 句给出最关键结论、置信度与适用边界（上限 1200 字）', '']
 

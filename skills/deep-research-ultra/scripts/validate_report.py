@@ -39,6 +39,7 @@ DEFAULT_MIN_COVERAGE = 0.6
 DEFAULT_MIN_SOURCES = 1
 DEFAULT_MAX_SUMMARY_CHARS = 1200
 REQUIRED_SECTIONS = {
+    '一页拍板': ['一页拍板', '拍板', '结论先行', 'bluf', 'bottom line', 'tl;dr'],
     '执行摘要': ['执行摘要', '摘要', 'executive summary'],
     '方法': ['调研范围', '调研方法', '方法', 'methodology', '范围与方法'],
     '结论': ['结论', '结论与建议', 'conclusion'],
@@ -162,7 +163,14 @@ MIN_OWN_SECTION_CHARS = 120
 _OWN_SECTIONS = {
     'conclusion': re.compile(r'结论|建议|conclusion|recommendation', re.I),
     'summary': re.compile(r'执行摘要|摘要|executive summary', re.I),
+    'bluf': re.compile(r'一页拍板|拍板|结论先行|bluf|bottom line|tl;dr', re.I),
 }
+
+# 「一页拍板」里的两头下注话——写上去等于没拍（v6.51）
+_HEDGE_PHRASES = (
+    '各有优劣', '看你需求', '视情况而定', '因人而异', '建议进一步调研',
+    '需要进一步研究', '有待验证', 'no silver bullet',
+)
 
 
 def audit_conclusion_citations(report_md: str) -> Tuple[List[str], Dict[str, Any]]:
@@ -201,7 +209,7 @@ def audit_conclusion_citations(report_md: str) -> Tuple[List[str], Dict[str, Any
         if current:
             buckets[current].append(line)
 
-    labels = {'conclusion': '结论与建议', 'summary': '执行摘要'}
+    labels = {'conclusion': '结论与建议', 'summary': '执行摘要', 'bluf': '一页拍板'}
     for key, lines in buckets.items():
         # 去掉标题行残留、表格行、引用登记表行与空行，只量散文正文
         body = ' '.join(l for l in lines
@@ -215,6 +223,15 @@ def audit_conclusion_citations(report_md: str) -> Tuple[List[str], Dict[str, Any
                 f'「{labels[key]}」{chars} 字却没有任何 [N] 引用——'
                 f'这段是纯判断，不是从账本推出来的；'
                 f'给每个关键结论挂上编号，或明确标注为推断')
+        # 一页拍板：读者要看的是拍板结果，不是"看你需求"
+        if key == 'bluf' and chars >= MIN_OWN_SECTION_CHARS:
+            hits = [p for p in _HEDGE_PHRASES if p in body]
+            if hits and cites == 0:
+                issues.append(
+                    f'「一页拍板」通篇是两头下注的话（{"、".join(hits[:3])}）'
+                    f'且没有任何 [N] 支撑——这一节存在的意义就是替读者做决定，'
+                    f'「各有优劣、看你需求」等于没拍。给出明确推荐 + 依据编号，'
+                    f'或如实说明为什么无法给推荐（缺什么证据）')
     return issues, stats
 
 

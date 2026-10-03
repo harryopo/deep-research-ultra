@@ -326,6 +326,10 @@ class TestGateCitationEvidenceAlignment:
     def _report(self, tail=''):
         # [1] 属 verified 的结论A；[3] 属状态可变的结论B（其 primary_index=3）
         return f"""# 报告
+## 一页拍板
+直接结论：选 A（维护活跃、MIT 许可）[1]。
+主要风险：迁移成本未验证。
+下一步：跑一次小规模试点。
 ## 执行摘要
 结论A [1]；结论B [3]{tail}。
 ## 调研范围与方法
@@ -453,6 +457,10 @@ class TestGateTierBExemptsCrossSourceRule:
 
     def _report(self):
         return """# 报告
+## 一页拍板
+直接结论：选 A（维护活跃、MIT 许可）[1]。
+主要风险：迁移成本未验证。
+下一步：跑一次小规模试点。
 ## 执行摘要
 论文自述评测方式 [1]。
 ## 调研范围与方法
@@ -496,6 +504,10 @@ class TestGateCitationNumberConflict:
 
     def _report(self, registry):
         return f"""# 报告
+## 一页拍板
+直接结论：选 A（维护活跃、MIT 许可）[1]。
+主要风险：迁移成本未验证。
+下一步：跑一次小规模试点。
 ## 执行摘要
 同一来源反复引用 [1][1][2]。
 ## 调研范围与方法

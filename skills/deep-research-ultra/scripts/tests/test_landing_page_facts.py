@@ -74,6 +74,14 @@ def test_layer_totals_match_registry_and_sum_to_chip_count(html):
         f'页面四层 {cnts} 与注册表 {[real[i] for i in (1,2,3,4)]} 不符'
 
 
+def test_meta_big_number_matches_registry(html):
+    """meta 区大数字是手抄旧文案的高发位——「数据源」曾从 30 漂到 32 没人拦。"""
+    m = re.search(r'<strong>(\d+)</strong><span>数据源', html)
+    assert m, 'meta 区的「数据源」大数字不见了'
+    assert int(m.group(1)) == len(_registry().get_all()), \
+        f'meta 大数字写 {m.group(1)}，注册表共 {len(_registry().get_all())} 个'
+
+
 # ------------------------------------------------------------
 # 不许出现"取决于此刻网络"的静态数
 # ------------------------------------------------------------

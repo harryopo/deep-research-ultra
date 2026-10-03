@@ -1383,7 +1383,7 @@ v3 兼容（自动降级到 Layer 4）:
                         help='专家团视角，逗号分隔（如 domain_expert,skeptic,practitioner；"0" 关闭）')
     parser.add_argument('--reflect-rounds', type=int, default=1,
                         help='反思循环轮数（0=禁用, 1=默认, 3=深度模式）')
-    parser.add_argument('--goal', help='调研目标（明确目标可跳过澄清）')
+    parser.add_argument('--goal', help='用户的真实用途与期望结论形态（例：要在 2026 招生季前选定报志愿用的备考系统，''读完能直接说出选哪个）。写不出具体用途说明意图没问清——先问用户，别编一个。')
     parser.add_argument('--dimensions', help='调研维度，逗号分隔（如：性能,生态,案例）')
     parser.add_argument('--time-range', help='时间范围（如：2024-2025, 近1年）')
     parser.add_argument('--language', help='查询语言（auto/zh/en）')
