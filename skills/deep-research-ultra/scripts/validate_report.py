@@ -154,6 +154,36 @@ def cited_claim_ids(report_md: str, sources: List[Dict[str, Any]],
             ids = {i for i in ids if i == owner}
         (marked if '⚠' in line else unmarked).update(ids)
     return unmarked, marked
+
+
+def _repo_cited_in_decision_sections(report_md: str, sources: List[Dict[str, Any]]) -> bool:
+    """仓库是否以"选型形态"出现在决策节（一页拍板/执行摘要/结论与建议）。
+
+    v6.52：四六级实跑里"引 Anki 仓库当证据"被默认判成选型调研，Lead 被迫手工改
+    声明行。判定信息其实全在正文里——选型的标志是仓库进入**决策节**（裸 URL 或
+    [N] 指向仓库来源），只在证据节（claim 行）引用是拿仓库当事实凭据。来源登记表
+    里的 URL 不算立论，与 cited_claim_ids 的口径一致。
+    """
+    idx_to_url = {s.get('primary_index'): str(s.get('url', '')) for s in sources}
+    repo_re = re.compile(r'https://(?:github|gitee)\.com/[\w.-]+/[\w.-]+')
+    in_decision = False
+    for line in report_md.split('\n'):
+        h = re.match(r'^#{1,6}\s+(.+?)\s*$', line)
+        if h:
+            in_decision = bool(re.match(
+                r'^(一页拍板|拍板|结论先行|执行摘要|摘要|结论与建议|结论|建议)\s*$',
+                h.group(1), re.I))
+            continue
+        if not in_decision:
+            continue
+        if repo_re.search(line):
+            return True
+        for n in _CITATION.findall(line):
+            if repo_re.match(idx_to_url.get(int(n), '')):
+                return True
+    return False
+
+
 def _has_verbatim_marker(text: str) -> bool:
     """文本里有没有逐字引文标记（『 「 “）。〔〕是自造口径，不算。"""
     return bool(re.search(r'[『「“]', str(text or '')))
@@ -576,13 +606,20 @@ def validate_report(report_md: str,
     if repo_links:
         declared = re.search(r'选型调研\s*[:：]\s*(是|否)', report_md)
         report.stats['opensource_repos'] = len(set(repo_links))
-        if declared and declared.group(1) == '否':
-            report.stats['opensource_gate'] = 'exempt'
+        if declared:
+            is_selection = declared.group(1) == '是'
+        else:
+            # v6.52：未声明时自动判定——仓库进决策节＝选型形态走六维；
+            # 只在证据节引用＝豁免。显式声明仍可覆盖自动判定。
+            is_selection = _repo_cited_in_decision_sections(report_md, sources)
+        if not is_selection:
+            report.stats['opensource_gate'] = 'exempt' if declared else 'exempt-evidence-only'
             cited = {_repo_key(str(s.get('url', ''))) for s in sources}
             unsourced = [u for u in sorted(set(repo_links)) if _repo_key(u) not in cited]
             if unsourced:
                 report.issues.append(
-                    f'已声明「选型调研: 否」，六维不适用；但 {len(unsourced)} 个仓库链接'
+                    f'{"已声明「选型调研: 否」" if declared else "按证据引用自动豁免"}，'
+                    f'六维不适用；但 {len(unsourced)} 个仓库链接'
                     f'在账本里没有对应来源，引用性事实仍须可溯源：{"、".join(unsourced[:3])}')
         else:
             report.stats['opensource_gate'] = 'six-dims'

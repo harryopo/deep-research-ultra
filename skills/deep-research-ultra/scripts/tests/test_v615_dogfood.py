@@ -433,7 +433,8 @@ def test_gate_without_declaration_tells_how_to_declare(tmp_path):
 
 
 def test_skeleton_offers_the_declaration_slot_only_for_repo_reports(tmp_path):
-    """骨架要把声明位递到人手上；默认必须是"是"（从严），不能白送豁免。"""
+    """含仓库来源的骨架要给出判定指引（v6.52：默认交给发布门按决策节自动判定，
+    不再一律写"是"——引仓库当证据的报告被迫手工改声明行，是四六级实跑踩到的坑）。"""
     from ledger import ResearchLedger
     from skeleton import build_skeleton
 
@@ -441,7 +442,8 @@ def test_skeleton_offers_the_declaration_slot_only_for_repo_reports(tmp_path):
     c = with_repo.add_claim('仓库 X 能做这事', '开源', 'verified', 'general', 0.9)
     with_repo.add_source(c['id'], 'https://github.com/a/b', tier=2)
     body = build_skeleton(str(tmp_path / 'l1'))
-    assert '选型调研: 是' in body, '含仓库来源的骨架要给出自带默认从严的声明位'
+    assert '选型调研' in body and '自动豁免' in body, '含仓库来源的骨架要给出判定指引'
+    assert '选型调研: 是' not in body, 'v6.52 起骨架不预设"是"，判定交给发布门'
 
     no_repo = ResearchLedger(str(tmp_path / 'l2')).init()
     c2 = no_repo.add_claim('论文说这事有效', '学术', 'verified', 'general', 0.9)

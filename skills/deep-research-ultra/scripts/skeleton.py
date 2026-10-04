@@ -12,6 +12,7 @@ Lead 只写机器写不了的东西——摘要、判断、连接与落地建议
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -43,8 +44,49 @@ def _host(url: str) -> str:
     return tail.split('/')[0].lower().removeprefix('www.')
 
 
-def build_skeleton(ledger_dir: str, title: str = '') -> str:
-    """读账本 → 出报告骨架（章节齐、引用齐、来源登记表齐，正文留【待写】）。"""
+def _split_lead_sections(md: str) -> Dict[str, str]:
+    """按固定二级标题切旧报告：header/一页拍板/执行摘要/topics/调研方法/结论与建议/来源。
+
+    给 --merge-from 用：重生成骨架时把 Lead 写完的段落原样搬回来，claim 行与
+    登记表按新账本重新渲染。
+    """
+    buckets: Dict[str, List[str]] = {'header': []}
+    cur = 'header'
+    for ln in md.split('\n'):
+        m = re.match(r'^##\s*(.+?)\s*$', ln)
+        if m:
+            name = m.group(1)
+            if name.startswith('一页拍板'):
+                cur = 'bluf'
+            elif name.startswith('执行摘要'):
+                cur = 'summary'
+            elif name.startswith('调研方法'):
+                cur = 'method'
+            elif name.startswith('结论与建议'):
+                cur = 'conclusion'
+            elif name.startswith('来源'):
+                cur = 'tail'
+            else:
+                cur = 'topics'
+            buckets.setdefault(cur, [])
+            continue
+        buckets.setdefault(cur, []).append(ln)
+    return {k: '\n'.join(v).strip('\n') for k, v in buckets.items()}
+
+
+def _reusable(block: str) -> bool:
+    """Lead 真写完了的段才可保留：空段与仍带【待写】的一律不保留（占位内容不出门）。"""
+    return bool(block.strip()) and PLACEHOLDER not in block
+
+
+def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '') -> str:
+    """读账本 → 出报告骨架（章节齐、引用齐、来源登记表齐，正文留【待写】）。
+
+    merge_from 给旧报告路径时（v6.52）：一页拍板/执行摘要/调研方法/结论与建议、
+    文件头元数据、以及每条冲突 claim 下的「**裁决**」行，凡 Lead 已写完（不含
+    【待写】）的原样保留；claim 行与来源登记表按**当前账本**重新渲染。这消掉了
+    流程红线①的真实成本——改账本状态后重生成，Lead 不用再手贴六段。
+    """
     led = ResearchLedger(ledger_dir)
     led.require()
     data = led.export_json()
@@ -54,13 +96,47 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
     conflicts = sum(1 for c in claims if c['status'] == 'conflict')
     hedged = len(claims) - verified - conflicts
 
-    lines: List[str] = [f'# {title or "调研报告"}', '']
-    lines += ['## 一页拍板',
-              f'{PLACEHOLDER} 给"要拍板的人"用：直接给结论/推荐（该选哪个、或这件事该怎么做）、'
-              '主要风险、以及下一步动作。每条判断挂 [N]。'
-              '决策类调研必须写出明确推荐——"各有优劣、看你需求"不算结论。', '']
-    lines += ['## 执行摘要',
-              f'{PLACEHOLDER} 3-5 句给出最关键结论、置信度与适用边界（上限 1200 字）', '']
+    kept: Dict[str, str] = {}
+    verdicts: Dict[str, str] = {}
+    if merge_from:
+        old_md = Path(merge_from).read_text(encoding='utf-8')
+        kept = _split_lead_sections(old_md)
+        # 裁决行归属：跟在哪个 claim 行后——claim 文本前 16 字在行内匹配，
+        # 与 validate_report.cited_claim_ids 的前缀口径同一套。
+        prefix16 = {str(c.get('text', ''))[:16]: c['id']
+                    for c in claims if len(str(c.get('text', ''))) >= 16}
+        last_claim_line = ''
+        for ln in old_md.split('\n'):
+            if ln.startswith('- '):
+                last_claim_line = ln
+                continue
+            if re.match(r'^\s{2}\*\*裁决\*\*', ln) and last_claim_line:
+                cid = next((pid for pref, pid in prefix16.items()
+                            if pref in last_claim_line), '')
+                if cid and cid not in verdicts:
+                    verdicts[cid] = ln.strip()
+
+    facts = (f'账本事实：claims {len(claims)} 条（verified {verified} / 仅作线索 {hedged}'
+             f' / 来源冲突 {conflicts}），'
+             f'来源 {len(sources)} 条，独立域名 {len({_host(s.get("url", "")) for s in sources})} 个。')
+
+    if _reusable(kept.get('header', '')):
+        lines: List[str] = kept['header'].split('\n')
+    else:
+        lines = [f'# {title or "调研报告"}', '']
+
+    if _reusable(kept.get('bluf', '')):
+        lines += ['## 一页拍板', kept['bluf'], '']
+    else:
+        lines += ['## 一页拍板',
+                  f'{PLACEHOLDER} 给"要拍板的人"用：直接给结论/推荐（该选哪个、或这件事该怎么做）、'
+                  '主要风险、以及下一步动作。每条判断挂 [N]。'
+                  '决策类调研必须写出明确推荐——"各有优劣、看你需求"不算结论。', '']
+    if _reusable(kept.get('summary', '')):
+        lines += ['## 执行摘要', kept['summary'], '']
+    else:
+        lines += ['## 执行摘要',
+                  f'{PLACEHOLDER} 3-5 句给出最关键结论、置信度与适用边界（上限 1200 字）', '']
 
     order: List[str] = []
     for c in claims:
@@ -82,7 +158,9 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
                 note = _one_line(c.get('note'))
                 tag = f'（账本留痕：{note}）' if note else '（未裁决）'
                 lines.append(f"- ⚠️ 来源冲突{tag}：{_one_line(c['text'])} {cite}{scope}")
-                lines.append(f'  {PLACEHOLDER} 写清两方证据、分歧根源与本报告的取舍')
+                v = verdicts.get(c['id'])
+                lines.append(v if v else
+                             f'  {PLACEHOLDER} 写清两方证据、分歧根源与本报告的取舍')
             else:
                 # 未验证项渲染成"仅作线索"，不逐条留【待写】：标准档一次 60 条 claim
                 # 会逼出几十处待写标记，逐条处置超出单轮产能，结果反而是拿模板句把标记
@@ -92,20 +170,34 @@ def build_skeleton(ledger_dir: str, title: str = '') -> str:
                              f"（状态 {c['status']}，未达 verified 判据）")
         lines.append('')
 
-    lines += ['## 调研方法',
-              f'{PLACEHOLDER} 写检索窗口、数据源分层、子 Agent 分工与 verified 判据（档 A/档 B）',
-              f'账本事实：claims {len(claims)} 条（verified {verified} / 仅作线索 {hedged}'
-              f' / 来源冲突 {conflicts}），'
-              f'来源 {len(sources)} 条，独立域名 {len({_host(s.get("url", "")) for s in sources})} 个。']
+    if _reusable(kept.get('method', '')):
+        # 账本事实行按新账本刷新；旧声明/判定注释不搬——按新状态重新出
+        method_text = re.sub(r'^账本事实：.*$', lambda _m: facts,
+                             kept['method'], flags=re.M)
+        method_lines = [l for l in method_text.split('\n')
+                        if not l.strip().startswith('选型调研')
+                        and not l.strip().startswith('<!-- 选型调研')]
+        lines += ['## 调研方法'] + method_lines
+    else:
+        lines += ['## 调研方法',
+                  f'{PLACEHOLDER} 写检索窗口、数据源分层、子 Agent 分工与 verified 判据（档 A/档 B）',
+                  facts]
     # 校验门见到仓库链接就要求六维（风险/许可证/维护/适配/落地/量化）。报告里只是
-    # 引某个仓库当证据时，这六项不相关——给一行可改的声明位，默认按选型调研从严。
+    # 引某个仓库当证据时，这六项不相关——v6.52 起发布门按"仓库是否出现在决策节"
+    # 自动判定，这里只留指引注释；Lead 仍可写显式声明行覆盖自动判定。
+    # （v6.15-v6.51 在这里无条件写"选型调研: 是"，把引证据的报告逼成手工改行。）
     if any('github.com' in str(s.get('url', '')) or 'gitee.com' in str(s.get('url', ''))
            for s in sources):
-        lines.append('选型调研: 是（在几个候选仓库里做取舍；若仓库只是被引作证据，'
-                     '把这里改成"否"即豁免六维检查，但仍须每个仓库链接能溯源）')
+        lines.append('<!-- 选型调研判定：仓库链接只出现在证据节时，发布门自动豁免六维；'
+                     '出现在一页拍板/执行摘要/结论与建议里则按选型走六维门。'
+                     '要显式指定，可写一行以「选型调研」开头接是或否的声明 -->')
     lines.append('')
 
-    lines += ['## 结论与建议', f'{PLACEHOLDER} 结论、风险、落地步骤（这一节是机器给不了的）', '']
+    if _reusable(kept.get('conclusion', '')):
+        lines += ['## 结论与建议', kept['conclusion'], '']
+    else:
+        lines += ['## 结论与建议',
+                  f'{PLACEHOLDER} 结论、风险、落地步骤（这一节是机器给不了的）', '']
 
     lines += ['## 来源', '', '| 编号 | Tier | 标题 | URL |',
               '|------|------|------|-----|']
@@ -128,20 +220,26 @@ def _main(argv: Optional[List[str]] = None) -> int:
     if not args or args[0] in ('-h', '--help'):
         print(__doc__)
         print('用法:\n  python skeleton.py <ledger_dir> [-o report_skeleton.md] '
-              '[--title "报告标题"]')
+              '[--title "报告标题"] [--merge-from 旧报告.md]')
         return 0
     ledger_dir = args[0]
     out = args[args.index('-o') + 1] if '-o' in args and args.index('-o') + 1 < len(args) else ''
     title = args[args.index('--title') + 1] if '--title' in args else ''
+    merge_from = ''
+    if '--merge-from' in args:
+        i = args.index('--merge-from')
+        merge_from = args[i + 1] if i + 1 < len(args) else ''
 
     try:
-        md = build_skeleton(ledger_dir, title)
+        md = build_skeleton(ledger_dir, title, merge_from=merge_from)
     except FileNotFoundError as exc:
         print(f'❌ {exc}', file=sys.stderr)
         return 2
     if out:
         Path(out).write_text(md, encoding='utf-8')
-        print(f'✅ 骨架已生成: {out}（{md.count(PLACEHOLDER)} 处 {PLACEHOLDER} 待 Lead 写完）')
+        kept = sum(1 for ln in md.split('\n') if ln.strip().startswith('**裁决**'))
+        print(f'✅ 骨架已生成: {out}（{md.count(PLACEHOLDER)} 处 {PLACEHOLDER} 待 Lead 写完'
+              + (f'；--merge-from 保留了裁决 {kept} 条' if merge_from else '') + '）')
     else:
         print(md)
     return 0

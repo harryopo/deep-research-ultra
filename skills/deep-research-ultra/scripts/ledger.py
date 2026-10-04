@@ -74,6 +74,22 @@ _ARXIV_ID_RE = re.compile(r'(\d{4}\.\d{4,5})')
 _README_ALIASES = {'', 'readme', 'readme.md', 'readme.markdown', 'readme.txt', 'readme.rst'}
 
 
+# 落地页浏览视图的后缀：出版方把同一篇作品的 /full、/pdf 等入口挂在 DOI 之后。
+# 归一时剥掉——它们与裸 DOI 是同一篇作品（对齐 arXiv /abs＝/pdf＝/html 的既有口径）。
+# 2026-10-03 四六级实跑撞上的原形：frontiers 落地页（…/10.3389/x/full）与 Crossref
+# API（works/10.3389/x）被判成两个制品，第一轮档 B 全拒。
+# 白名单只剥"最后一节整体等于这些词"的形态：真实 DOI 后缀可能自带斜杠
+# （如 10.1093/acprof:oso/9780199566165.001.0001），不能无脑按 '/' 切到底。
+_LANDING_VIEWS = {'full', 'fulltext', 'abstract', 'pdf', 'epdf', 'epub', 'html', 'xml'}
+
+
+def _strip_landing_views(doi: str) -> str:
+    parts = doi.rstrip('/.').split('/')
+    while len(parts) > 2 and parts[-1].lower() in _LANDING_VIEWS:
+        parts.pop()
+    return '/'.join(parts)
+
+
 def _doi_of(url: str) -> str:
     """取 URL 里明确用来定位作品的那个 DOI，取不到回空串。
 
@@ -81,6 +97,7 @@ def _doi_of(url: str) -> str:
     `works/https://doi.org/<DOI>`、Semantic Scholar 的 `paper/DOI:<DOI>`。
     判据只认"URL 里出现 doi.org/ 或 /doi:"，所以 OpenAlex 自己的 work id
     （`/works/W4386510404`，不含 DOI 串）不会被误归一。
+    返回值经 _strip_landing_views 归一：doi.org/<DOI>/full 与裸 DOI 同制品。
     """
     u = str(url or '').strip()
     lu = u.lower()
@@ -90,7 +107,7 @@ def _doi_of(url: str) -> str:
                   u, re.I)
     if not m:
         return ''
-    return (m.group(1) or m.group(2)).rstrip('/.')
+    return _strip_landing_views((m.group(1) or m.group(2)).rstrip('/.'))
 
 
 def _clean_url(url: str) -> str:
@@ -133,7 +150,7 @@ def _doi_from_path(url: str) -> str:
         return ''
     cand = m.group(1).strip('/').rstrip('.')
     tail = cand.split('/', 1)[1] if '/' in cand else ''
-    return cand if tail and any(ch.isalnum() for ch in tail) else ''
+    return _strip_landing_views(cand) if tail and any(ch.isalnum() for ch in tail) else ''
 
 
 def _doi_from_host_prefix(url: str) -> str:

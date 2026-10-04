@@ -79,12 +79,16 @@ def _fold(text):
 
 
 def load_corpus(raw):
-    """raw 可以是目录（递归收 *.txt/*.html/*.xml/*.md）或单个文件。返回 [(路径, 折叠后的正文)]。"""
+    """raw 可以是目录（递归收 *.txt/*.html/*.xml/*.md/*.json）或单个文件。返回 [(路径, 折叠后的正文)]。
+
+    .json 是合法形态：API 视图的原始返回（eutils/OpenAlex/GitHub REST）是实跑里
+    常见的存档对象，v6.52 前只收 txt 系导致这类引文永远 MISS（四六级实跑撞上）。
+    """
     files = []
     if os.path.isdir(raw):
         for root, _dirs, names in os.walk(raw):
             for n in sorted(names):
-                if n.lower().endswith(('.txt', '.html', '.xml', '.md')):
+                if n.lower().endswith(('.txt', '.html', '.xml', '.md', '.json')):
                     files.append(os.path.join(root, n))
     elif os.path.isfile(raw):
         files = [raw]
@@ -112,6 +116,27 @@ def _suggest(fragment, corpus):
                 return _fold(seg)[:len(fragment) + 20]
             i = norm.find(head, i + 1)
     return ''
+
+
+_ELLIPSIS_RE = re.compile(r'…+|\.{3,}|。{2,}')
+
+
+def _ellipsis_segments(frag, corpus):
+    """引文内嵌省略号时逐段报告命中情况——实跑最高频的 MISS 形态
+    （摘抄时在『』里加省略号，整段当然对不上，但两段各自都在 raw 里）。
+
+    没有省略号返回 None；有省略号返回 [{'part','hit','file'}, ...]。
+    """
+    parts = [p for p in _ELLIPSIS_RE.split(frag) if len(_fold(p)) >= 6]
+    if len(parts) < 2:
+        return None
+    segs = []
+    for p in parts:
+        pn = _fold(p)
+        hit = next((_path for _path, body in corpus if pn in body), None)
+        segs.append({'part': pn[:40], 'hit': hit is not None,
+                     'file': os.path.basename(hit) if hit else ''})
+    return segs
 
 
 def iter_claim_texts(ledger_dir, claim_ids=None):
@@ -166,7 +191,7 @@ def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
     corpus = load_corpus(raw)
     if not corpus:
         return {'checked': 0, 'misses': [], 'corpus_files': 0, 'sources': 0, 'unchecked': [],
-                'error': '没有可比对的原始材料（%s 下没有非空的 txt/html/xml/md）——'
+                'error': '没有可比对的原始材料（%s 下没有非空的 txt/html/xml/md/json）——'
                          '引文对账需要抓回的正文或页面存档，缺它无法判定，不能当作通过' % raw}
     sources = collect_sources(ledger_dir, report, claim_ids)
     if not sources:
@@ -189,7 +214,8 @@ def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
             if any(frag in body for _p, body in corpus):
                 continue
             misses.append({'where': where, 'fragment': frag,
-                           'suggest': _suggest(frag, corpus)})
+                           'suggest': _suggest(frag, corpus),
+                           'segments': _ellipsis_segments(frag, corpus)})
     return {'checked': checked, 'misses': misses, 'corpus_files': len(corpus),
             'sources': len(sources), 'unchecked': unchecked, 'error': None}
 
@@ -228,6 +254,13 @@ def main(argv=None):
             print('MISS [%s] 『%s』' % (m['where'], m['fragment'][:80]), file=sys.stderr)
             if m['suggest']:
                 print('      正文写法 『%s』' % m['suggest'][:80], file=sys.stderr)
+            if m.get('segments'):
+                marks = ' / '.join(
+                    '%s『%s』' % ('命中' if s['hit'] else '未命中', s['part'][:30])
+                    for s in m['segments'])
+                print('      省略号分段：' + marks, file=sys.stderr)
+                print('      （引文内嵌省略号：整段对不上，但各段可能各自命中——'
+                      '改成连续片段或把衔接处交给〔〕）', file=sys.stderr)
         if res['misses']:
             print('共 %d 处标着逐字的引文与原始材料对不上——按原文逐字改写，自造口径改用〔〕'
                   '（『「“ 是逐字标记）' % len(res['misses']), file=sys.stderr)
