@@ -138,7 +138,7 @@ class TestHttpRetryAmplification:
         monkeypatch.setattr(fallback.urllib.request, 'build_opener',
                             lambda *a, **k: _Opener())
         monkeypatch.setattr(fallback.time, 'sleep', lambda s: None)
-        assert fallback._http_get('https://x.test', max_retries=2) == b'ok'
+        assert fallback._http_get('https://arxiv.org/x', max_retries=2) == b'ok'
         assert opened, 'curl_cffi 抛异常时仍应尝试 urllib'
 
     def test_no_sleep_after_the_final_attempt(self, monkeypatch):
@@ -154,7 +154,7 @@ class TestHttpRetryAmplification:
         monkeypatch.setattr(fallback.urllib.request, 'build_opener',
                             lambda *a, **k: _Opener())
         monkeypatch.setattr(fallback.time, 'sleep', lambda s: slept.append(s))
-        fallback._http_get('https://x.test', max_retries=3)
+        fallback._http_get('https://arxiv.org/x', max_retries=3)
         assert len(slept) <= 2, f'3 次尝试最多睡 2 次，实际 {len(slept)} 次（末次白等）'
 
 

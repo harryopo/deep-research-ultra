@@ -531,6 +531,10 @@ def validate_report(report_md: str,
             report.stats['quote_checked'] = qres['checked']
             report.stats['quote_misses'] = len(qres['misses'])
             report.stats['quote_unchecked'] = len(qres.get('unchecked') or [])
+            if qres.get('overlong'):
+                report.warnings.append(
+                    f'{len(qres["overlong"])} 段引文超过 1200 字（L2 结构化隔离）：'
+                    '整段原文进账本只会扩大注入面——截取关键句，全文留 raw 存档')
             if qres['error']:
                 report.issues.append(f'引文对账无从判断：{qres["error"]}')
             elif qres['misses']:

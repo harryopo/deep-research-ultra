@@ -187,7 +187,8 @@ def collect_sources(ledger_dir=None, report=None, claim_ids=None):
     return out
 
 
-def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
+def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None,
+                 max_len=1200):
     corpus = load_corpus(raw)
     if not corpus:
         return {'checked': 0, 'misses': [], 'corpus_files': 0, 'sources': 0, 'unchecked': [],
@@ -202,6 +203,7 @@ def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
     checked = 0
     misses = []
     unchecked = []
+    overlong = []
     for where, text in sources:
         for frag in quoted_spans(text):
             if len(frag) < min_len and frag not in unchecked:
@@ -211,13 +213,18 @@ def check_quotes(ledger_dir, raw, claim_ids=None, min_len=15, report=None):
             if len(frag) < min_len:
                 continue
             checked += 1
+            # L2 结构化隔离：引文是证据引用不是原文搬运，超长意味着整页内容
+            # 在往上下文/账本里灌——只告警不阻断（截断建议 ≤1200 字）
+            if len(frag) > max_len and frag not in overlong:
+                overlong.append(frag)
             if any(frag in body for _p, body in corpus):
                 continue
             misses.append({'where': where, 'fragment': frag,
                            'suggest': _suggest(frag, corpus),
                            'segments': _ellipsis_segments(frag, corpus)})
     return {'checked': checked, 'misses': misses, 'corpus_files': len(corpus),
-            'sources': len(sources), 'unchecked': unchecked, 'error': None}
+            'sources': len(sources), 'unchecked': unchecked, 'error': None,
+            'overlong': overlong}
 
 
 def main(argv=None):
@@ -227,6 +234,8 @@ def main(argv=None):
     ap.add_argument('--raw', required=True, help='抓取材料目录或单文件')
     ap.add_argument('--claim-id', default='', help='只查这几条 claim（逗号分隔）')
     ap.add_argument('--min-len', type=int, default=15, help='参与对账的最短引文字数')
+    ap.add_argument('--max-len', type=int, default=1200,
+                    help='单段引文长度上限（L2 建议 ≤1200 字，超出告警不阻断）')
     ap.add_argument('--json', action='store_true', help='机器可读输出')
     args = ap.parse_args(argv)
 
@@ -241,7 +250,7 @@ def main(argv=None):
         return 2
     res = check_quotes(args.ledger or None, args.raw,
                        [c.strip() for c in args.claim_id.split(',') if c.strip()],
-                       args.min_len, report=args.report or None)
+                       args.min_len, report=args.report or None, max_len=args.max_len)
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
     else:
@@ -265,6 +274,10 @@ def main(argv=None):
             print('共 %d 处标着逐字的引文与原始材料对不上——按原文逐字改写，自造口径改用〔〕'
                   '（『「“ 是逐字标记）' % len(res['misses']), file=sys.stderr)
             return 1
+        if res.get('overlong'):
+            print(f'⚠️ {len(res["overlong"])} 段引文超过 {args.max_len} 字'
+                  f'（L2 结构化隔离建议 ≤1200 字）：整页原文整段进账本只会扩大注入面——'
+                  '截取最关键的部分，全文留在 raw 存档', file=sys.stderr)
         if res['unchecked']:
             print('另有未对账 %d 段：短于 %d 字的『「“段不参与逐字判定，'
                   '但这对括号承诺的就是逐字——自造口径请改写为〔〕'

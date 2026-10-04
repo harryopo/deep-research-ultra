@@ -301,8 +301,8 @@ def test_missing_curl_cffi_says_so_once(monkeypatch, capsys):
 
     monkeypatch.setattr(fb.urllib.request, 'build_opener', lambda *a, **kw: _Opener())
 
-    assert fb._http_get('https://example.invalid/q', max_retries=1) is None
-    assert fb._http_get('https://example.invalid/q2', max_retries=1) is None
+    assert fb._http_get('https://arxiv.org/q', max_retries=1) is None
+    assert fb._http_get('https://arxiv.org/q2', max_retries=1) is None
     err = capsys.readouterr().err
     assert err.count('curl_cffi 未安装') == 1, '降级要说，但每次请求刷一行会把日志埋掉'
     assert 'pip install curl_cffi' in err

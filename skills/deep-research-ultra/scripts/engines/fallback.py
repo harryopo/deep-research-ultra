@@ -22,6 +22,7 @@ Deep Research Ultra v4.0 — Layer 4: 降级引擎层
 import gzip
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -173,6 +174,65 @@ def _note_transport_degraded() -> None:
           '补装一次即可，全部引擎共用：pip install curl_cffi', file=sys.stderr)
 
 
+# ============================================================
+# L1 出口白名单（v6.53，注入防护方案 S.5/I2——唯一确定性防线）
+# 经公共通道的 HTTP 出口，目标主机必须在启动时固定的白名单内；白名单
+# 永不得来自检索到的内容。evidence 里的 URL 是引用，不因登记而成为可 fetch 目标。
+# 已知不在此收口内的三条出带（各自有据，L4 canary 提供观测）：
+# - ddgs 库（duckduckgo 引擎）：第三方库自带传输，本通道拦不到；
+# - MCP server（subprocess 独立进程）；
+# - repo_health.py 的裸 urlopen（X-D11 状态码契约，AST 测试白名单在册）。
+# ============================================================
+_EGRESS_ALLOW = frozenset({
+    # 学术直连（后缀匹配：ncbi.nlm.nih.gov 覆盖 pubmed/eutils/www.ncbi）
+    'arxiv.org', 'openalex.org', 'crossref.org', 'semanticscholar.org',
+    'ncbi.nlm.nih.gov', 'europepmc.org', 'ebi.ac.uk', 'unpaywall.org', 'doi.org',
+    # 代码仓库与制品
+    'github.com', 'githubusercontent.com', 'gitee.com', 'modelscope.cn', 'osv.dev',
+    # 中文/通用搜索
+    'baidu.com', 'sogou.com', 'sm.cn', 'so.com', 'bing.com', 'duckduckgo.com',
+    'brave.com', 'ecosia.org', 'startpage.com', 'google.com',
+    # key 制/抓取服务
+    'tavily.com', 'firecrawl.dev', 'jina.ai',
+})
+_EGRESS_LOCAL = {'localhost', '127.0.0.1', '::1'}
+
+
+def _egress_env_hosts() -> set:
+    """启动时由配置固定的动态出口（自建服务）：CRAWL4AI_URL / SEARXNG_URL 的主机。
+
+    配置驱动的白名单项同样满足 I2"启动时固定"——它们来自环境变量，
+    不来自任何检索到的内容。
+    """
+    hosts = set()
+    for var in ('CRAWL4AI_URL', 'SEARXNG_URL'):
+        v = os.environ.get(var, '')
+        if v:
+            try:
+                hosts.add((urllib.parse.urlsplit(v).hostname or '').lower())
+            except ValueError:
+                pass
+    hosts.discard('')
+    return hosts
+
+
+def egress_denied_reason(url: str) -> str:
+    """url 不在出口白名单时返回拒绝原因（人话）；允许时返回空串。"""
+    try:
+        host = (urllib.parse.urlsplit(url).hostname or '').lower()
+    except ValueError:
+        return f'出口白名单拒绝：URL 无法解析（{str(url)[:60]}）'
+    if not host:
+        return f'出口白名单拒绝：URL 无主机（{str(url)[:60]}）'
+    if host in _EGRESS_LOCAL or host in _egress_env_hosts():
+        return ''
+    if any(host == d or host.endswith('.' + d) for d in _EGRESS_ALLOW):
+        return ''
+    return (f'出口白名单拒绝 {host}：不在启动时固定的允许清单内（L1/I2）。'
+            f'evidence 里的 URL 是引用，不因登记而成为可 fetch 目标；'
+            f'确需新主机时改 engines/fallback.py 的 _EGRESS_ALLOW 并过测试')
+
+
 def _http_get(
     url: str,
     headers: Optional[Dict] = None,
@@ -201,6 +261,12 @@ def _http_get(
     headers.setdefault('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8')
     headers.setdefault('Accept-Language', 'zh-CN,zh;q=0.9,en;q=0.8')
     _clear_http_error()
+
+    # L1 出口白名单：拒绝在建立任何连接之前发生（I2，确定性防线）
+    _deny = egress_denied_reason(url)
+    if _deny:
+        _note_http_error(_deny)
+        return None
 
     # 优先使用 curl_cffi（TLS 指纹伪装）
     server_responded = False          # 服务端已给出状态码 ≠ 传输失败，不得再走 urllib
@@ -308,6 +374,10 @@ def _http_post(
         headers = {}
     headers.setdefault('User-Agent', DEFAULT_USER_AGENT)
     headers.setdefault('Accept', 'application/json, text/html, */*')
+    _deny = egress_denied_reason(url)
+    if _deny:
+        _note_http_error(_deny)
+        return None
     headers.setdefault('Accept-Language', 'zh-CN,zh;q=0.9,en;q=0.8')
     if json_body is not None:
         headers.setdefault('Content-Type', 'application/json')
