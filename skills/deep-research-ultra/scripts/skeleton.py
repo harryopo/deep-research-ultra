@@ -79,8 +79,13 @@ def _reusable(block: str) -> bool:
     return bool(block.strip()) and PLACEHOLDER not in block
 
 
-def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '') -> str:
+def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
+                   intent: str = '') -> str:
     """读账本 → 出报告骨架（章节齐、引用齐、来源登记表齐，正文留【待写】）。
+
+    intent='compare'（v6.54 对比/优化类）：主题命名约定——`本项目*`=基线，
+    `候选：X`=候选方案，其余主题=对比维度。渲染顺序：基线 → 候选逐个 →
+    对比矩阵（行=维度，列=方案，格子【待写】）→ 维度证据。
 
     merge_from 给旧报告路径时（v6.52）：一页拍板/执行摘要/调研方法/结论与建议、
     文件头元数据、以及每条冲突 claim 下的「**裁决**」行，凡 Lead 已写完（不含
@@ -142,33 +147,72 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '') -> st
     for c in claims:
         if c['topic'] not in order:
             order.append(c['topic'])
-    for topic in order:
-        lines += [f'## {topic}', '']
+
+    def _render_claims(topic: str) -> List[str]:
+        out: List[str] = []
         for c in [x for x in claims if x['topic'] == topic]:
             cite = _citations(grouped.get(c['id'], []))
             # 成立范围（样本/数据源/年份/是否同行评议）跟着结论走：缺了它，一个百分比
             # 就会被当成普适结论引用（2026-09-29 外部清单问题 3/4 的实形）
             scope = f"（成立范围：{_one_line(c.get('scope'))}）" if c.get('scope') else ''
             if c['status'] == 'verified':
-                lines.append(f"- {_one_line(c['text'])} {cite}{scope}")
+                out.append(f"- {_one_line(c['text'])} {cite}{scope}")
             elif c['status'] == 'conflict':
                 # 标签只说账本里查得到的事实：有没有留过取舍、留的是什么。
                 # 过去一律印"待裁决"，第七轮把三组冲突裁完并写了 note 之后，
                 # 这个标签就成了对过程状态的谎报——读者以为还没给结论，账本里每条都记着取舍。
                 note = _one_line(c.get('note'))
                 tag = f'（账本留痕：{note}）' if note else '（未裁决）'
-                lines.append(f"- ⚠️ 来源冲突{tag}：{_one_line(c['text'])} {cite}{scope}")
+                out.append(f"- ⚠️ 来源冲突{tag}：{_one_line(c['text'])} {cite}{scope}")
                 v = verdicts.get(c['id'])
-                lines.append(v if v else
-                             f'  {PLACEHOLDER} 写清两方证据、分歧根源与本报告的取舍')
+                out.append(v if v else
+                           f'  {PLACEHOLDER} 写清两方证据、分歧根源与本报告的取舍')
             else:
                 # 未验证项渲染成"仅作线索"，不逐条留【待写】：标准档一次 60 条 claim
                 # 会逼出几十处待写标记，逐条处置超出单轮产能，结果反而是拿模板句把标记
                 # 刷没（2026-09-22 实跑撞上：骨架 40 处【待写】）。未验证的可见性由
                 # ⚠️ 承担，validate_report 的"引用未验证 claim 必须带 ⚠️"照旧把关。
-                lines.append(f"- ⚠️ 仅作线索：{_one_line(c['text'])} {cite}{scope}"
-                             f"（状态 {c['status']}，未达 verified 判据）")
+                out.append(f"- ⚠️ 仅作线索：{_one_line(c['text'])} {cite}{scope}"
+                           f"（状态 {c['status']}，未达 verified 判据）")
+        return out
+
+    if intent == 'compare':
+        # v6.54 对比/优化类：本项目基线 → 候选方案逐个 → 对比矩阵 → 维度证据。
+        # 报告要回答的是"本项目和候选差在哪、怎么办"，不是维度流水账。
+        baseline = [t for t in order if t.startswith('本项目')]
+        cands = [t for t in order if t.startswith('候选：')]
+        dims = [t for t in order if t not in baseline and t not in cands]
+        lines += ['## 本项目现状（基线）', '']
+        for t in baseline:
+            lines += _render_claims(t)
         lines.append('')
+        lines += ['## 候选方案', '']
+        for t in cands:
+            lines += [f'### {t}', '']
+            lines += _render_claims(t)
+            lines.append('')
+        lines += ['## 对比矩阵', '',
+                  '> 每格写结论＋[N]；本项目列只写有据事实——对比缺基线就是空对空。', '']
+        header = '| 对比维度 | 本项目 |' + ''.join(
+            f' {t[len("候选："):]} |' for t in cands)
+        lines.append(header)
+        lines.append('|---|' * (2 + len(cands)))
+        for d in dims:
+            lines.append(f'| {d} | {PLACEHOLDER} |' + f' {PLACEHOLDER} |' * len(cands))
+        lines.append('')
+        if not baseline:
+            lines += ['> ⚠️ 账本里没有「本项目现状」主题——对比缺基线。先做主体画像'
+                      '（SKILL.md Phase 1.2b），否则矩阵的本项目列只能填空。', '']
+        lines += ['## 对比维度证据', '']
+        for d in dims:
+            lines += [f'### {d}', '']
+            lines += _render_claims(d)
+            lines.append('')
+    else:
+        for topic in order:
+            lines += [f'## {topic}', '']
+            lines += _render_claims(topic)
+            lines.append('')
 
     if _reusable(kept.get('method', '')):
         # 账本事实行按新账本刷新；旧声明/判定注释不搬——按新状态重新出
@@ -193,11 +237,15 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '') -> st
                      '要显式指定，可写一行以「选型调研」开头接是或否的声明 -->')
     lines.append('')
 
+    concl_ph = f'{PLACEHOLDER} 结论、风险、落地步骤（这一节是机器给不了的）'
+    if intent == 'compare':
+        concl_ph += ('\n\n### 优化建议（对比类必填）\n'
+                     '每条四要素：**改什么** / **依据 [N]** / **成本与风险** / '
+                     '**优先级（P0-P2）**；"值得借鉴"必须落到可执行的改动上')
     if _reusable(kept.get('conclusion', '')):
         lines += ['## 结论与建议', kept['conclusion'], '']
     else:
-        lines += ['## 结论与建议',
-                  f'{PLACEHOLDER} 结论、风险、落地步骤（这一节是机器给不了的）', '']
+        lines += ['## 结论与建议', concl_ph, '']
 
     lines += ['## 来源', '', '| 编号 | Tier | 标题 | URL |',
               '|------|------|------|-----|']
@@ -220,18 +268,22 @@ def _main(argv: Optional[List[str]] = None) -> int:
     if not args or args[0] in ('-h', '--help'):
         print(__doc__)
         print('用法:\n  python skeleton.py <ledger_dir> [-o report_skeleton.md] '
-              '[--title "报告标题"] [--merge-from 旧报告.md]')
+              '[--title "报告标题"] [--merge-from 旧报告.md] [--intent compare]')
         return 0
     ledger_dir = args[0]
     out = args[args.index('-o') + 1] if '-o' in args and args.index('-o') + 1 < len(args) else ''
     title = args[args.index('--title') + 1] if '--title' in args else ''
+    intent = ''
+    if '--intent' in args:
+        i = args.index('--intent')
+        intent = args[i + 1] if i + 1 < len(args) else ''
     merge_from = ''
     if '--merge-from' in args:
         i = args.index('--merge-from')
         merge_from = args[i + 1] if i + 1 < len(args) else ''
 
     try:
-        md = build_skeleton(ledger_dir, title, merge_from=merge_from)
+        md = build_skeleton(ledger_dir, title, merge_from=merge_from, intent=intent)
     except FileNotFoundError as exc:
         print(f'❌ {exc}', file=sys.stderr)
         return 2
