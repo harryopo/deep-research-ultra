@@ -174,15 +174,16 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
             # 成立范围（样本/数据源/年份/是否同行评议）跟着结论走：缺了它，一个百分比
             # 就会被当成普适结论引用（2026-09-29 外部清单问题 3/4 的实形）
             scope = f"（成立范围：{_one_line(c.get('scope'))}）" if c.get('scope') else ''
+            flag = '🚩 L3不可信：' if c.get('untrusted') else ''
             if c['status'] == 'verified':
-                out.append(f"- {_one_line(c['text'])} {cite}{scope}")
+                out.append(f"- {flag}{_one_line(c['text'])} {cite}{scope}")
             elif c['status'] == 'conflict':
                 # 标签只说账本里查得到的事实：有没有留过取舍、留的是什么。
                 # 过去一律印"待裁决"，第七轮把三组冲突裁完并写了 note 之后，
                 # 这个标签就成了对过程状态的谎报——读者以为还没给结论，账本里每条都记着取舍。
                 note = _one_line(c.get('note'))
                 tag = f'（账本留痕：{note}）' if note else '（未裁决）'
-                out.append(f"- ⚠️ 来源冲突{tag}：{_one_line(c['text'])} {cite}{scope}")
+                out.append(f"- ⚠️ 来源冲突{tag}：{flag}{_one_line(c['text'])} {cite}{scope}")
                 v = verdicts.get(c['id'])
                 out.append(v if v else
                            f'  {PLACEHOLDER} 写清两方证据、分歧根源与本报告的取舍')
@@ -191,7 +192,7 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
                 # 会逼出几十处待写标记，逐条处置超出单轮产能，结果反而是拿模板句把标记
                 # 刷没（2026-09-22 实跑撞上：骨架 40 处【待写】）。未验证的可见性由
                 # ⚠️ 承担，validate_report 的"引用未验证 claim 必须带 ⚠️"照旧把关。
-                out.append(f"- ⚠️ 仅作线索：{_one_line(c['text'])} {cite}{scope}"
+                out.append(f"- ⚠️ 仅作线索：{flag}{_one_line(c['text'])} {cite}{scope}"
                            f"（状态 {c['status']}，未达 verified 判据）")
         return out
 

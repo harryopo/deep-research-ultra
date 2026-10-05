@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.54.0
+# Deep Research Ultra — 超级深度调研工具 v6.56.0
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.54.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.56.0-brightgreen.svg)]()
 
 
 ---

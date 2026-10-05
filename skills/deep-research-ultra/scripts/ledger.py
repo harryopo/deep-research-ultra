@@ -38,13 +38,38 @@ except ImportError:
     effective_independent_count = lambda srcs, **kw: len(srcs)  # type: ignore
 
 try:
-    from guard import INJECTION_LOG, is_audit_trail
+    from guard import INJECTION_LOG, is_audit_trail, MARKERS, MARKERS_CN
 except ImportError:  # 独立运行/测试无 guard 时用同一个默认名
     INJECTION_LOG = 'injection_log.jsonl'
+    MARKERS: list = []
+    MARKERS_CN: list = []
 
     def is_audit_trail(name: str) -> bool:      # type: ignore[misc]
         return (str(name).endswith('.jsonl') and 'injection' in str(name).lower()
                 and not str(name).startswith('_'))
+
+# v6.56 L3 附加形态（guard 16 形态之外）：不可见字符与 canary 引用
+_L3_EXTRA = [
+    ('zero_width', re.compile(r'[\u200b\u200c\u200d\u2060\ufeff]')),
+    ('bidi_override', re.compile(r'[\u202a-\u202e\u2066-\u2069]')),
+    ('canary_reference', re.compile(r'DRUX_CANARY_[0-9A-Fa-f]{8}')),
+]
+
+
+def scan_untrusted(text: str) -> list:
+    """L3（注入防护方案 S.5/I4）：文本命中注入模式 → 返回去重的模式名列表。
+
+    命中即打 untrusted 标记——**只降级不删除**（对策 DoS-by-poisoning：攻击者
+    故意植入特征词想躲开收录时，答案是"标记但不删"，不是"删内容"）。
+    复用 guard.py 的 16 形态库（与机械门同一套判据，不另造一套口径），
+    附加不可见字符与 canary 引用两类。
+    """
+    t = str(text or '')
+    hits: list = []
+    for name, pat in list(MARKERS) + list(MARKERS_CN) + _L3_EXTRA:
+        if name not in hits and pat.search(t):
+            hits.append(name)
+    return hits
 
 VALID_STATUS = {'pending', 'searching', 'verified', 'conflict', 'supplementing', 'completed'}
 
@@ -646,13 +671,19 @@ class ResearchLedger:
         """
         status = status if status in VALID_STATUS else 'pending'
         cid = claim_id or f'c-{uuid.uuid4().hex[:10]}'
+        text_line = _one_line(claim)
         entry = {
-            'type': 'claim', 'id': cid, 'text': _one_line(claim),
+            'type': 'claim', 'id': cid, 'text': text_line,
             'topic': str(topic).strip() or 'general',
             'status': status, 'perspective': perspective,
             'confidence': float(min(max(confidence, 0.0), 1.0)),
             'note': note, 'scope': _one_line(scope), 'created_at': _now(),
         }
+        hits = scan_untrusted(text_line)
+        if hits:
+            # L3：命中注入模式只标记不删除（防 DoS-by-poisoning）；带标 claim
+            # 升 verified 会被 set_status/verify_primary 拒绝（I4：不可单独成立）
+            entry['untrusted'] = hits
         _atomic_append(self.entries_path, json.dumps(entry, ensure_ascii=False))
         return entry
 
@@ -747,12 +778,28 @@ class ResearchLedger:
             return 0
         entries = list(_iter_entries(self.entries_path))
         changed = 0
-        refused = []
+        refused: List[tuple] = []
         for e in entries:
             if e.get('type') == 'claim' and e.get('id') in wanted:
                 if status == 'verified' and _todo_marker(e.get('text', '')):
-                    refused.append(e.get('id'))
+                    refused.append((e.get('id'),
+                                    '原文行首自带「未复核/待办」标记，它是登记待办'
+                                    '不是结论，来源数再多也判不实。真要它进结论：'
+                                    '先去核实，再用 set-status --text 重写原文'
+                                    '（去掉该标记），然后重跑本命令'))
                     continue
+                if status == 'verified':
+                    # v6.56 L3/I4：命中注入模式的 claim 不得升 verified——注入内容
+                    # 不能靠来源数洗白成已核实。只降级不删除：甄别后用 --text 重写
+                    # 原文（重扫干净）即可再升级。
+                    hits = scan_untrusted(text if text else e.get('text', ''))
+                    if hits:
+                        refused.append((e.get('id'),
+                                        f'L3 注入模式命中：{"、".join(hits)}——'
+                                        '注入内容不能靠来源数洗白成已核实。'
+                                        '甄别后用 set-status --text 重写原文'
+                                        '（重扫干净）再升级'))
+                        continue
                 if status is not None:
                     e['status'] = status
                     e['promoted_at'] = _now()
@@ -761,14 +808,16 @@ class ResearchLedger:
                 if text:
                     e['text'] = text
                     e['amended_at'] = _now()
+                    hits = scan_untrusted(e['text'])
+                    if hits:
+                        e['untrusted'] = hits
+                    else:
+                        e.pop('untrusted', None)
                 for k, v in (extra or {}).items():
                     e[k] = v
                 changed += 1
-        for cid in refused:
-            print(f'拒绝把 {cid} 升为 verified：这条原文行首自带「未复核/待办」标记，'
-                  f'它是登记待办不是结论，来源数再多也判不实。'
-                  f'真要它进结论：先去核实，再用 set-status --text 重写原文（去掉该标记），'
-                  f'然后重跑本命令。', file=sys.stderr)
+        for cid, reason in refused:
+            print(f'拒绝把 {cid} 升为 verified：{reason}', file=sys.stderr)
         if changed:
             tmp = self.entries_path.with_suffix('.jsonl.tmp')
             with open(tmp, 'w', encoding='utf-8') as f:
@@ -951,6 +1000,12 @@ class ResearchLedger:
         for cid in wanted:
             c = claims.get(cid)
             if not c or c.get('type') != 'claim':
+                continue
+            flag_hits = scan_untrusted(str(c.get('text', '')))
+            if flag_hits:
+                print(f"拒绝 verify-primary：claim {cid} 命中 L3 注入模式"
+                      f"（{'、'.join(flag_hits)}）——归属型反查不能给注入内容背书；"
+                      f"甄别后 set-status --text 重写原文再试", file=sys.stderr)
                 continue
             hosts = src_hosts.get(cid, set())
             if not hosts:
@@ -1512,6 +1567,8 @@ def _main(argv: Optional[List[str]] = None) -> int:
             return 0
         # 固定信封：主题明细放 topics，全局合计放 totals。
         # 只改 CLI 出口——进程内 status() 仍是主题字典，发布门按它迭代主题。
+        untrusted = sum(1 for e in _iter_entries(ledger.entries_path)
+                        if e.get('type') == 'claim' and e.get('untrusted'))
         claims = sum(s.get('claims', 0) for s in data.values())
         verified = sum(s.get('verified', 0) for s in data.values())
         totals = {
@@ -1521,6 +1578,7 @@ def _main(argv: Optional[List[str]] = None) -> int:
             'conflict': sum(s.get('conflict', 0) for s in data.values()),
             'supplementing': sum(s.get('supplementing', 0) for s in data.values()),
             'pending': sum(s.get('pending', 0) for s in data.values()),
+            'untrusted': untrusted,
             'coverage': round(verified / claims, 2) if claims else 0.0,
             'sufficient_topics': sum(1 for s in data.values() if s.get('sufficient')),
             'insufficient_topics': [t for t, s in data.items()

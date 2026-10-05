@@ -65,6 +65,7 @@ def test_cli_status_totals_aggregate_every_topic(tmp_path, led):
         'conflict': 1,
         'supplementing': 1,
         'pending': 1,
+        'untrusted': 0,
         'coverage': 0.25,
         'sufficient_topics': 1,
         'insufficient_topics': ['技术'],
