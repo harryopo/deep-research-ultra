@@ -24,6 +24,25 @@ except ImportError:  # 作为包导入时
 
 PLACEHOLDER = '【待写】'
 
+# v6.55 报告类型学（references/report-types.md）：各类型在维度分节后追加的
+# 类型专属骨架块。compare 有独立渲染路径（基线/候选/矩阵），不在此表。
+_INTENT_EXTRA_SECTIONS = {
+    'academic': [('## 研究空白与机会',
+                  [PLACEHOLDER + ' 哪些问题尚无定论、哪些数据互相矛盾、哪里值得再挖——每条挂 [N]'])],
+    'business': [('## 竞争格局速览',
+                  ['', '| 玩家 | 定位 | 规模（口径与年份） | 商业模式 | 来源 |',
+                   '|---|---|---|---|---|',
+                   f'| {PLACEHOLDER} | | | | |', f'| {PLACEHOLDER} | | | | |',
+                   f'| {PLACEHOLDER} | | | | |'])],
+    'risk': [('## 风险登记表',
+              ['', '| 风险 | 证据 [N] | 可能性 | 影响 | 缓解 |', '|---|---|---|---|---|',
+               f'| {PLACEHOLDER} | | | | |', f'| {PLACEHOLDER} | | | | |',
+               f'| {PLACEHOLDER} | | | | |'])],
+    'opensource': [('## 引入成本与迁移建议',
+                    [PLACEHOLDER + ' 改造点 / 依赖冲突 / 迁移步骤 / 回滚方案——每条四要素'
+                     '（改什么 / 依据 [N] / 成本与风险 / 优先级）'])],
+}
+
 
 def _citations(sources_of_claim: List[Dict[str, Any]]) -> str:
     """按账本 primary_index 生成 [N] 引用，编号顺序稳定。"""
@@ -213,6 +232,8 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
             lines += [f'## {topic}', '']
             lines += _render_claims(topic)
             lines.append('')
+        for heading, block_lines in _INTENT_EXTRA_SECTIONS.get(intent, []):
+            lines += [heading] + block_lines + ['']
 
     if _reusable(kept.get('method', '')):
         # 账本事实行按新账本刷新；旧声明/判定注释不搬——按新状态重新出
