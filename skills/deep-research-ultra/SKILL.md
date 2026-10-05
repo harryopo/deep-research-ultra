@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.53.0
+version: 6.53.1
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -582,11 +582,18 @@ Lead 拆维度 → --plan-only 出计划与待确认清单 → 用户增删/调�
 |-----------|--------|----------|
 | 搜索 Agent | Tavily MCP / open-websearch MCP / Firecrawl MCP | 通用网页搜索 |
 | 学术 Agent | arxiv MCP / paper-search MCP / **OpenAlex/S2/PubMed 直连** / **arXiv全文/Unpaywall/S2图谱** | 学术论文+全文+引用 |
-| 社区 Agent | agent-reach skill（Reddit/HN/X/知乎/B站） | 社区口碑 |
+| 社区 Agent | agent-reach skill（**仅免登录通道**：网页/V2EX/RSS/B站搜索/YouTube）＋ sogou-zhihu 知乎引擎 | 社区口碑 |
 | 开源 Agent | oss-finder skill + GitHub MCP | 开源项目 |
 | 时效 Agent | last30days skill | 近期热点 |
 | 文档 Agent | context7 skill / defuddle skill | 库文档/网页提取 |
 | 浏览器 Agent | **Crawl4AI Docker / LayeredCrawler** | JS 渲染/反爬 |
+
+> **🚫 登录态通道红线（v6.53.1，用户约束）**：agent-reach 的 Reddit/X/小红书/
+> Facebook/Instagram/雪球/Boss直聘 等通道全部需要 Cookie 或浏览器登录态，平台会
+> 检测非浏览器调用并封号（Agent-Reach 官方文档自认）——**一律不得配置或调用**，
+> 不导入任何 Cookie，不引导登录。社区口碑取证改走免登录通道＋知乎引擎。
+> agent-reach 为独立子进程 CLI，其出带不经 L1 引擎白名单（与 MCP 同类），由 L4
+> canary 观测；通道体检见其技能壳（`~/.agents/skills/agent-reach/SKILL.md`）。
 
 **反思循环**（Kimi 式多信号 + 证据充分性停止）：
 

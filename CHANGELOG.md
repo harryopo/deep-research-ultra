@@ -5,6 +5,33 @@
 
 ---
 
+## v6.53.1（2026-10-04）— 接入 Agent-Reach 社区通道（仅免登录档；登录态通道按用户红线禁用）
+
+**触发这次改动的事实**：env-check 一直报 agent-reach 缺失（社区口碑维度的可选
+增强）。用户指定上游 github.com/Panniantong/Agent-Reach（89.9k 星，MIT）并给出
+硬约束：**不要任何登录账号封号风险**。
+
+### 落地
+
+- CLI 装入独立 venv（~/.agent-reach-venv，不污染主环境，v1.5.0）；只读体检
+  （--env=auto，safe mode）实测 4/16 通道可用：任意网页（Jina Reader）、V2EX、
+  RSS/Atom、B站搜索——全部免登录；GitHub 走既有 gh 通道（本就配置好）。
+- 技能壳写 ~/.agents/skills/agent-reach/SKILL.md，env-check 缺增强 7→6。
+- SKILL.md 社区 Agent 行改判实际通道集，并写入红线：登录态通道
+  （Reddit/X/小红书/FB/IG/雪球/Boss直聘/B站字幕 OpenCLI）**一律不得配置或调用、
+  不导入任何 Cookie**——Agent-Reach 官方文档自认这些通道存在账号封号风险。
+- 出带口径：agent-reach 是独立子进程 CLI，不经 L1 引擎白名单（与 MCP 同类），
+  由 L4 canary 观测。
+
+### 边界
+
+- 待装（零配置、属系统级安装，按 Phase 0 停等流程待用户批准）：yt-dlp
+  （YouTube 字幕/搜索）、mcporter+Exa（全网语义搜索）。
+- 9 个登录态通道被禁用是**用户约束而非能力缺陷**；未来要开通任何一条，按
+  Phase 0 停等流程单独走，并建议专用小号（Agent-Reach 官方建议）。
+
+---
+
 ## v6.53.0（2026-10-04）— 注入防线 L1+L4+L2 落地（出口白名单 / canary 哨兵 / 引文长度上限）
 
 **触发这次改动的事实**：四六级 dogfood 收口后，防线缺口成为唯一结构性欠账
