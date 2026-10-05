@@ -582,7 +582,7 @@ Lead 拆维度 → --plan-only 出计划与待确认清单 → 用户增删/调�
 |-----------|--------|----------|
 | 搜索 Agent | Tavily MCP / open-websearch MCP / Firecrawl MCP | 通用网页搜索 |
 | 学术 Agent | arxiv MCP / paper-search MCP / **OpenAlex/S2/PubMed 直连** / **arXiv全文/Unpaywall/S2图谱** | 学术论文+全文+引用 |
-| 社区 Agent | agent-reach skill（**仅免登录通道**：网页/V2EX/RSS/B站搜索/YouTube）＋ sogou-zhihu 知乎引擎 | 社区口碑 |
+| 社区 Agent | agent-reach skill（**仅免登录通道**：网页/V2EX/RSS/B站/YouTube/全网语义搜索）＋ sogou-zhihu 知乎引擎 | 社区口碑 |
 | 开源 Agent | oss-finder skill + GitHub MCP | 开源项目 |
 | 时效 Agent | last30days skill | 近期热点 |
 | 文档 Agent | context7 skill / defuddle skill | 库文档/网页提取 |
