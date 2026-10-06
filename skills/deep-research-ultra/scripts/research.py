@@ -1391,7 +1391,9 @@ v3 兼容（自动降级到 Layer 4）:
 
     # 数据源
     parser.add_argument('--sources', '-s',
-                        help='指定数据源，逗号分隔（v3 引擎名自动映射到 Layer 4）')
+                        help='指定数据源，逗号分隔（v3 引擎名自动映射到 Layer 4）；'
+                             '未指定时回退读环境变量 DRUX_RETRIEVER（逗号分隔，同格式）——'
+                             '子 Agent 不带 CLI 参数也能继承 Lead 的引擎选择')
     parser.add_argument('--source-query', action='append', metavar='引擎名=查询词',
                         help='给指定引擎换检索词，可重复；未点名的引擎仍用主题查询。'
                              '英文学术库（arxiv/openalex/semantic-scholar）给英文词，'
@@ -1454,6 +1456,11 @@ v3 兼容（自动降级到 Layer 4）:
     parser.add_argument('--proxy', help='HTTP 代理地址')
 
     args = parser.parse_args()
+    # v6.57 P0：DRUX_RETRIEVER 环境变量作为 --sources 的回退默认值——
+    # 子 Agent 不带 CLI 参数也能继承 Lead 的引擎选择（GPT-Researcher 的
+    # RETRIEVER=tavily,arxiv 模式对齐，见对比报告 v6.54 P0 建议）
+    if not args.sources:
+        args.sources = os.environ.get('DRUX_RETRIEVER', '').strip() or None
 
     # 设置代理
     if args.proxy:

@@ -5,6 +5,37 @@
 
 ---
 
+## v6.57.0（2026-10-06）— 对比报告 P0 优化落地：DRUX_RETRIEVER 环境变量引擎选择
+
+**触发这次改动的事实**：对比实跑报告（compare-os-agents）P0 建议落地——
+GPT-Researcher 的 `RETRIEVER=tavily,arxiv` 模式允许环境变量驱动检索器选择，
+子 Agent 不带 CLI 参数也能继承 Lead 的引擎配置。本项目 `--sources` 此前只能
+通过 CLI 传入。
+
+### 变更
+
+`research.py` 新增 `DRUX_RETRIEVER` 环境变量回退：`--sources` 未显式指定时，
+自动读取 `DRUX_RETRIEVER`（逗号分隔引擎名，格式同 `--sources`）。子 Agent
+派单时 Lead 只需 `export DRUX_RETRIEVER="github-deep-search,duckduckgo"`，
+子 Agent 的 `research.py` 调用即自动使用同一组引擎——不再要求每条检索命令
+都重复 `--sources` 参数。
+
+### 边界
+
+- `--sources` 显式指定时**优先于**环境变量（不覆盖 Lead 的显式选择）；
+- 本版只实现环境变量回退。"新增数据源不需要改代码"的完整目标（可配置
+  custom search engine 端点）需要引擎注册制重构，记入 HANDOFF 待下一批。
+
+### 对比报告三项建议的落地状态
+
+| 建议 | 优先级 | 状态 |
+|---|---|---|
+| 检索器热切换 | P0 | ✅ DRUX_RETRIEVER 已落；custom engine 端点待下一批 |
+| 上下文过滤基准重放 | P1 | 待做（复用 1000 项测试基础设施） |
+| 子 Agent 按角色配模型 | P1 | 待做（配置改动） |
+
+---
+
 ## v6.56.0（2026-10-04）— L3 不可信标记 + I4 执行 + 对抗语料压测（防线闭环）
 
 **触发这次改动的事实**：L1/L2/L4 落地后，防线缺的最后一块是 L3——注入内容
