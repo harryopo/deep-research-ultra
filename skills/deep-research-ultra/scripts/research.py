@@ -1355,7 +1355,7 @@ def main():
 v3 兼容（自动降级到 Layer 4）:
   %(prog)s "AI" --sources baidu,bing,duckduckgo --format markdown
 
-详细文档: references/optimization-plan-v5.md
+详细文档: SKILL.md（十四节签名表 + Phase 0-6 工作流）
         """
     )
 

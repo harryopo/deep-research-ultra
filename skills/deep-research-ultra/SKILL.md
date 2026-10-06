@@ -1832,27 +1832,16 @@ scripts/
 
 ## 十七、参考资料
 
-### 内部参考
+### 运行时参考
 
+- [references/intent-types.md](references/intent-types.md) — 意图类型与维度反推（Phase 1.1）
+- [references/report-types.md](references/report-types.md) — 报告类型学：六型模板/方法/失败模式（Phase 3）
+- [references/subagent-lessons.md](references/subagent-lessons.md) — 派单纪律事故档案（Phase 2.5）
 - [references/mcp-config.md](references/mcp-config.md) — MCP 配置指南
-- [references/tool-integration.md](references/tool-integration.md) — 外部工具/skill 集成契约
-- [references/optimization-plan-v4.md](references/optimization-plan-v4.md) — 四层架构优化方案
-- [references/optimization-plan-v5.md](references/optimization-plan-v5.md) — v5 优化方案
-- [references/migration-v3-to-v4.md](references/migration-v3-to-v4.md) — v3→v4 迁移指南
-- [references/v6-research-notes.md](references/v6-research-notes.md) — 方法论与开源方案调研笔记（12 前沿模式 + Top 12 开源 + 能力缺口映射）
-- [references/intelligent-routing-research.md](references/intelligent-routing-research.md) — 智能路由设计
-- [references/大厂方法论落地调研-v2.md](references/大厂方法论落地调研-v2.md) — Kimi/秘塔方法论
-- [references/论文全文与引用图谱调研-v2.md](references/论文全文与引用图谱调研-v2.md) — arXiv/Unpaywall/S2
-- [references/浏览器自动化与反爬虫调研-v2.md](references/浏览器自动化与反爬虫调研-v2.md) — Crawl4AI/curl_cffi
-- [references/GitHub深度搜索技巧调研.md](references/GitHub深度搜索技巧调研.md) — GitHub 深度搜索技巧
-- [references/调研报告格式最佳实践调研.md](references/调研报告格式最佳实践调研.md) — 报告格式最佳实践
-- [references/国内大厂深度研究方案调研-v3.md](references/国内大厂深度研究方案调研-v3.md) — 国内大厂深度研究
-- [references/深度研究开源项目调研-v3.md](references/深度研究开源项目调研-v3.md) — 开源深度研究项目
-- [references/国内智能体平台与调研专家团调研.md](references/国内智能体平台与调研专家团调研.md) — 国内智能体平台与专家团
-- [references/anti-bot-research-2026.md](references/anti-bot-research-2026.md) — 反爬虫专题调研
-- [references/大厂深度研究方法论调研报告.md](references/大厂深度研究方法论调研报告.md) — 大厂方法论（早期调研）
-- [references/开源深度研究项目调研报告.md](references/开源深度研究项目调研报告.md) — 开源项目（早期调研）
-- [references/科研论文检索方案调研报告.md](references/科研论文检索方案调研报告.md) — 论文检索方案
+### 开发期归档
+
+早期调研输入与历史优化方案已移至 `docs/dev/references/`（不在 skill 包内）。
+含：18 份调研输入文档、optimization-plan v4/v5、migration-v3-to-v4、v6-research-notes 等。
 
 ### 外部参考
 

@@ -529,9 +529,7 @@ class NewEngine(SearchEngine):
 ### 内部参考
 
 - [skills/deep-research-ultra/references/mcp-config.md](skills/deep-research-ultra/references/mcp-config.md) — MCP 配置指南
-- [skills/deep-research-ultra/references/tool-integration.md](skills/deep-research-ultra/references/tool-integration.md) — 工具集成指南
-- [skills/deep-research-ultra/references/v6-research-notes.md](skills/deep-research-ultra/references/v6-research-notes.md) — v6 方法论与开源方案调研笔记
-- 完整更新历史见 [CHANGELOG.md](CHANGELOG.md)
+- 完整更新历史见 [CHANGELOG.md](CHANGELOG.md)；开发期调研文档归档在 `docs/dev/references/`
 
 ### 外部参考
 
