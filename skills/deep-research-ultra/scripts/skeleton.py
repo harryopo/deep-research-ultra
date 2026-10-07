@@ -148,6 +148,9 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
         lines: List[str] = kept['header'].split('\n')
     else:
         lines = [f'# {title or "调研报告"}', '']
+    lines += ['> **阅读指南**：只关心结论 → 「一页拍板」＋「对比矩阵」（如有）；'
+              '需要溯源 → 对应维度的证据 claims（每条挂 [N] 可回源）；'
+              '审计 → 来源登记表＋引文对账回执。', '']
 
     if _reusable(kept.get('bluf', '')):
         lines += ['## 一页拍板', kept['bluf'], '']
