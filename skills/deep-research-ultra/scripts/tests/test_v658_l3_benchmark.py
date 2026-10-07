@@ -163,5 +163,5 @@ def test_skeleton_has_report_types_reference(tmp_path):
     md = build_skeleton(str(_tmp), title='T')
     # 报告骨架不需要引用 report-types（那是 SKILL.md 的事）——但 compare 模式的
     # 矩阵提示里应该有"每格写结论＋[N]"的操作指引
-    if '--intent compare' in md or '对比矩阵' in md:
+    if '## 对比矩阵' in md:
         assert '每格写结论' in md
