@@ -202,13 +202,17 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
         baseline = [t for t in order if t.startswith('本项目')]
         cands = [t for t in order if t.startswith('候选：')]
         dims = [t for t in order if t not in baseline and t not in cands]
-        lines += ['## 本项目现状（基线）', '']
+        lines += ['## 本项目现状（基线）', '',
+                  f'{PLACEHOLDER} 主体画像分析：技术栈、架构、部署形态、已知痛点——'
+                  '用读者视角写分析性段落，引用下方证据的 [N]。', '']
         for t in baseline:
             lines += _render_claims(t)
         lines.append('')
         lines += ['## 候选方案', '']
         for t in cands:
-            lines += [f'### {t}', '']
+            lines += [f'### {t}', '',
+                      f'{PLACEHOLDER} 分析性段落：定位、架构、优劣——'
+                      '引用下方证据的 [N]，逐维度写差异与优劣。', '']
             lines += _render_claims(t)
             lines.append('')
         lines += ['## 对比矩阵', '',
@@ -216,7 +220,7 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
         header = '| 对比维度 | 本项目 |' + ''.join(
             f' {t[len("候选："):]} |' for t in cands)
         lines.append(header)
-        lines.append('|---|' * (2 + len(cands)))
+        lines.append('|' + '---|' * (2 + len(cands)))
         for d in dims:
             lines.append(f'| {d} | {PLACEHOLDER} |' + f' {PLACEHOLDER} |' * len(cands))
         lines.append('')
