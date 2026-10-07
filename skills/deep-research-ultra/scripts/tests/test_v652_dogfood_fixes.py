@@ -241,6 +241,8 @@ def test_skeleton_merge_from_preserves_lead_sections(tmp_path):
         '【待写】 写检索窗口、数据源分层', '方法：本轮 2 个维度。')
     filled = filled.replace(
         '【待写】 结论、风险、落地步骤', '结论：证据支持间隔重复。')
+    filled = filled.replace(
+        '【待写】 分析性段落：本维度的关键发现', '分析：本维度发现关键证据。')
     assert '【待写】' not in filled
     old.write_text(filled, encoding='utf-8')
 
@@ -266,7 +268,10 @@ def test_skeleton_merge_skips_unfinished_sections(tmp_path):
     old = tmp_path / 'old.md'
     old.write_text(v1, encoding='utf-8')  # 全是待写，等于 Lead 什么都没写
     v2 = build_skeleton(str(tmp_path / 'l'), title='T', merge_from=str(old))
-    assert v2.count('【待写】') == v1.count('【待写】'), '未写完的段必须保持待写原样'
+    # v6.58：merge_from 不重复生成分析插槽（Lead 分析已在保留段落中）
+    # v1 有 7 处（含 2 个分析 slot），v2 只有 5 处核心段落的待写
+    assert v2.count('【待写】') == 5, \
+        f'merge_from 应跳过分析插槽，核心段落待写应保留：实际 {v2.count("【待写】")}'
 
 
 # ============================================================

@@ -202,17 +202,21 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
         baseline = [t for t in order if t.startswith('本项目')]
         cands = [t for t in order if t.startswith('候选：')]
         dims = [t for t in order if t not in baseline and t not in cands]
-        lines += ['## 本项目现状（基线）', '',
-                  f'{PLACEHOLDER} 主体画像分析：技术栈、架构、部署形态、已知痛点——'
-                  '用读者视角写分析性段落，引用下方证据的 [N]。', '']
+        _slots = not merge_from  # v6.58：merge_from 时 Lead 分析已在保留段落，不重复出插槽
+        lines += ['## 本项目现状（基线）', '']
+        if _slots:
+            lines += [f'{PLACEHOLDER} 主体画像分析：技术栈、架构、部署形态、已知痛点——'
+                      '用读者视角写分析性段落，引用下方证据的 [N]。']
+        lines.append('')
         for t in baseline:
             lines += _render_claims(t)
         lines.append('')
         lines += ['## 候选方案', '']
         for t in cands:
-            lines += [f'### {t}', '',
-                      f'{PLACEHOLDER} 分析性段落：定位、架构、优劣——'
-                      '引用下方证据的 [N]，逐维度写差异与优劣。', '']
+            lines += [f'### {t}', '']
+            if _slots:
+                lines += [f'{PLACEHOLDER} 分析性段落：定位、架构、优劣——'
+                          '引用下方证据的 [N]，逐维度写差异与优劣。']
             lines += _render_claims(t)
             lines.append('')
         lines += ['## 对比矩阵', '',
@@ -235,6 +239,9 @@ def build_skeleton(ledger_dir: str, title: str = '', merge_from: str = '',
     else:
         for topic in order:
             lines += [f'## {topic}', '']
+            if not merge_from:
+                lines += [f'{PLACEHOLDER} 分析性段落：本维度的关键发现、矛盾与解读——'
+                          '用读者视角写分析性段落，引用下方证据的 [N]。']
             lines += _render_claims(topic)
             lines.append('')
         for heading, block_lines in _INTENT_EXTRA_SECTIONS.get(intent, []):

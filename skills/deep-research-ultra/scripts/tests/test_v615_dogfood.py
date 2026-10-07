@@ -275,7 +275,9 @@ def test_unverified_claims_do_not_become_placeholders(tmp_path):
     md = build_skeleton(str(L.root))
     assert sum(1 for ln in md.splitlines()
                if ln.startswith('- ⚠️ 仅作线索')) == 30
-    assert md.count(PLACEHOLDER) <= 5, \
+    # v6.58：每维度新增 1 个分析性段落插槽（per-section 不 per-claim），
+    # 待写总数 = 拍板+摘要+分析slot+冲突裁决+方法+结论 = 6
+    assert md.count(PLACEHOLDER) <= 8, \
         f'待写标记 {md.count(PLACEHOLDER)} 处：必须与 claim 条数解耦，只留机器写不了的几处'
 
 
