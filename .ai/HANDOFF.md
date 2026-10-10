@@ -1,14 +1,14 @@
 # HANDOFF · deep-research-ultra（任何 agent 先读这份）
 
-> 最后更新：2026-10-04 12:30 · 更新主体：ZCode 会话 sess_3de4172a（v6.52.0→v6.56.0 收口轮）
+> 最后更新：2026-10-08 · 更新主体：OpenCode 会话（v6.57.0→v6.60.0 追平 + CHANGELOG/HANDOFF/dist 三处收口）
 > 读法：本文件 → `.ai/knowledge/` → 架构文档 → **以代码为最终准**。描述与代码不符时以代码为准并回来更新本文件。
 
 ## ★1. 会话概览
-- 会话时间区间：2026-10-03 至 2026-10-04
-- 核心目标与交付范围：四六级实跑收口（v6.52.0）→ 注入防线 L1+L4+L2（v6.53.0）→ Agent-Reach 免登录接入（v6.53.1/6.53.2）→ 对比/优化类报告形态（v6.54.0）→ 报告类型学与派单任务书化（v6.55.0）→ L3+I4+对抗压测防线闭环（v6.56.0）
-- 核心模块：`skills/deep-research-ultra/SKILL.md`、`scripts/{fallback,ledger,validate_report,skeleton,verify_quotes,canary}.py`、`engines/fallback.py`、两处测试根
-- 整体完成度：四层注入防线（L1/L2/L3/L4）全部落地；对比类报告形态可用；测试 968→1000 全绿
-- 本次沉淀摘要：问题解决 3 条、技术决策 4 条（详见第 5 节）、升档长期库 2 条
+- 会话时间区间：2026-10-06 至 2026-10-08（上一轮 10-03 至 10-04 见第 10 节版本记录）
+- 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）
+- 核心模块：`scripts/{research,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60}_*.py`、`CHANGELOG.md`、`dist/`
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；全量 1018 项（本机 Windows 1016 过 / 2 挂为环境依赖，见第 4 节）
+- 本次沉淀摘要：收口三件套——CHANGELOG 补 v6.60.0 条目、本文件追平 v6.60.0、dist 按 HEAD 重打包
 
 ## ★2. 已完成工作
 - `[V]` `scripts/engines/fallback.py` L1 出口白名单——`_EGRESS_ALLOW`＋`egress_denied_reason()`，`_http_get/_http_post` 建连前拒绝；实弹 probe 前后一致（17 引擎）零误伤 — 提交 2dbe217
@@ -21,31 +21,34 @@
 - `[V]` SKILL.md Phase 2.5 派单模板任务书化（110→55 行）＋ `references/report-types.md`（六型类型学）＋ `references/subagent-lessons.md`（事故档案）— 提交 9292be4
 - `[V]` Agent-Reach 免登录接入——CLI 装独立 venv（`~/.agent-reach-venv`，v1.5.0），yt-dlp/bili-cli/mcporter+Exa 全点亮（6 免登录通道），技能壳在 `~/.agents/skills/agent-reach/`；登录态 9 通道按用户红线禁用 — 提交 d40e4d9/dcff015
 - `[V]` 工作区库 ec09188：镜像存档化（STALE.md）＋ v6.51 修复方案书与两份参考文档入库
+- `[V]` `scripts/research.py` `DRUX_RETRIEVER` 环境变量回退——子 Agent 不带 `--sources` 也继承 Lead 的引擎组；显式 `--sources` 优先 — 提交 0625512（v6.57.0）
+- `[V]` `tests/test_v658_l3_benchmark.py` L3 基准重放——20 条干净语料零误报 / 12 类 payload 全命中（recall 100%）/ 3 处已知误报入 KNOWN_FP；compare 骨架候选节＋基线节分析插槽 — 提交 b3d773a（v6.58.0）
+- `[V]` 包清理——18 份开发期调研文档移入 `docs/dev/`，CHANGELOG 3565→521 行（旧史进 `docs/dev/CHANGELOG-archive.md`），去除过期引用 — 提交 a2cc060
+- `[V]` `tests/test_v659_pipeline_baseline` 管线全线基准——guard 机械门／L3 标记／I4 拒绝／canary 干净／修复路径／绿队放行六步在同一会话 12 条 payload 上全过；knowledge 骨架维度节加分析插槽（`--merge-from` 跳过）— 提交 2732439（v6.59.0）
+- `[V]` `references/report-types.md` 分析性段落写法——读者层/审计层两层不混、通用三句式、六型思考架构、三条禁令 — 提交 9f1d68b（v6.60.0）
+- `[V]` `skeleton.py` 阅读指南——报告头三行（结论→一页拍板／溯源→证据 claims／审计→登记表＋对账回执）— 提交 6ec9361/8bc68ef（v6.60.0）
+- `[V]` `tests/test_v660_multi_round_adversarial.py` 多轮持续对抗压测——红队四轮升级（试探/升级/混合/外传），每轮 L3+I4 蓝队检查，canary R2 起外泄必须 exit 1，全程干净 claim 不被误伤 — 提交 f04a2da（v6.60.0）
+- `[V]` 本会话收口——CHANGELOG 补 v6.60.0 条目（原先最高只到 6.59.0）；本文件追平 v6.60.0；`dist/` 按 HEAD 重打包（原为 6.48.0/894 项时代产物）
 
 ## ★3. 进行中与断点
-1. **对比类报告实跑验收**（P0）
-2. 完成度：代码与测试全就绪，未跑过真实对比任务
-3. 断点位置：无代码断点——等一个真实任务（如"调研与本项目类似的开源方案"）
-4. 前置：无（compare 骨架/主体画像指引/矩阵全绿）
-5. 暂停原因：等用户发起真实场景
-6. 接续：按 SKILL.md Phase 1.1 判定为对比类 → Phase 1.2b 主体画像 → Phase 2.5 派单（新任务书模板）→ Phase 5 发布门前跑 `canary.py check` → `skeleton.py --intent compare`
-7. 交付标准：报告含基线节/候选节/对比矩阵（每格 [N]）/优化建议四要素，过门盖戳
-1. **L3 content_sha256 与分类器增强**（P1，随账本 schema 变更）
+> （原 P0「对比类报告实跑验收」已完成——compare-os-agents-20261004 过门盖戳 body=b5f033a5，见第 7 节；原「GitHub 推送」已完成，分支与 origin 同步）
+1. **L3 content_sha256 与语义分类器**（P1，随账本 schema 变更）
 2. 完成度：未开始；scan_untrusted 为高精度正则版
 3. 断点位置：`scripts/ledger.py` `scan_untrusted()`
 4. 前置：无
 5. 暂停原因：sha256 与 L3 分类器（语义级）同批，当前正则版已覆盖最高频形态
 6. 接续：`add_claim`/`set_status` 打 sha 字段；引入语义分类器需评估误报率
-7. 标准：误报率有实测数字；不破坏 1000 项存量测试
-1. **GitHub 推送与 dist 重打包**（P1，发布动作）
-2. 本地 7 个提交未推（v6.52.0→v6.56.0）；dist 仍是 6.50.1 时代产物
+7. 标准：误报率有实测数字；不破坏 1018 项存量测试
+1. **dist 上传 GitHub Release**（P1，发布动作）
+2. 完成度：`dist/deep-research-ultra-v7.0.0.zip` 已按 HEAD（v6.60.0）重打包，`dist/release-notes.md` 同步到内核 6.60.0／1018 项；**未上传 Release**
 3. 断点：无代码断点
 4. 前置：无
-5. 暂停原因：推送属外发动作，等用户明示
-6. 接续：`git push`；按既有流程重打 dist（内含测试数与版本号已对齐 6.56.0/1000）
-7. 标准：远端 HEAD = ecb8085；dist 解包后 `run_all_tests` 1000/1000
+5. 暂停原因：发布属外发动作，等用户明示
+6. 接续：把 zip 传到 GitHub Release（index.html 下载按钮指 `releases/latest`）；传完跑一次解包内 `run_all_tests.py` 复核
+7. 标准：Release 资产解包后 Linux 上 1018/1018 全绿
 
 ## 4. 已知问题与技术债务
+- `[Q]` **Windows 本机 2 项测试恒挂**：`tests/test_v6223_mcp_config_writer.py` 两项要起 `bash` 跑 `setup-mcp.sh`，本机无 bash → `FileNotFoundError`。环境依赖非回归；`run_all_tests.py` 在本机的"真实总数"是 1016 过/2 挂，Linux/CI 才是 1018/1018
 - `[Q]` Mimosa git 门禁非确定性拦截（工作区第三方存量误报）——重试即过；见工作区 `.learnings/ERR-20261004-001`。对 dev 仓库提交本身无影响
 - `[W]` 报告正文与证据过程分层呈现（claim 行内联 scope/状态对读者偏重）——待优化清单 P1，见 `references/v6.54-对比报告升级设计.md`
 - `[W]` 对比矩阵格子级语义校验（当前靠【待写】硬失败兜底）——同上 P1
@@ -81,17 +84,18 @@
 ## ★7. 下一步行动
 - `P0` ~~对比类报告实跑验收~~ ✅ 已完成（compare-os-agents-20261004，过门盖戳 body=b5f033a5）
 - `P0` ~~检索器热切换~~ ✅ DRUX_RETRIEVER 已落（v6.57.0）；custom search engine 端点待下一批
-- `P0` 对抗红蓝压测升级（真人式多轮对抗语料，现为单发语料自动化）
-- `P1` ~~GitHub push~~ ✅ 已推（632548e→50697f0→HEAD）；dist 重打包待发布
+- `P0` ~~对抗红蓝压测升级~~ ✅ 多轮持续对抗压测已落（v6.60.0，四轮升级攻击语料）
+- `P1` ~~GitHub push~~ ✅ 已推；~~dist 重打包~~ ✅ 已按 HEAD 重打（v6.60.0），**上传 Release 待用户明示**
 - `P1` 报告正文/证据分层呈现
-- `P1` 基准重放评测（L3 分类器误报率实测）
+- `P1` ~~基准重放评测（L3 分类器误报率实测）~~ ✅ 已落（v6.58.0，precision/recall 量化 + KNOWN_FP 档案）
 - `P1` 子 Agent 按角色配模型
+- `P1` custom search engine 端点（"新增数据源不改代码"的完整目标，需引擎注册制重构）
 - `P2` L3 sha256＋语义分类器；L5 高危动作二次确认
 
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（1000 项＝内核 950＋壳 50）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1018 项**＝内核 968＋壳 50；Windows 无 bash 时内核 2 项环境失败，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹，17 引擎应出数据）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`
 
@@ -104,4 +108,5 @@
 - L3 标记只降级不删除；逐字对账不换字符形态；档 B 反查必须真换通道
 
 ## 10. 版本记录
+- 2026-10-08 · OpenCode 会话 · v6.57.0→v6.60.0 追平（DRUX_RETRIEVER、L3 基准重放、包清理、管线全线基准、多轮对抗压测、阅读指南、分析段写法）＋ 收口三件套（CHANGELOG 补 6.60 条目、本文件追平、dist 重打包） · 标签：收口、压测、dist
 - 2026-10-04 12:30 · ZCode 会话 sess_3de4172a · v6.52.0→v6.56.0 五版本＋Agent-Reach 接入＋L1-L4 防线闭环＋对比报告形态＋报告类型学＋派单任务书化 · 标签：注入防线、报告类型学、任务书化、主体画像
