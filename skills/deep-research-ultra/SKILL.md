@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.60.0
+version: 6.61.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -635,6 +635,23 @@ Lead（主 Agent）
  ├─ 全部完成后：读 ledger.status → 冲突消解 → 生成 outline
  └─ 进入 Phase 3.5 专家团评审 → 组稿
 ```
+
+**模型配档**（v6.61，对比实跑报告 P1「子 Agent 按角色配模型」落地。同行做法：
+open_deep_research 4 个角色各配一档模型、GPT Researcher 快模型爬摘要＋强模型写
+终稿——检索跑腿与判断写作不是一个工种，全程一档模型要么浪费要么拖累）：
+
+| 角色 | 档位 | 派单时怎么传 |
+|---|---|---|
+| 检索子 Agent（Phase 2.5 各维度、补查、临时派发） | **跑腿档**：快、便宜，错了有账本兜底可核 | `DRUX_MODEL_RETRIEVER` 有值 → `model=` 原样传；没设 → 宿主的轻量档别名 |
+| 判断型子 Agent（专家团 / 红蓝对抗 / 审稿被派出去时） | **判断档**：强推理，错在这里会被写进正文 | `DRUX_MODEL_REVIEWER` 有值 → `model=` 原样传；没设 → 宿主的最强档别名 |
+| Lead 自己（规划、归并、组稿、校验门） | 宿主默认档 | **不传 `model`**——别把 Lead 降级到跑腿档 |
+
+- 两个环境变量与 `DRUX_RETRIEVER` 同族（`DRUX_` 前缀），派单时读一次即可；
+  `--plan-only` 回执有一行「派单模型」把当前档位打出来，照抄即可。
+- 档位别名按宿主自己的命名理解（haiku/sonnet/opus、fast/balanced/reasoning…），
+  skill 不写死厂商型号；要精确指定就用上面两个变量传模型 ID。
+- **宿主的 Agent/Task 工具没有 `model` 参数时忽略本表**——不许为了配模型改走
+  "Lead 亲自串行跑"，档位选错的代价远小于丢掉并行扇出与独立上下文。
 
 **子 Agent 提示词模板**（v6.55 重写为任务书形态：只有角色/任务/硬约束，事故
 叙事全部移入 `references/subagent-lessons.md`——改模板前先读教训档案，别拆护栏）：

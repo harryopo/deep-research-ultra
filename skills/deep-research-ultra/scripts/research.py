@@ -651,6 +651,15 @@ def cmd_plan_only(args, registry):
           f"（{WAVE_MAX}→{max(1, WAVE_MAX // 2)}），连续两波仍超限则该维度改由 Lead 自己跑检索")
     pv = [', '.join(q.perspectives) for q in plan.issue_tree if q.perspectives] or ['(默认域专家/怀疑者/实践者)']
     print(f"  专家团视角: {'; '.join(dict.fromkeys(pv))}")
+    # v6.61：子 Agent 按角色配模型。回执是 Lead 派单前最后一眼，档位写在这才有人照抄
+    retriever = os.environ.get('DRUX_MODEL_RETRIEVER', '').strip()
+    reviewer = os.environ.get('DRUX_MODEL_REVIEWER', '').strip()
+    ret_txt = (f'DRUX_MODEL_RETRIEVER={retriever}' if retriever
+               else '宿主轻量档（未设 DRUX_MODEL_RETRIEVER）')
+    rev_txt = (f'DRUX_MODEL_REVIEWER={reviewer}' if reviewer
+               else '宿主最强档（未设 DRUX_MODEL_REVIEWER）')
+    print(f"  派单模型: 检索子 Agent → {ret_txt} ｜ 判断型派出 → {rev_txt}"
+          f" ｜ Lead 不传 model")
     print(f"  子问题（共 {len(plan.unanswered_questions)} 个待执行主题）:")
     for i, q in enumerate(plan.unanswered_questions, 1):
         print(f"    {i}. {q}")
