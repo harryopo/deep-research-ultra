@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,6 +22,13 @@ SCRIPTS = Path(__file__).parent.parent
 sys.path.insert(0, str(SCRIPTS))
 
 WRITER = SCRIPTS / 'mcp_config_writer.py'
+
+#: 下面两条要真起 `bash` 跑 setup-mcp.sh（它是 bash 脚本）。Windows 本机没有 bash 时
+#: subprocess 会 FileNotFoundError——那是环境缺件不是回归，照实 skip 并报原因，
+#: 不许让它以"失败"面目出现（run_all_tests 的"真实总数"因此在本机是 1016 过/2 跳）。
+needs_bash = pytest.mark.skipif(
+    shutil.which('bash') is None,
+    reason='本机无 bash（Windows）：setup-mcp.sh 是 bash 脚本，此环境跑不了')
 
 
 def run_writer(*args: str) -> subprocess.CompletedProcess:
@@ -110,6 +118,7 @@ def test_list_shows_configured_servers_and_flags_empty(tmp_path):
     assert 'arxiv' in p.stdout and 'uvx' in p.stdout, p.stdout
 
 
+@needs_bash
 def test_setup_script_end_to_end_needs_no_claude_cli(tmp_path):
     """真跑 setup-mcp.sh（本机就是没有 claude 命令的宿主），产物必须是可启动的 server 表。
 
@@ -130,6 +139,7 @@ def test_setup_script_end_to_end_needs_no_claude_cli(tmp_path):
         assert '--' not in [cfg['command'], *cfg['args']], f'{name} 混进了 --：{cfg}'
 
 
+@needs_bash
 def test_uninstall_reports_only_the_servers_that_were_actually_removed(tmp_path):
     """--core 只配了 3 个免费 MCP，卸载就不该说"已移除 tavily/firecrawl"。
 

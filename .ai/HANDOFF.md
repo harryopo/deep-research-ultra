@@ -7,7 +7,7 @@
 - 会话时间区间：2026-10-06 至 2026-10-08（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）
 - 核心模块：`scripts/{research,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60}_*.py`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；全量 1018 项（本机 Windows 1016 过 / 2 挂为环境依赖，见第 4 节）
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；全量 1018 项（本机 Windows 1016 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
 - 本次沉淀摘要：收口三件套——CHANGELOG 补 v6.60.0 条目、本文件追平 v6.60.0、dist 按 HEAD 重打包
 
 ## ★2. 已完成工作
@@ -29,6 +29,7 @@
 - `[V]` `skeleton.py` 阅读指南——报告头三行（结论→一页拍板／溯源→证据 claims／审计→登记表＋对账回执）— 提交 6ec9361/8bc68ef（v6.60.0）
 - `[V]` `tests/test_v660_multi_round_adversarial.py` 多轮持续对抗压测——红队四轮升级（试探/升级/混合/外传），每轮 L3+I4 蓝队检查，canary R2 起外泄必须 exit 1，全程干净 claim 不被误伤 — 提交 f04a2da（v6.60.0）
 - `[V]` 本会话收口——CHANGELOG 补 v6.60.0 条目（原先最高只到 6.59.0）；本文件追平 v6.60.0；`dist/` 按 HEAD 重打包（原为 6.48.0/894 项时代产物）
+- `[V]` `test_v6223_mcp_config_writer.py` 两条 bash 用例加 `skipif(shutil.which('bash') is None)`——Windows 本机 `run_all_tests.py` 由"1016 过/2 挂"变全绿"1016 过/2 跳"，收集数 1018 不变
 
 ## ★3. 进行中与断点
 > （原 P0「对比类报告实跑验收」已完成——compare-os-agents-20261004 过门盖戳 body=b5f033a5，见第 7 节；原「GitHub 推送」已完成，分支与 origin 同步）
@@ -48,7 +49,7 @@
 7. 标准：Release 资产解包后 Linux 上 1018/1018 全绿
 
 ## 4. 已知问题与技术债务
-- `[Q]` **Windows 本机 2 项测试恒挂**：`tests/test_v6223_mcp_config_writer.py` 两项要起 `bash` 跑 `setup-mcp.sh`，本机无 bash → `FileNotFoundError`。环境依赖非回归；`run_all_tests.py` 在本机的"真实总数"是 1016 过/2 挂，Linux/CI 才是 1018/1018
+- `[Q]` ~~Windows 本机 2 项测试恒挂~~ ✅ 已收口（2026-10-08）：`test_v6223_mcp_config_writer.py` 两条要起 `bash` 跑 `setup-mcp.sh` 的用例加 `skipif(bash 缺失)`——环境缺件照实报 skip 不再报失败。本机 `run_all_tests.py` 全绿：1016 过 / 2 跳 / 0 挂；收集数 1018 不变，Linux/CI 下两条照跑
 - `[Q]` Mimosa git 门禁非确定性拦截（工作区第三方存量误报）——重试即过；见工作区 `.learnings/ERR-20261004-001`。对 dev 仓库提交本身无影响
 - `[W]` 报告正文与证据过程分层呈现（claim 行内联 scope/状态对读者偏重）——待优化清单 P1，见 `references/v6.54-对比报告升级设计.md`
 - `[W]` 对比矩阵格子级语义校验（当前靠【待写】硬失败兜底）——同上 P1
@@ -95,7 +96,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1018 项**＝内核 968＋壳 50；Windows 无 bash 时内核 2 项环境失败，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1018 项**＝内核 968＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹，17 引擎应出数据）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`
 

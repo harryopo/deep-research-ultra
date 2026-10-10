@@ -52,9 +52,16 @@ claim 始终可升级（防线不误伤正常内容）、canary 外泄在 R2 即
 ### 新增测试
 
 `tests/test_v660_multi_round_adversarial.py` 5 项。全量 **1018 项**（此前 1013）。
-本机（Windows，无 bash）实跑 1016 过 / 2 挂——挂的两项在
-`tests/test_v6223_mcp_config_writer.py`，要起 `bash` 跑 `setup-mcp.sh`，
-是环境依赖不是回归（Linux/CI 下全绿）。
+index.html 测试数与内核版本号同步（1013→1018、6.59.0→6.60.0）。
+
+### 收口补记（2026-10-08）
+
+- `test_v6223_mcp_config_writer.py` 里两条要真起 `bash` 跑 `setup-mcp.sh` 的用例
+  （end-to-end 写入、卸载计数）加上 `skipif(shutil.which('bash') is None)`：Windows
+  本机没有 bash，此前它们以 `FileNotFoundError` 的**失败**面目出现，读起来像回归。
+  环境缺件照实报 skip 并带原因，Linux/CI 下 bash 存在、两条照跑不跳。
+  本机 `run_all_tests.py` 因此变全绿：**1016 过 / 2 跳 / 0 挂**；收集数 1018 不变
+  （skipif 不影响 collect，index.html 的钉子不受影响）。
 
 ---
 
