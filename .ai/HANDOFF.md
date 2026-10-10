@@ -1,14 +1,14 @@
 # HANDOFF · deep-research-ultra（任何 agent 先读这份）
 
-> 最后更新：2026-10-08 · 更新主体：OpenCode 会话（v6.57.0→v6.60.0 追平 + CHANGELOG/HANDOFF/dist 三处收口）
+> 最后更新：2026-10-10 · 更新主体：OpenCode 会话（v6.57.0→v6.60.0 追平 + CHANGELOG/HANDOFF/dist/测试四处收口）
 > 读法：本文件 → `.ai/knowledge/` → 架构文档 → **以代码为最终准**。描述与代码不符时以代码为准并回来更新本文件。
 
 ## ★1. 会话概览
-- 会话时间区间：2026-10-06 至 2026-10-08（上一轮 10-03 至 10-04 见第 10 节版本记录）
+- 会话时间区间：2026-10-06 至 2026-10-10（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）
 - 核心模块：`scripts/{research,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60}_*.py`、`CHANGELOG.md`、`dist/`
 - 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；全量 1018 项（本机 Windows 1016 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
-- 本次沉淀摘要：收口三件套——CHANGELOG 补 v6.60.0 条目、本文件追平 v6.60.0、dist 按 HEAD 重打包
+- 本次沉淀摘要：收口四件——CHANGELOG 补 v6.60.0 条目、本文件追平 v6.60.0、dist 按 HEAD 重打包、bash 依赖用例 skipif 收口
 
 ## ★2. 已完成工作
 - `[V]` `scripts/engines/fallback.py` L1 出口白名单——`_EGRESS_ALLOW`＋`egress_denied_reason()`，`_http_get/_http_post` 建连前拒绝；实弹 probe 前后一致（17 引擎）零误伤 — 提交 2dbe217
@@ -49,7 +49,7 @@
 7. 标准：Release 资产解包后 Linux 上 1018/1018 全绿
 
 ## 4. 已知问题与技术债务
-- `[Q]` ~~Windows 本机 2 项测试恒挂~~ ✅ 已收口（2026-10-08）：`test_v6223_mcp_config_writer.py` 两条要起 `bash` 跑 `setup-mcp.sh` 的用例加 `skipif(bash 缺失)`——环境缺件照实报 skip 不再报失败。本机 `run_all_tests.py` 全绿：1016 过 / 2 跳 / 0 挂；收集数 1018 不变，Linux/CI 下两条照跑
+- `[Q]` ~~Windows 本机 2 项测试恒挂~~ ✅ 已收口（2026-10-10）：`test_v6223_mcp_config_writer.py` 两条要起 `bash` 跑 `setup-mcp.sh` 的用例加 `skipif(bash 缺失)`——环境缺件照实报 skip 不再报失败。本机 `run_all_tests.py` 全绿：1016 过 / 2 跳 / 0 挂；收集数 1018 不变，Linux/CI 下两条照跑
 - `[Q]` Mimosa git 门禁非确定性拦截（工作区第三方存量误报）——重试即过；见工作区 `.learnings/ERR-20261004-001`。对 dev 仓库提交本身无影响
 - `[W]` 报告正文与证据过程分层呈现（claim 行内联 scope/状态对读者偏重）——待优化清单 P1，见 `references/v6.54-对比报告升级设计.md`
 - `[W]` 对比矩阵格子级语义校验（当前靠【待写】硬失败兜底）——同上 P1
@@ -109,5 +109,5 @@
 - L3 标记只降级不删除；逐字对账不换字符形态；档 B 反查必须真换通道
 
 ## 10. 版本记录
-- 2026-10-08 · OpenCode 会话 · v6.57.0→v6.60.0 追平（DRUX_RETRIEVER、L3 基准重放、包清理、管线全线基准、多轮对抗压测、阅读指南、分析段写法）＋ 收口三件套（CHANGELOG 补 6.60 条目、本文件追平、dist 重打包） · 标签：收口、压测、dist
+- 2026-10-10 · OpenCode 会话 · v6.57.0→v6.60.0 追平（DRUX_RETRIEVER、L3 基准重放、包清理、管线全线基准、多轮对抗压测、阅读指南、分析段写法）＋ 收口四件（CHANGELOG 补 6.60 条目、本文件追平、dist 重打包、bash 用例 skipif）· 标签：收口、压测、dist
 - 2026-10-04 12:30 · ZCode 会话 sess_3de4172a · v6.52.0→v6.56.0 五版本＋Agent-Reach 接入＋L1-L4 防线闭环＋对比报告形态＋报告类型学＋派单任务书化 · 标签：注入防线、报告类型学、任务书化、主体画像

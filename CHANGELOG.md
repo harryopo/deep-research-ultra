@@ -54,7 +54,7 @@ claim 始终可升级（防线不误伤正常内容）、canary 外泄在 R2 即
 `tests/test_v660_multi_round_adversarial.py` 5 项。全量 **1018 项**（此前 1013）。
 index.html 测试数与内核版本号同步（1013→1018、6.59.0→6.60.0）。
 
-### 收口补记（2026-10-08）
+### 收口补记（2026-10-10）
 
 - `test_v6223_mcp_config_writer.py` 里两条要真起 `bash` 跑 `setup-mcp.sh` 的用例
   （end-to-end 写入、卸载计数）加上 `skipif(shutil.which('bash') is None)`：Windows
