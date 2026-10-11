@@ -33,10 +33,33 @@ from probe import ENGINE_FAMILY, FAMILY_GAP_SECONDS  # noqa: E402
 # 1. 同族表要有真实依据
 # ---------------------------------------------------------------------------
 
-def test_s2_engines_are_recognised_as_one_family():
-    """它们共用同一个上游：s2-citation-graph 的 search() 委托 S2。"""
-    assert ENGINE_FAMILY.get('semantic-scholar') == 's2'
-    assert ENGINE_FAMILY.get('s2-citation-graph') == 's2'
+def test_s2_engines_are_NOT_paired_as_one_family():
+    """**这一条是纠错**：v6.68.0 第一版按域名把 S2 两引擎配成同族，被实测否掉了。
+
+    实测（2026-10-11）：
+      · 单发 `semantic-scholar`（前面零调用）→ 429
+      · 30 秒后单发 `s2-citation-graph`  → ✅ 5 条
+    既不是同族连发，也不是共享配额耗尽（配额 30 秒后就恢复了）。
+    真相是**端点不同、限流桶不同**：`SemanticScholarEngine.SEARCH_URL` 打
+    `graph/v1/paper/search`（S2 限流最严的端点，匿名单发即拒），
+    `CitationGraphEngine` 走 `recommendations/v1`（宽松）。**同域 ≠ 同桶。**
+    """
+    assert 'semantic-scholar' not in ENGINE_FAMILY, (
+        'S2 两引擎走不同端点、不同限流桶，不该配成同族——'
+        '这个错误假设会让让拍机制保护不了任何东西，却给回执塞进错误的归因')
+    assert 's2-citation-graph' not in ENGINE_FAMILY
+
+
+def test_only_genuinely_shared_quotas_are_paired():
+    """留下来的两对必须真的共享配额，否则这张表就该清空。"""
+    # GitHub 两引擎吃同一个 GITHUB_TOKEN 的 5000/h 配额——真同桶
+    assert (ENGINE_FAMILY.get('github-deep-search')
+            == ENGINE_FAMILY.get('github-code-search') == 'github-token-quota')
+    # 百度两个直连解析打同一个 IP
+    assert (ENGINE_FAMILY.get('baidu-serp')
+            == ENGINE_FAMILY.get('baidu-html') == 'baidu-ip')
+    # arxiv 那对拆掉了：MCP server 与 HTTP 直连是两条通道，各有各的限流
+    assert 'arxiv' not in ENGINE_FAMILY and 'arxiv-fulltext' not in ENGINE_FAMILY
 
 
 def test_family_table_has_no_orphan_entries():
@@ -45,19 +68,6 @@ def test_family_table_has_no_orphan_entries():
     known = {e.get_name() for e in build_registry().get_all()}
     unknown = set(ENGINE_FAMILY) - known
     assert not unknown, f'同族表里有不存在的引擎名：{unknown}'
-
-
-def test_unrelated_engines_are_not_paired():
-    """别把无关的引擎配成同族——那会让整轮平白变慢。
-
-    反过来也别漏：确实共用上游的（百度 SERP 与百度 HTML 解析）必须成对。
-    """
-    assert ENGINE_FAMILY.get('openalex') is None and ENGINE_FAMILY.get('pubmed') is None, \
-        'openalex 与 pubmed 是两个独立上游，不该进同族表'
-    assert ENGINE_FAMILY.get('baidu-serp') == ENGINE_FAMILY.get('baidu-html') == 'baidu', \
-        '百度 SERP 与百度 HTML 共用百度，必须成对，否则同族让拍漏掉这一对'
-    assert ENGINE_FAMILY.get('sogou-weixin') is None, \
-        '搜狗微信与百度 SERP 不是同一上游'
 
 
 def test_gap_is_a_few_seconds_not_ninety():
@@ -74,17 +84,42 @@ def test_gap_is_a_few_seconds_not_ninety():
 # ---------------------------------------------------------------------------
 
 def test_note_does_not_blame_only_the_family_collision():
-    """实测 12 秒间隔仍然双双 429 → 不能断言"就是同族连发造成的"。
+    """回执不许把可疑原因说成确定结论。
 
-    这是本版最要紧的一条：改了机制不等于修好了问题，回执要把真实成因留在选项里。
+    这一版的教训比上一版更重：上一版写"优先怀疑共享配额"也是错的——配额 30 秒后就
+    恢复了。**两次都把"改了什么"当成了"是什么在起作用"。**
     """
     src = (Path(__file__).resolve().parents[1] / 'research.py').read_text(encoding='utf-8')
-    seg = src[src.find("同属 {fam} 上游"):src.find("同属 {fam} 上游") + 400] \
-        if '同属 {fam} 上游' in src else src
-    assert '共享配额' in seg or '配额' in src, \
-        '回执没提"上游共享配额"这个更可能的原因'
-    assert '可能' in seg or '优先怀疑' in seg, \
-        '回执把可疑原因说成了确定结论'
+    assert '可能' in src, '回执把可疑原因说成了确定结论'
+    assert '共享配额' not in src, (
+        '"共享配额耗尽"已被实测否掉（30 秒后单发就恢复），别再当归因写进回执')
+
+
+def test_s2_gets_an_endpoint_specific_advice():
+    """semantic-scholar 的 429 要说清"等 90 秒没用，得配 key"。
+
+    实测：那个端点匿名单发即拒。而同域的 s2-citation-graph 30 秒后单发能出 5 条，
+    所以"两个 S2 都不通 = 配额问题"是错的推断。
+    """
+    from probe import S2_PAPER_SEARCH_NOTE, _advice_for
+    note = S2_PAPER_SEARCH_NOTE
+    assert 'paper/search' in note, '没点名是哪个端点限流'
+    assert '单发' in note, '没说明单发也会被拒（那正是"等 90 秒"无效的原因）'
+    assert 'key' in note.lower(), '没给出真正的解法（配 key）'
+    assert 'recommendations' in note, '没解释同域另一个引擎为什么能通'
+
+
+def test_s2_advice_is_only_for_semantic_scholar():
+    """挂到两个引擎上会被 guidance 并成一行，出现自相矛盾的两句话。"""
+    from probe import _advice_for
+    s2a = _advice_for({'engine': 'semantic-scholar', 'status': 'failed',
+                       'note': '引擎返回 None（HTTP 429 rate limited）'})
+    s2b = _advice_for({'engine': 's2-citation-graph', 'status': 'failed',
+                       'note': '引擎返回 None（HTTP 429 rate limited）'})
+    joined_a, joined_b = ' '.join(s2a), ' '.join(s2b)
+    assert 'paper/search' in joined_a, 'semantic-scholar 没拿到端点专属说明'
+    assert 'paper/search' not in joined_b, \
+        '端点专属说明挂到了 s2-citation-graph 上——两条并成一行会自相矛盾'
 
 
 def test_probe_gap_flag_is_wired():

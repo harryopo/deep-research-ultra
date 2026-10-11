@@ -67,26 +67,39 @@ PROBE_QUERIES: Dict[str, str] = {
     'searxng': 'python',
 }
 
-# 同族 = 共用同一个上游 API。体检 P1-11 实测：`--probe` 串行跑完，
-# `semantic-scholar` 与 `s2-citation-graph` 双双 429——**探针自己把上游打限流了**。
-# 成因：s2-citation-graph 的 search() 委托 S2，两个引擎匿名打同一个端点、还发同一个
-# 探针词，第二发吃的就是第一发刚攒出来的限流窗。而 429 在回执里长得很像"这个源没配好"，
-# 于是自检制造了它本该检测的故障（已验证：单发 S2 能通）。
+# 同族 = **共用同一个限流桶**，不只是同一个域名。
 #
-# 所以探针要知道"我刚才打过同一个上游"。间隔只设几秒而不是文档里建议的 90 秒——
-# 那个数字是给"人工隔一会儿重跑单发"的建议，不是给一轮自检的，否则整轮要多花好几分钟。
+# v6.68.0 第一版按域名配对（s2/arxiv/baidu/bing/github），并归因成"探针自己把上游打
+# 限流"。**那个归因是错的，实测否掉了**：
+#   · 单发 `semantic-scholar`（前面零调用）→ 429
+#   · 30 秒后单发 `s2-citation-graph`      → ✅ 5 条
+# 既不是同族连发，也不是"共享配额耗尽"（配额 30 秒后就恢复了）。真相是**端点不同、
+# 限流桶不同**：`SemanticScholarEngine.SEARCH_URL` 打 `graph/v1/paper/search`
+# （S2 官方限流最严的端点，匿名单发即拒），而 `CitationGraphEngine` 走
+# `recommendations/v1`，宽松得多。同域 ≠ 同桶。
+#
+# 所以这里只保留**确实共享配额**的两对：GitHub 两个引擎吃同一个 GITHUB_TOKEN 的
+# 5000/h 配额；百度两个直连解析打同一个 IP。arxiv 那对拆掉——MCP server 与
+# HTTP 直连是两条通道，各有各的限流。
 ENGINE_FAMILY: Dict[str, str] = {
-    'semantic-scholar': 's2',
-    's2-citation-graph': 's2',
-    'arxiv': 'arxiv',
-    'arxiv-fulltext': 'arxiv',
-    'baidu-serp': 'baidu',
-    'baidu-html': 'baidu',
-    'bing-html': 'bing',
-    'github-deep-search': 'github',
-    'github-code-search': 'github',
+    'github-deep-search': 'github-token-quota',
+    'github-code-search': 'github-token-quota',
+    'baidu-serp': 'baidu-ip',
+    'baidu-html': 'baidu-ip',
 }
 FAMILY_GAP_SECONDS = 3.0
+
+# 端点级的限流说明：这类不是"没配好"，也不是被同族连发打坏的，重试再多次都一样。
+# 实测（2026-10-11）：`semantic-scholar` 匿名单发即 429，同域的 `s2-citation-graph`
+# 却能正常出 5 条——差别只在端点（paper/search vs recommendations）。
+S2_PAPER_SEARCH_NOTE = (
+    'Semantic Scholar 的 graph/v1/paper/search 端点对匿名请求限流极严，'
+    '**单发也会被拒**（实测 2026-10-11：前面零调用时直接探这一条，仍回 429）。'
+    '所以"等 90 秒再重跑"对它无效——等的不是时间，是 key。'
+    '同域的 s2-citation-graph 走的是 recommendations/v1（限流宽松），'
+    '紧接着连发时也会被拖成 429、隔开 30 秒单发则正常出 5 条。'
+    '要稳定用本条请配 Semantic Scholar API key，或改用 arxiv/openalex/crossref '
+    '这类同层替代源')
 
 # MCP 引擎走 npx/uvx 冷启动，不给预算就能把整轮自检拖死（实测旧实现单次调用 60s 起）
 # 单个 MCP 源整场会话预算（握手 + 一次工具调用）。本机实测冷启动握手：
@@ -520,8 +533,15 @@ def _advice_for(rep: Dict[str, Any]) -> List[str]:
                      '（等于预热）；照旧超就是这台机器到不了该源，改用已连上的 MCP 工具 / 直连引擎')
     elif any(code in note for code in UPSTREAM_REFUSAL_CODES):
         lines.append(UPSTREAM_REFUSAL_ADVICE)
-        if 'arxiv' in str(rep.get('engine') or '').lower():
+        _eng = str(rep.get('engine') or '').lower()
+        if 'arxiv' in _eng:
             lines.append(ARXIV_REFUSAL_STEP)
+        # S2 的通用"等 90 秒重跑"建议在这里只对一半成立：graph/v1/paper/search
+        # 匿名单发即拒（等多久都一样），而 recommendations/v1 只是怕连发。
+        # 只挂 semantic-scholar——挂两个会让 guidance 把它们并成一行，
+        # 出现"同域能通"和"它也 429"自相矛盾的两句话。
+        if 'semantic-scholar' in _eng:
+            lines.append(S2_PAPER_SEARCH_NOTE)
     elif any(code in note for code in UPSTREAM_PAUSE_CODES):
         lines.append(UPSTREAM_PAUSE_ADVICE)
     elif any(k in note for k in MCP_NOTE_KEYS) or rep.get('kind') == 'mcp':

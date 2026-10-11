@@ -494,13 +494,10 @@ def cmd_probe(registry, args):
         if fam:
             seen_family.setdefault(fam, name)
             if rep.get('status') != STATUS_OK:
-                # 措辞只说"可能是同族连发之一因"，不断言就是它。
-                # 实测 2026-10-11：把间隔从 0 放到 12 秒，两个 S2 引擎**仍然双双 429**，
-                # 说明匿名配额可能早被本轮之前的调用耗尽（共享额度），不是这一轮的连发。
-                # 所以这里给的是"排查时先想到的一个原因"，不是结论。
-                rep['note'] += (f'（与 {seen_family[fam]} 同属 {fam} 上游；'
-                                '若两族都拒，优先怀疑该上游的共享配额/限流窗，'
-                                '而不只是同族连发）')
+                # 只说"可能"，不说"就是"——同族连发是候选原因之一，
+                # 不是已证实的结论（v6.68 第一版就是在这里过度归因，被实测否掉了）。
+                rep['note'] += (f'（与 {seen_family[fam]} 共用 {fam}，'
+                                '连发可能加剧限流）')
         reports.append(rep)
         print(f"{marks.get(rep['status'], '?')} {rep['engine']:<20} "
               f"{rep['count']:>2} 条  {rep['note']}")
