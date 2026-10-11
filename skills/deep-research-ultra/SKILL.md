@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.75.0
+version: 6.76.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -489,6 +489,19 @@ pending → searching → verified | conflict | supplementing → completed
 | `searching` | 搜索中 |
 | `verified` | 已验证（≥2 独立来源） |
 | `conflict` | 矛盾（来源冲突）——骨架把这条印成 `⚠️ 来源冲突（账本留痕：<note>）`：留痕写过就显示取舍内容，没写过就显示 `（未裁决）`。**别把状态留着不改写而只在正文里说"已裁决"**，读者看的是标签；反过来给了取舍也不等于消解，缺跨域复现就继续留 `conflict` |
+
+> **引用 `conflict` 时，正文必须如实并陈矛盾（v6.76 实测补的写法要求）**
+>
+> 校验门**不会**因为"引用了 conflict"就拦你——矛盾本身是结论，拦它等于禁止报告
+> 矛盾（方向反了，这条由 `test_cited_conflict_claim_is_allowed` 立着）。但它也**不会**
+> 提醒"你有没有把矛盾写成定论"，所以约束落在写法上：
+>
+> - ✅ 写「来源 A 说召回率高于 B、来源 B 说低于 B [N]，两者未裁决」
+> - ❌ 写「采用框架 A，其召回率低于 B [N]」——对立面消失了，读者不查账本看不出来
+>
+> 校验门会给一条 **warning** 点名引用了哪些 conflict claim（不阻断），看到就检查
+> 结论段有没有如实并陈两说。这是"提示不是门"的一例：机器管不了的语义问题，
+> 靠文档约定 + 提醒，不靠阻断。
 | `supplementing` | 补充中（Drill-down） |
 | `completed` | 已完成 |
 

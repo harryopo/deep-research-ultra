@@ -86,16 +86,45 @@ def test_no_stale_shell_version_in_live_surfaces():
 
 
 def test_release_notes_agrees_with_the_shipped_versions():
-    """dist/release-notes.md 不在版本控制内，最容易忘了跟着改。"""
+    """`dist/release-notes.md` 必须与**包里的**版本一致，不是与工作区一致。
+
+    第一版写的是"与 SKILL.md 一致"，内核一升就红。但那是**假设错了**：
+    release-notes 描述的是 `dist/` 里那个**已经打好的包**（v7.1.0 是内核 6.75.0），
+    而工作区会继续往前走。跟着工作区改，等于让后续版本污染已发布包的说明——
+    那样"包是什么"这件事就没有单一来源了。
+
+    所以判据是：**包里的 SKILL.md / plugin.json 与 release-notes 一致**。
+    工作区版本比包新，是正常的（下一个包还没打）。
+    """
     v = _shell_version()
     rn = REPO / 'dist' / 'release-notes.md'
     if not rn.exists():
         return                      # 没打过包就不检查
+
+    import zipfile
+    zips = sorted((REPO / 'dist').glob('deep-research-ultra-v*.zip'))
+    if not zips:
+        return
+    # 跳过备份包：它是旧版，留着只为回滚，不该参与"当前包"的一致性检查
+    real = [z for z in zips if '.bak.' not in z.name]
+    if not real:
+        return
+    zp = real[-1]
+
     txt = rn.read_text(encoding='utf-8')
     m = re.search(r'内核 ([\d.]+) / 插件壳 ([\d.]+)', txt)
     assert m, 'release-notes 首行没写内核/插件壳版本'
-    assert m.group(2) == v, f'release-notes 写插件壳 {m.group(2)}，plugin.json 是 {v}'
-    sk = REPO / 'skills' / 'deep-research-ultra' / 'SKILL.md'
-    km = re.search(r'version: ([\d.]+)', sk.read_text(encoding='utf-8'))
-    assert km and m.group(1) == km.group(1), (
-        f'release-notes 写内核 {m.group(1)}，SKILL.md 是 {km.group(1) if km else "?"}')
+
+    with zipfile.ZipFile(zp) as z:
+        names = z.namelist()
+        sk = next((n for n in names if n.endswith('skills/deep-research-ultra/SKILL.md')), None)
+        pj = next((n for n in names if n.endswith('.qoder-plugin/plugin.json')), None)
+        assert sk and pj, '包里缺 SKILL.md 或 plugin.json'
+        km = re.search(r'version: ([\d.]+)', z.read(sk).decode('utf-8', errors='replace'))
+        jv = json.loads(z.read(pj).decode('utf-8'))['version']
+
+    assert m.group(1) == km.group(1), (
+        f'release-notes 写内核 {m.group(1)}，但 {zp.name} 里是 {km.group(1)}'
+        '——包与它的说明对不上，用户拿到的东西和读到的不是一回事')
+    assert m.group(2) == jv, (
+        f'release-notes 写插件壳 {m.group(2)}，但 {zp.name} 里是 {jv}')

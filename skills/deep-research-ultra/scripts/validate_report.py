@@ -521,6 +521,36 @@ def validate_report(report_md: str,
             f'{len(marked_pending)} 处引用已标 ⚠️ 明示待补证据：'
             f'{"、".join(map(str, marked_pending[:5]))}（不阻断交付，需后续补验证）')
 
+    # ---------- 校验 2c-补（v6.76）：conflict 被引用的提醒（warning，不阻断） ----------
+    # 实测发现的风险：报告把 conflict 的 claim 当定论写出来（"采用框架 A，召回率低于 B"），
+    # 对立面在报告里消失，读者不查账本就看不出有矛盾。实测 passed=True、0 issues。
+    #
+    # **但第一版把它做成 issue 是错的，已撤回。** 依据是已有测试
+    # `test_cited_conflict_claim_is_allowed` 的立场："冲突本身是结论，拦掉 conflict
+    # 等于禁止报告矛盾，方向反了"——同一组里"待补证据"的用例都显式传了 ⚠ 标记，
+    # 唯独 conflict 那个传无标记版本，确立的行为就是"引用 conflict 无需额外标注"。
+    # 阻断会禁掉一个合法动作：Lead 已在别处并陈矛盾、结论行不重复标一遍。
+    # 方向也与 v6.67/v6.74 定下的「提示不是门」相反：conflict 是**状态**不是**缺陷**。
+    #
+    # 所以降为 warning——提示给 Lead 看，机器不拦。"必须并陈矛盾"这条约束落在
+    # SKILL.md 的写法要求里，不落在机器门里。
+    conflict_cited = sorted(
+        cid for cid in (unmarked | marked) if status_by_id.get(cid) == 'conflict')
+    conflict_unmarked = [cid for cid in unmarked
+                         if status_by_id.get(cid) == 'conflict']
+    report.stats['conflict_cited_unmarked'] = len(conflict_unmarked)
+    report.stats['conflict_cited'] = len(conflict_cited)
+    if conflict_cited:
+        tail = (f'其中 {len(conflict_unmarked)} 处的引用行没带 ⚠️——'
+                if conflict_unmarked else '')
+        report.warnings.append(
+            f'{len(conflict_cited)} 处引用了来源冲突的 claim'
+            f'（{"、".join(map(str, conflict_cited[:5]))}）：{tail}'
+            f'这些 claim 的来源互相矛盾且账本里还没裁决。'
+            f'结论段请如实并陈两边（"来源 A 说 X、来源 B 说 Y"），'
+            f'别只挑一边写成定论——读者不查账本，看不出有对立面。'
+            f'裁决后 set-status 升 verified 或在账本留痕后再改。')
+
     # ---------- 校验 2d（v6.44）：引文逐字对账 ----------
     # 给了抓取材料就必须逐字命中。v6.42 实跑第五轮自查出6 处"标着逐字其实对不上"
     # （en dash/κ 写成 ASCII、自加 / 分隔、把摘要转述当正文引文），人眼扫不出来，

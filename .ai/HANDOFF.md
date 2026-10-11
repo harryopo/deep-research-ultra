@@ -7,7 +7,7 @@
 - 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
 - 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1139 项（本机 Windows 1137 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1145 项（本机 Windows 1143 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
 - 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（v6.62.0）＋ **体检更正两条并修复**（v6.63.0）＋ **SKILL.md 信息架构重构**（手册搬走＋约束前置，v6.64.0）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
@@ -114,7 +114,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1139 项**＝内核 1089＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1145 项**＝内核 1095＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
 - **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它
@@ -129,6 +129,7 @@
 
 ## 10. 版本记录
 - 2026-10-11 · OpenCode 会话 · **发布 v7.1.0**（内容 = 内核 6.75.0 / commit 99ec551）：https://github.com/harryopo/deep-research-ultra/releases/tag/v7.1.0 ｜ 资产 `deep-research-ultra-v7.1.0.zip` 1 377 566 字节，SHA256 `F9BCD9F8…FF0CA92`（与 GitHub 返回的 digest 逐位一致）。**未覆盖 v7.0.0**（它是 2026-09-23 发的，只被下载 1 次），而是发新版本——同名不同物会让已下载的人不知情。**包结构补上了顶层目录 `deep-research-ultra/`**：README 一直写着这层，而 6.60.0 那版漏了。发布前逐项核对：tag 指向 == 打包时 HEAD、资产大小、body 逐行一致、解压后真跑一遍全量（1137 过 / 2 跳）。两处自纠：①打包第一版用 `git ls-files` 会把**未提交改动混进包**，改回 `git archive HEAD`；②核对 body 时按字符比，GitHub 把 `\n` 规范化成 `\r\n` 导致"差 252 字符"误报，逐行比后完全一致。旧包留在 `dist/deep-research-ultra-v7.0.0.pre-6.74.bak.zip`（回滚用，dist 不受版本控制） · 标签：发布、防漂
+- 2026-10-12 · OpenCode 会话 · **v6.76.0** 框架**第 5 维「冲突处理」**实测出结论：报告把 `conflict`（未裁决矛盾）的 claim 当定论写出来，校验门 `passed=True`、0 issues、可盖章交付。**但这不是"漏检矛盾"**——原设计明写「冲突本身是结论，拦它等于禁止报告矛盾」，所以允许引用是对的；洞更精确：`cited_claim_ids` 用「行内有无 ⚠」实现"已如实并陈"，而校验 2c 把 conflict 放进 `graded`，于是 **unmarked 的 conflict 不阻断也不提醒**——要求并陈写在注释里，检查却漏了"有没有并陈"。**我第一版做成 issue 是错的**：拦红了 `test_cited_conflict_claim_is_allowed`（docstring「方向反了」，且同组"待补证据"用例都显式传 ⚠、唯独它传无标记版本），阻断会禁掉合法动作（Lead 已在别处并陈、结论行不重复标）。降为 **warning**，约束落到 SKILL.md 写法要求。`test_it_must_never_become_a_gate` 钉住"不许升级成 issue"——否则下一手会把「漏提示」这个洞换成「禁止报告矛盾」那个更大的洞 · 收集数 1139→1145 · 标签：冲突处理、裁决、提示不是门
 - 2026-10-11 · OpenCode 会话 · **v6.75.0** 插件壳升 7.1.0，为发 v7.1.0 Release 做准备：`plugin.json` / `index.html`(6 处) / `README.md`(包名+缓存路径) / **`install.py` 的插件缓存路径**——最后一处是升版本时**漏掉的**，而它是代码里 mkdir 的实际路径，漏了会让用户"装了但没生效"。为此新增 `test_v675_shell_version_sync.py`（5 项）把四处钉在一起，并连带检查 `dist/release-notes.md`（它不在版本控制内，最容易忘）。同类毛病第二次了：v6.71 是 HANDOFF 两处体量数字只同步一处、陈旧 6 个版本。同时把打包从 `git ls-files`（会把**未提交改动混进包**）改回 `git archive HEAD`，与 2026-09-23 那版一致——包必须与 tag 指向的 commit 对得上。 · 收集数 1134→1139 · 标签：版本、发布、防漂
 - 2026-10-11 · OpenCode 会话 · **v6.74.0** 选定方案 C 落地：`claim_support.py` 加定性高危形态检查（**纯规则，不接 NLI/LLM**，不推翻「质量判断保持纯规则」）——覆盖「极性反转」（同词组反向，含最好/最差这类极限词）与「范围扩大」（报告说全称、claim 只有限定）。**三道闸门防误报**：对比讨论 / claim 本身两向 / 报告句自加限定；词表刻意不收「最高/最低」（子串会撞「延迟最低」这类正常说法）。定位不变：**提示不是门**，校验门未引用它（有测试钉住）。过程中修掉两个自己的错：①词表把「场景下」当限定词 → 闸 3 把真正的范围扩大自己消掉（漏报），拆成 RESTRICTIVE/CONTEXT 才对；②`if not checked` 只数数字 → **只有定性告警时被当成"无事可查"整个吞掉**，而"所有场景都优于基线"恰恰没有数字——新能力最常出现的地方告警发不出来。实测 10 用例全对、判错 0（含 3 条不该抓的边界用例） · 收集数 1119→1134 · 标签：忠实度、纯规则、误报控制
 - 2026-10-11 · OpenCode 会话 · **v6.73.0** 引用忠实度**决策材料**（纯文档，待拍板）：实测确认校验门对 citation faithfulness **零判别力**（三场景 issues 一字不差，拒的都是「单源」）；`claim_support` 覆盖数字那一半；纯规则对定性高危形态实测 7 用例「该抓 3/3 抓、不该抓 4/4 放过、判错 0」，覆盖极性反转与范围扩大，覆盖不到换对象/换维度的语义偏移。**建议选 C（纯规则扩到定性高危形态）并明确写下 B（接 NLI/LLM）不做**——B 改变的是「质量判断保持纯规则」这个产品前提，而其代价（误报率、延迟）我没有实测数据，拿未知做决定不合适。材料在 `docs/dev/v6.73-引用忠实度决策材料.md`；选 B 需回答误报率阈值与延迟预算 · 标签：决策材料、待拍板、实测
