@@ -7,8 +7,8 @@
 - 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
 - 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；全量 1040 项（本机 Windows 1038 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
-- 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（校验门绑账本、落盘自建目录、产出边界写清，v6.62.0）＋ **体检更正两条并修复**（相关性封顶、单源旋钮，v6.63.0）＋ P1 模型配档 ＋ 收口五件
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1049 项（本机 Windows 1047 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（v6.62.0）＋ **体检更正两条并修复**（v6.63.0）＋ **SKILL.md 信息架构重构**（手册搬走＋约束前置，v6.64.0）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
 - `[V]` `scripts/engines/fallback.py` L1 出口白名单——`_EGRESS_ALLOW`＋`egress_denied_reason()`，`_http_get/_http_post` 建连前拒绝；实弹 probe 前后一致（17 引擎）零误伤 — 提交 2dbe217
@@ -57,7 +57,7 @@
 - `[P1]` **宣称 34 数据源 vs 本机 probe 实测真出数据 14 个**（`--list` 34/30、probe 横幅 25、实跑 14，四个口径互不相同）。`test_v6410` 只钉名义值不钉可用值。修法：宣传改双数字，可用值由 probe 自动生成
 - `[P1]` **`env_check` 网络预检假阴性**——报 `github.com:443 不可达`，同一时刻 probe 里 GitHub 深搜/code 搜索各出 5 条；会让人误弃招牌能力。修法：降级为提示，以 probe 为准
 - `[P1]` **`duckduckgo` 引擎实际请求 startpage.com**（名实不符，排障误导）
-- `[P1]` **SKILL.md 1929 行 ≈27k tokens**，铁律在 1559 行、禁止行为在 1815 行；第 5~14 节是 API 手册，与其自身「SKILL.md 只含运行必需内容」原则冲突。修法：API 迁 `references/`，约束上移，目标 ≤800 行
+- `[P1]` ~~**SKILL.md 1929 行 ≈27k tokens，约束埋在最后三分之一**~~ 🟢 **已落（v6.64.0）**：手册 588 行搬进新建的 `references/playbooks.md`（665 行）；**铁律 → §〇.6、禁止行为 → §〇.7**（前 200 行内，原章节位只留指针、正文唯一）；账本签名表 §14.3 保留在 SKILL.md（`test_v6330` 拦住过一次，它写着"照抄即可"）。实测 **1942 → 1438 行 / ≈27k → ≈21.5k tokens**。~~目标 ≤800 行~~ 已修正为不可达（四阶段工作流本身 816 行是 Lead 操作手册），验收标准改为"约束在前 200 行"由 test_v664 钉住
 - `[P1]` **首次配置唯一路径依赖 bash**（§13.1 第 1 步 `bash setup-mcp.sh --core`），而 README 主打多宿主
 - `[P1]` **probe 自检把上游打限流**（S2 连发两次 429），且与 env_check 归因矛盾
 - `[P1]` **分层架构数字漂移**——§四 写 Layer1=13，`--list` 实测 11；钉子只钉总数不钉分层
@@ -113,7 +113,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1040 项**＝内核 990＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1049 项**＝内核 999＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
 - **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它
@@ -127,6 +127,7 @@
 - L3 标记只降级不删除；逐字对账不换字符形态；档 B 反查必须真换通道
 
 ## 10. 版本记录
+- 2026-10-11 · OpenCode 会话 · **v6.64.0** SKILL.md 信息架构：手册 588 行搬进 `references/playbooks.md`、铁律→§〇.6/禁止行为→§〇.7（前 200 行内）、1942→1438 行、≈27k→≈21.5k tokens；~~≤800 行目标修正为不可达~~；test_v664 9 项＋收集数 1040→1049 · 标签：信息架构、约束前置
 - 2026-10-11 · OpenCode 会话 · **v6.63.0** 体检更正两条：相关性不可判定时封顶 45 + `unrated`（含 Tier 加权旁路）、`--min-sources` 旋钮不再说谎（放宽走 `--allow-single-source` 并进防伪戳）＋ test_v663 9 项＋收集数 1031→1040 · 标签：更正、说真话、交叉验证
 - 2026-10-11 · OpenCode 会话 · **v6.62.0** 系统体检（8 维框架＋实弹攻击，14 条问题落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条堵漏**（校验门硬绑账本／`--output` 自建目录／产出边界写清）＋ test_v662 8 项＋收集数 1023→1031 · 标签：体检、可溯源堵漏、测试
 - 2026-10-10 · OpenCode 会话 · **v6.61.0** 子 Agent 按角色配模型（SKILL.md Phase 2.5 配档表、`--plan-only` 回执派单模型行、test_v661 5 项、收集数 1018→1023）· 标签：模型配档、P1 落地
