@@ -51,14 +51,31 @@ def test_hosts_down_no_longer_claimed_harmless():
     assert '不影响核心调研' not in text
     for host in ('arxiv.org', 'api.openalex.org', 'doi.org'):
         assert host in text
-    assert '回 0 条' in text          # 说清后果，不是只报个"不可达"
+    # v6.66：后果要说清，但**说准确的后果**。
+    # 原措辞断言"这些源现在一条也取不到，指定它们的引擎会回 0 条"——实测证明是错的：
+    # env_check 报 github.com:443 不通的同时，--probe 里 github-deep-search 与
+    # github-code-search 各出 5 条（引擎走 API/代理，不走这条直连路径）。
+    # 预检比真实调用更不可信，所以指向 --probe 作为唯一判据，而不是断言不可用。
+    assert '唯一判据' in text, text[-500:]
+
+
+def test_hosts_down_does_not_claim_engines_are_unusable():
+    """反向钉：措辞不许回退成"这些源取不到数据"。
+
+    一条假阴性会让人直接放弃整条数据源主线（GitHub 深搜是招牌能力之一），
+    **比不做预检更糟**。
+    """
+    text, _ = _text()
+    assert '这些源现在一条也取不到' not in text, (
+        '又把直连探测失败说成引擎不可用了——实测反例就在报告里')
+    assert '不代表对应引擎取不到数据' in text, text[-500:]
 
 
 def test_hosts_down_not_counted_as_optional_enhancements():
     """主机不通和"没配增强项"是两件事，不能揉成一个 N。"""
     text, rep = _text()
     assert len([c for c in rep.warnings if c.category == 'net']) == 4
-    assert '数据源主机不通 4' in text
+    assert '直连探测失败 4' in text          # v6.66：标题也改了口径
     assert '可选增强项缺失 5 项' not in text
 
 

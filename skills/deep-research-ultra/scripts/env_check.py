@@ -193,11 +193,22 @@ def _check_skill(name: str) -> Tuple[bool, str]:
 
 
 def _check_net(host: str, timeout: float = 3.0) -> Tuple[bool, str]:
+    """直连探测：只回答"这条探测路径通不通"，不回答"引擎取不取得到数据"。
+
+    v6.66：失败时的措辞刻意不再断言引擎不可用。实测反例——env_check 报
+    github.com:443 不可达的同时，--probe 里 github-deep-search 与
+    github-code-search 各出 5 条。原因是引擎可以走 API / 代理 / 其他出口，
+    而 3 秒 socket 超时对跨境链路也偏短，抖动一次就被记成"不通"。
+
+    一条假阴性会让人直接放弃整条数据源主线（GitHub 深搜是招牌能力之一），
+    **比不做预检更糟**。所以这里只陈述探测结果，结论交给 --probe。
+    """
     try:
         with socket.create_connection((host, 443), timeout=timeout):
             return True, f'{host}:443 连通'
     except Exception as e:
-        return False, f'{host}:443 不可达（{e.__class__.__name__}）'
+        return False, (f'{host}:443 直连探测失败（{e.__class__.__name__}）'
+                       f'——只说明这条探测路径不通，引擎可能走 API/代理等其他通道')
 
 
 # ---------------------------------------------------------------------------
@@ -255,10 +266,13 @@ def _degrade_lines(report: EnvReport) -> List[str]:
     rest = [c for c in report.warnings if c.category != 'net']
     lines: List[str] = []
     if dead:
-        lines.append(f'  ⚠️ 数据源主机不通 {len(dead)} 个：'
+        lines.append(f'  ⚠️ 直连探测失败 {len(dead)} 个主机：'
                      + '、'.join(c.name for c in dead))
-        lines.append('     → 这些源现在一条也取不到，指定它们的引擎会回 0 条——那不是'
-                     '"主题没资料"。先修网络/代理，或改用不依赖它们的 profile')
+        lines.append('     → 这只是"直连 443 这条路径"不通，**不代表对应引擎取不到数据**'
+                     '（实测反例：env_check 报 github.com 不通的同时，--probe 里 '
+                     'github-deep-search 正常出 5 条）。引擎可走 API/代理/其他出口。')
+        lines.append('     → **以 `research.py --probe` 为准**：它真发一次查询，'
+                     '这才是"今天出不出得来数据"的唯一判据')
     if rest:
         lines.append(f'  ⚠️ 缺增强 {len(rest)} 项（每少一项就少一块能力）：')
         for c in rest:

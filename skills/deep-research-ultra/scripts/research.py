@@ -353,12 +353,25 @@ def cmd_list(registry):
     summary = registry.summary()
     print(f"总计: {summary['total']} 个引擎，配置就绪 {summary['configured']} 个"
           f"（{summary['needs_config']} 个需先配 key/服务）")
+    # v6.66：分层同时给**注册表全量**与**配置就绪**两个口径。
+    # 原先只打 configured_by_layer（11/14/2/3），而 SKILL.md §四 的结构图写的是
+    # 全量（13/14/3/4）——两个数字都"对"，但没人标口径，读者一对就以为文档漂移了
+    # （体检初稿就是这么误判的）。
+    # 注意别用 summary['by_layer']：它是按 available 分的，而 available 走实时探测
+    # （本机 MCP 未连 → L1 反而只剩 6，比"就绪"还少），拿来当"全量"是第三个口径。
+    all_engines = registry.get_all()
+    all_layers = {l: sum(1 for e in all_engines if e.get_layer() == l)
+                  for l in (1, 2, 3, 4)}
     layers = summary['configured_by_layer']
-    print(f"  Layer 1: {layers[1]}  Layer 2: {layers[2]}  "
-          f"Layer 3: {layers[3]}  Layer 4: {layers[4]}")
+    def _fmt(d):
+        return '  '.join(f"L{l}: {d.get(l, 0)}" for l in (1, 2, 3, 4))
+    print(f"  全量分层      {_fmt(all_layers)}")
+    print(f"  配置就绪分层  {_fmt(layers)}")
     print()
     print("ℹ️  ✅ ＝配置就绪（免配置，或所需 key 已给），与本机能连上吗无关；"
           "某源此刻出不出数据请用 --probe 实测")
+    print("ℹ️  两行分层口径不同：「全量」＝注册表里有的（与 SKILL.md §四 结构图同源），"
+          "「配置就绪」＝此刻不需要额外配置就能调用的")
 
 
 def filter_by_relevance(results, min_relevance: float, target_count: int):

@@ -488,7 +488,9 @@ class DuckDuckGoEngine(SearchEngine):
         return EngineMetadata(
             name="duckduckgo",
             layer=4,
-            description="DuckDuckGo 搜索（ddgs Python 库，免费无需 Key）",
+            description="ddgs 聚合搜索（免费无需 Key；实际在 DuckDuckGo/Bing/Brave/"
+                        "Startpage 等多后端间轮换，某个后端超时会自动换下一个——"
+                        "排障别只查 DuckDuckGo）",
             requires_config=False,
             config_keys=[],
             is_async_supported=False,

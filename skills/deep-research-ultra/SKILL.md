@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.65.0
+version: 6.66.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -1136,7 +1136,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 │  └── Crawl4AI            Docker 浏览器自动化 + 反检测                │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Layer 4: 降级层（4 个引擎，含 curl_cffi TLS 指纹伪装）              │
-│  ├── DuckDuckGo          ddgs Python 库                             │
+│  ├── DuckDuckGo          ddgs 聚合库（多后端轮换，见下注）            │
 │  ├── Baidu HTML          百度搜索 HTML 解析                          │
 │  ├── Bing HTML           Bing 搜索 HTML 解析                         │
 │  └── SearXNG             自建元搜索（Docker）                        │
@@ -1162,6 +1162,12 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 四级爬取：curl_cffi TLS 指纹伪装 → LayeredCrawler → Crawl4AI → Camoufox。
 **curl_cffi 是全引擎共用的硬依赖**，不装则 arXiv 一律 406（实测）——先确认它
 在，再去查别的。各层安装与配置见 `references/playbooks.md`。
+
+> **降级层的 duckduckgo 别照名字理解**（v6.66）：它是 `ddgs` 聚合库，会在
+> DuckDuckGo / Bing / Brave / **Startpage** 等后端间轮换。`--probe` 报
+> "duckduckgo 超时"时，超时的其实是某个后端（实测抓到的是 startpage.com），
+> 而**某个后端超时不代表引擎不可用**——库会自动换下一个。排查时先看回执里的
+> 域名，别直接去查 DuckDuckGo。
 
 ## 六、学术全文与引用图谱
 
@@ -1292,7 +1298,22 @@ flagship/mainstream/niche 分组排序。**未取到的元数据如实标「未�
 
 ```bash
 # 1. 配置 MCP（推荐 --core 免费模式）
+#    ⚠️ 这一步在有 bash 的机器上才是一条命令；Windows / 无 bash 环境走下面的
+#       Python 等价路径——它直接写 .mcp.json，不依赖任何宿主 CLI，
+#       这也是 mcp_config_writer.py 存在的理由（本机实测：Windows 上没有
+#       Claude Code CLI，setup-mcp.sh 那条指引是死路）。
 bash "${SKILL_DIR}/scripts/setup-mcp.sh" --core
+# 无 bash 时（Windows / 精简容器）——逐条注册，等价于 --core 的三个 server：
+#   python "${SKILL_DIR}/scripts/mcp_config_writer.py" --out ./.mcp.json \
+#       --server open-websearch --env DEFAULT_SEARCH_ENGINE=bing --env MODE=stdio \
+#       -- npx -y open-websearch@latest
+#   python "${SKILL_DIR}/scripts/mcp_config_writer.py" --out ./.mcp.json \
+#       --server arxiv -- uvx arxiv-mcp-server      # 需要 uv（pip install uv），没有就跳过这条
+#   python "${SKILL_DIR}/scripts/mcp_config_writer.py" --out ./.mcp.json \
+#       --server paper-search -- npx -y paper-search-mcp@latest
+#   python "${SKILL_DIR}/scripts/mcp_config_writer.py" --out ./.mcp.json --list  # 核对
+# 注意 --out 写的是**当前目录**的 .mcp.json：换个目录要重新跑，或用 --out 指到
+# 那个目录（research.py 只读它自己工作目录下的配置）。
 
 # 2. 检查数据源可用性
 python "${SKILL_DIR}/scripts/research.py" --mcp-check
