@@ -1,15 +1,20 @@
-# Deep Research Ultra — 超级深度调研工具 v6.69.0
+# Deep Research Ultra — 超级深度调研工具 v6.70.0
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
 > **MCP 服务器 + 全局 Skill + 内置工具 + 降级引擎的四层数据源架构（34 个数据源）**
+>
+> **34 是注册表里的口径，不是"今天能用 34 个"**（v6.70）：它等于 `--list` 报的总数，
+> 可用性分三层看——`--list`（配置就绪）／`--probe`（今天真出不出数据）／`--probe --theme-query`
+> （你这个维度真要用的词出不出数据）。**别拿 34 当可用数**，也别把某次 probe 的数字
+> 写进文档当定数：它取决于网络、凭据与上游状态，每次都不一样。
 
 🚀 **[点击查看教程网页](https://harryopo.github.io/deep-research-ultra/)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.69.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.70.0-brightgreen.svg)]()
 
 
 ---
