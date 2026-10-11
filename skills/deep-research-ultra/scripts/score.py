@@ -126,6 +126,14 @@ class CraapScorer:
         'purpose': 0.10,    # 目的性
     }
 
+    # v6.62：相关性不可判定时的总分天花板。低于 medium 的 50，
+    # 使 authority=95 这类高分域也托不上去——它回答的是"来源可不可信"，
+    # 替代不了"这条讲的是不是这件事"。
+    UNRATED_TOTAL_CAP = 45.0
+    # 中文查询里 2-gram 切出的词几乎全是汉字，匹配英文语料必然零命中。
+    # 覆盖率低于此值即视为"判定器没产生信号"。
+    RELEVANCE_COVERAGE_FLOOR = 0.15
+
     def __init__(self, weights: Optional[Dict[str, float]] = None):
         self.weights = weights or self.DEFAULT_WEIGHTS
 
@@ -168,6 +176,8 @@ class CraapScorer:
         authority_score = self._score_authority(url, author, source)
         accuracy_score = self._score_accuracy(content, url)
         purpose_score = self._score_purpose(url, content)
+        result_title_lower = (title or '').lower()
+        result_content_lower = (content or '').lower()
 
         # LLM 语义评分（可选）
         llm_evaluated = False
@@ -178,6 +188,22 @@ class CraapScorer:
                 accuracy_score = (accuracy_score + llm_adjustment['accuracy']) / 2
                 purpose_score = (purpose_score + llm_adjustment['purpose']) / 2
                 llm_evaluated = True
+
+        # v6.62：相关性判定可信度体检。
+        # 实测（体检报告 §P1-5 更正）：查「RAG 评测基准与检索质量度量」，
+        # _score_relevance 对"切题"给 27.3、"跑题（法律 RAG）"给 21.3、
+        # "完全无关（医学胰腺炎）"给 20.0——三者几乎不区分。根因是它拿中文
+        # 2-gram 去匹配英文标题：中文查询「评测基准与检索质量度量」切出的
+        # 评测/验基/基准/索质/量度… 在英文语料里恒为零命中，只有 RAG 这种
+        # 拉丁词能碰上。判定器在这种情况下根本没有判别力，却照样吐一个数字。
+        #
+        # 假精确比不精确更坏：arxiv.org 的 authority=95 会把总分托到 61 medium，
+        # 于是"完全无关的论文"和"切题的论文"在报告里长得一样。
+        # 所以判定不出差异时，标出来、封顶，而不是给一个假装有意义的分数。
+        relevance_reliable = self._relevance_is_reliable(
+            query, title_lower=result_title_lower, content_lower=result_content_lower)
+        if not relevance_reliable:
+            relevance_score = 0.0
 
         # 加权总分
         total = (
@@ -193,14 +219,25 @@ class CraapScorer:
         adj = tier_penalty(tier) if tier is not None else 0.0
         total = max(0.0, min(100.0, total + adj * 100)) if adj else total
 
+        # v6.62：相关性不可判定 → 总分封顶并降级为"线索"，不给 high/medium。
+        # 必须放在 Tier 加权**之后**：先封顶再加权的话，Tier 1 域（arxiv.org 等）
+        # 会把封顶值又抬上去——实测封顶 45 被抬到 54，封顶等于没做。
+        # authority/accuracy 再高也不能替代"这条讲的是不是这件事"。
+        relevance_capped = False
+        if not relevance_reliable:
+            total = min(total, self.UNRATED_TOTAL_CAP)
+            relevance_capped = True
+
         return {
             'currency': round(currency_score, 1),
             'relevance': round(relevance_score, 1),
+            'relevance_reliable': relevance_reliable,
+            'relevance_capped': relevance_capped,
             'authority': round(authority_score, 1),
             'accuracy': round(accuracy_score, 1),
             'purpose': round(purpose_score, 1),
             'total': round(total, 1),
-            'grade': self._get_grade(total),
+            'grade': 'unrated' if relevance_capped else self._get_grade(total),
             'llm_evaluated': llm_evaluated,
             # v6.0 新增
             'tier': tier,
@@ -273,6 +310,35 @@ class CraapScorer:
         except (ValueError, IndexError):
             return 40.0
 
+    # v6.62：这次相关性判定有没有真的产生信号？
+    @staticmethod
+    def _relevance_is_reliable(query: str, title_lower: str = '',
+                               content_lower: str = '') -> bool:
+        """判定「相关性分数」这次是否值得信。
+
+        现有实现把查询切成词（英文按空格、中文按 2-gram），再算它们在标题/正文里的
+        覆盖度。当查询是中文而语料是英文（或反之）时，覆盖度会趋近 0——但那是**判定器
+        没听懂**，不是**它判定为不相关**。这两种 0 长得一样，含义差着一整个量级。
+
+        判据：查询含中文，且标题/正文中该查询的词覆盖率低于地板值 → 不可信。
+        纯英文查询不在本判据范围内（词法匹配在同语种下是有效的）。
+        """
+        if not query:
+            return True                      # 没有查询就没有相关性可言，不算失效
+        if not re.search(r'[\u4e00-\u9fff]', query):
+            return True                      # 同语种：词法匹配有效
+
+        query_lower = query.lower()
+        words = re.findall(r'[a-zA-Z]+', query_lower)
+        chars = re.findall(r'[\u4e00-\u9fff]', query)
+        for i in range(len(chars) - 1):
+            words.append(chars[i] + chars[i + 1])
+        if not words:
+            return True
+        haystack = f'{title_lower} {content_lower}'
+        hits = sum(1 for w in words if w in haystack)
+        return (hits / len(words)) >= CraapScorer.RELEVANCE_COVERAGE_FLOOR
+
     def _score_relevance(self, query: str, title: str, content: str) -> float:
         """
         相关性评分（0-100）
@@ -284,6 +350,11 @@ class CraapScorer:
         - 查询词在标题中的覆盖度（50%）
         - 查询词在内容中的覆盖度（30%）
         - 标题长度合理性（20%，避免标题党）
+
+        v6.62 注意：本方法在「中文查询 × 英文/其他语料」上没有判别力
+        （中文 2-gram 对英文标题恒零命中）。调用方必须配合
+        _relevance_is_reliable() 判断这次评分是否有效，别把这里的低分
+        当成"系统判定为不相关"——两者含义完全不同。
         """
         if not query:
             return 60.0
@@ -531,6 +602,8 @@ URL: {url}
             'high': '高可信度',
             'medium': '中可信度',
             'low': '低可信度',
+            # v6.62：相关性判定失效时不给可信度等级，改说"未判定·仅作线索"
+            'unrated': '相关性未判定·仅作线索',
         }.get(grade, '未知')
 
 

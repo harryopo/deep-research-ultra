@@ -36,7 +36,7 @@ except ImportError:
         ResearchLedger = None  # type: ignore
 
 DEFAULT_MIN_COVERAGE = 0.6
-DEFAULT_MIN_SOURCES = 1
+DEFAULT_MIN_SOURCES = 2
 DEFAULT_MAX_SUMMARY_CHARS = 1200
 REQUIRED_SECTIONS = {
     '一页拍板': ['一页拍板', '拍板', '结论先行', 'bluf', 'bottom line', 'tl;dr'],
@@ -343,10 +343,14 @@ def validate_report(report_md: str,
                     min_sources_per_claim: int = DEFAULT_MIN_SOURCES,
                     max_summary_chars: int = DEFAULT_MAX_SUMMARY_CHARS,
                     raw_dir: Optional[str] = None,
-                    report_path: Optional[str] = None) -> ValidationReport:
+                    report_path: Optional[str] = None,
+                    allow_single_source: bool = False) -> ValidationReport:
     """执行全部校验项。ledger 与 ledger_dir 二选一。
 
     report_path 只服务引文对账：给得到路径就报行号，给不到就用 'report.md' 当标签。
+    allow_single_source（v6.62）：显式放宽"每条 verified claim ≥2 独立来源"。
+    放宽不再走 --min-sources 1（那个旋钮拧不动，传了也仍按 2 拦），
+    而是一个能记账的决定——写进 warnings、stats 与防伪戳。
     """
     report = ValidationReport(passed=True, stats={
         'with_ledger': ledger is not None or ledger_dir is not None,
@@ -599,13 +603,24 @@ def validate_report(report_md: str,
         n_indep = effective_independent_count(
             [{'title': s.get('title', ''), 'url': s.get('url', ''), 'tier': s.get('tier')}
              for s in claim_srcs])
+        # v6.62：门槛是 max(2, ...) 时 --min-sources 是个**拧不动**的旋钮——
+        # 用户传 1 以为放宽了，实际仍按 2 拦；这种"看似可调、实则无效"比没有旋钮更糟
+        # （人会以为已经放弃交叉验证了）。现在只有收紧有效；要真放宽，走
+        # --allow-single-source，并且这个决定会进 warnings、stats 与防伪戳。
         if n_indep < max(2, min_sources_per_claim):
             weak_verified.append(c.get('id'))
     report.stats['weak_verified_claims'] = len(weak_verified)
     if total_claims and weak_verified:
-        report.issues.append(
-            f'{len(weak_verified)} 条 verified claim 独立来源不足（<2）：'
-            f'{"、".join(map(str, weak_verified[:5]))}——需补充交叉验证或降级为 pending')
+        msg = (f'{len(weak_verified)} 条 verified claim 独立来源不足（<2）：'
+               f'{"、".join(map(str, weak_verified[:5]))}——需补充交叉验证或降级为 pending')
+        if allow_single_source:
+            report.stats['weak_allowed'] = len(weak_verified)
+            report.warnings.append(
+                f'{msg}。但本次以 --allow-single-source 显式放宽（v6.62）：'
+                f'这份报告的结论按单源采信，戳里会记 weak_allowed={len(weak_verified)}，'
+                f'交接时请连同这个数字一起说，别让它消失在日志里')
+        else:
+            report.issues.append(msg)
 
     # ---------- 校验 6（v6.3）：开源调研六维要素 ----------
     # 报告含候选仓库链接（GitHub/Gitee）时，检查六维质量门要素是否齐备。
@@ -727,6 +742,10 @@ def write_stamp(report_path: str, ledger_dir: Optional[str],
         f'claims={stats.get("claims", "?")}',
         f'sources={stats.get("sources", "?")}',
     ]
+    # v6.62：放宽过交叉验证这件事必须跟着交付物走。戳里没有它，
+    # 交接的人只看到"过了校验门"，看不到这份报告的结论是单源采信的。
+    if stats.get('weak_allowed'):
+        fields.append(f'weak_allowed={stats["weak_allowed"]}')
     line = f'<!-- drux:validated {" ".join(fields)} -->'
     body = _body_of(path.read_text(encoding='utf-8', errors='ignore'))
     path.write_text(body + '\n\n' + line + '\n', encoding='utf-8')
@@ -765,8 +784,8 @@ def _main(argv: Optional[List[str]] = None) -> int:
         print(__doc__)
         print('''\n用法:
   python validate_report.py --report <report.md> --ledger <ledger_dir>
-            [--min-coverage 0.6] [--min-sources 1] [--max-summary 1200]
-            [--raw <抓取材料目录>]
+            [--min-coverage 0.6] [--min-sources 2] [--max-summary 1200]
+            [--allow-single-source] [--raw <抓取材料目录>]
             # --raw：给了就把账本里每段『…』引文与抓取材料逐字对账，对不上算 issue
   python validate_report.py --report <report.md> --ledger <ledger_dir> --stamp
             # 过门后盖防伪戳（不过门只留问题清单，不留戳）；--ledger 必给
@@ -774,7 +793,12 @@ def _main(argv: Optional[List[str]] = None) -> int:
             # 交付前验戳：没戳/正文改过/账本变过/戳里没账本指纹 → 退出码 1
 
 v6.62 起 --ledger 是硬要求：不给账本时引用一致性、覆盖率、逐字对账一项都没跑，
-那样的「通过」不是可溯源凭证，退出码按未通过计。''')
+那样的「通过」不是可溯源凭证，退出码按未通过计。
+
+交叉验证（铁律 6：每条 verified claim ≥2 独立来源）：
+  --min-sources 只能往严调（2→3→4），传 1 不生效——门限是 max(2, 参数)。
+  真要放宽单源结论用 --allow-single-source，它会写进 warnings 与防伪戳
+  （weak_allowed=N），交接时请把这个数字一起说。''')
         return 0
 
     def _opt(name: str, default: str = '') -> str:
@@ -806,6 +830,7 @@ v6.62 起 --ledger 是硬要求：不给账本时引用一致性、覆盖率、�
         max_summary_chars=int(_opt('--max-summary', '1200')),
         raw_dir=_opt('--raw', '') or None,
         report_path=report_path,
+        allow_single_source='--allow-single-source' in args,
     )
     import json
     print(json.dumps({

@@ -7,8 +7,8 @@
 - 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
 - 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；全量 1031 项（本机 Windows 1029 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
-- 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（校验门绑账本、落盘自建目录、产出边界写清）＋ P1 模型配档 ＋ 收口五件
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；全量 1040 项（本机 Windows 1038 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（校验门绑账本、落盘自建目录、产出边界写清，v6.62.0）＋ **体检更正两条并修复**（相关性封顶、单源旋钮，v6.63.0）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
 - `[V]` `scripts/engines/fallback.py` L1 出口白名单——`_EGRESS_ALLOW`＋`egress_denied_reason()`，`_http_get/_http_post` 建连前拒绝；实弹 probe 前后一致（17 引擎）零误伤 — 提交 2dbe217
@@ -36,6 +36,7 @@
 - `[V]` **P0-2 `--output` 自建父目录**（v6.62.0）——`research.py` 新增模块级 `_write_out()`，html/markdown/json/plan 四处共用；原行为实测 FileNotFoundError exit 1（交付契约在目录未建时崩）
 - `[V]` **P0-3 产出边界写清**（v6.62.0）——实测 `research.py --format markdown` 产出是**证据集**（检索结果页）而非报告，与宣传页形态错位；SKILL.md Phase 3、README、index.html 三处写明「脚本产出=证据集，不能直接交付，报告由 Lead 从账本组稿后过门」
 - `[V]` `tests/test_v662_gate_needs_ledger.py` 8 项（含 `ledger=none` 伪造戳、正路不误伤、两条目录自建）；版本追平 6.62.0，收集数 1023→1031
+- `[V]` **体检更正两条并修复**（v6.63.0）——读代码推翻体检初稿的 P1-4/P1-5 两条结论，报告已标注更正：①`relevance` 权重 0.35 本就是五维最高，真问题是**判别力≈0**（中文 2-gram 匹配英文标题恒零命中；实测切题 27.3/跑题 21.3/无关 20.0，authority=95 把三者都托到 ~61 medium）→ 新增 `_relevance_is_reliable()`，不可判定时封顶 45 + `grade=unrated`（封顶必须放在 Tier 加权之后，实测旁路会把 45 抬回 54）；②门限本就是 `max(2, 参数)` 且硬失败，真问题是**旋钮拧不动** → 默认值改 2，放宽走 `--allow-single-source` 并记进 warnings/stats/防伪戳 — `tests/test_v663_truthful_scoring.py` 9 项；收集数 1031→1040
 
 ## ★3. 进行中与断点
 > （已关闭：原 P0「对比类报告实跑验收」compare-os-agents-20261004 过门盖戳 body=b5f033a5；原 P1「GitHub 推送」3 提交已推、分支与 origin 同步；原 P1「dist 上传 Release」**已完成 2026-10-10**——`v7.0.0` 资产替换为内核 6.60.0 包，SHA256 与本地一致 `064DB1BD…B4BE`，标题同步「内核 6.60.0」，notes 换新）
@@ -50,8 +51,9 @@
 ## 4. 已知问题与技术债务
 > **2026-10-11 系统体检新增 11 条**（P1×9 / P2×2），完整清单与修法见
 > `docs/dev/v6.62-系统体检报告.md`。P0 三条已于 v6.62.0 全部堵死。以下按严重度摘录。
-- `[P1]` **默认 `--min-sources 1` 与铁律 6「≥2 独立来源」冲突**（`validate_report.py` `DEFAULT_MIN_SOURCES`）——实测一次实跑 5 条全单源、0 verified，报告照样生成且无告警。修法：默认改 2，单源结论硬失败，低质量来源场景用显式开关豁免并记进防伪戳
-- `[P1]` **CRAAP 评分不含相关性**——实测查「RAG 评测基准」召回法律诉讼论文并给 76.4/100（high），系统自己警告 relevance<50 仍照发。修法：`relevance<阈值` → 分数封顶并降级为线索，禁止进结论段
+- `[P1]` ~~**默认 `--min-sources 1` 与铁律 6 冲突**~~ 🔵 **体检初稿写错，已更正并修复**（v6.63.0）：判定本是 `n_indep < max(2, 参数)`（门槛=2 且硬失败），真问题是**旋钮拧不动**（help 写 `--min-sources 1`，传了不生效）。现默认值改 2，放宽须走 `--allow-single-source` 且记进 warnings/stats/防伪戳
+- `[P1]` ~~**CRAAP 不含相关性**~~ 🔵 **体检初稿写错，已更正并修复**（v6.63.0）：`relevance` 权重 0.35 本就是五维最高；真问题是**判别力≈0**——中文 2-gram 匹配英文标题恒零命中，实测切题 27.3 / 跑题 21.3 / 完全无关 20.0，authority=95 把三者都托到 ~61 medium。现新增 `_relevance_is_reliable()`，不可判定时封顶 45 + grade `unrated`。**跨语言判准仍未解决**，需单独一轮
+- `[P1]` **相关性跨语言判准**（v6.63.0 遗留）——`_score_relevance` 对中文查询 × 外文语料基本无判别力，本版只做到"不可判定时别装懂"；真修法是换跨语言匹配（向量/翻译词典）。`test_the_old_behaviour_is_what_we_are_fixing` 钉住"三档仍区分不出来"这件事，防止误以为已修好
 - `[P1]` **宣称 34 数据源 vs 本机 probe 实测真出数据 14 个**（`--list` 34/30、probe 横幅 25、实跑 14，四个口径互不相同）。`test_v6410` 只钉名义值不钉可用值。修法：宣传改双数字，可用值由 probe 自动生成
 - `[P1]` **`env_check` 网络预检假阴性**——报 `github.com:443 不可达`，同一时刻 probe 里 GitHub 深搜/code 搜索各出 5 条；会让人误弃招牌能力。修法：降级为提示，以 probe 为准
 - `[P1]` **`duckduckgo` 引擎实际请求 startpage.com**（名实不符，排障误导）
@@ -103,7 +105,7 @@
 - `P1` ~~基准重放评测（L3 分类器误报率实测）~~ ✅ 已落（v6.58.0，precision/recall 量化 + KNOWN_FP 档案）
 - `P1` ~~子 Agent 按角色配模型~~ ✅ 已落（v6.61.0，配档表＋回执行＋5 项测试）
 - `P0` ~~校验门可被伪造链绕过／落盘崩溃／产出边界错位~~ ✅ 已落（v6.62.0，三条全堵，8 项新测试）
-- **阶段 2 建议顺序**（体检报告 §三）：`min-sources` 对齐铁律 6 → CRAAP 耦合相关性门 → SKILL.md 瘦身到 ≤800 行 → 跨平台首次配置（去 bash 依赖）
+- **阶段 2 剩余**（体检报告 §三）：~~`min-sources` 对齐铁律 6~~ ✅（v6.63.0，旋钮不再说谎）／~~CRAAP 耦合相关性~~ ✅（v6.63.0，不可判定时封顶 + `unrated`）／**SKILL.md 瘦身到 ≤800 行**（未做，API 手册迁 `references/`）／跨平台首次配置（去 bash 依赖）
 - **阶段 3**：宣传双数字（名义/实测可用）→ env_check 假阴性降级为提示 → probe 同族串行限流 → 分层计数入钉 → 测试口径拆分如实呈现 → **注入攻击端到端专项实验**（补框架第 3、6 维结论）
 - `P1` custom search engine 端点（"新增数据源不改代码"的完整目标，需引擎注册制重构）
 - `P2` L3 sha256＋语义分类器；L5 高危动作二次确认
@@ -111,7 +113,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1031 项**＝内核 981＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1040 项**＝内核 990＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
 - **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它
@@ -125,6 +127,7 @@
 - L3 标记只降级不删除；逐字对账不换字符形态；档 B 反查必须真换通道
 
 ## 10. 版本记录
+- 2026-10-11 · OpenCode 会话 · **v6.63.0** 体检更正两条：相关性不可判定时封顶 45 + `unrated`（含 Tier 加权旁路）、`--min-sources` 旋钮不再说谎（放宽走 `--allow-single-source` 并进防伪戳）＋ test_v663 9 项＋收集数 1031→1040 · 标签：更正、说真话、交叉验证
 - 2026-10-11 · OpenCode 会话 · **v6.62.0** 系统体检（8 维框架＋实弹攻击，14 条问题落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条堵漏**（校验门硬绑账本／`--output` 自建目录／产出边界写清）＋ test_v662 8 项＋收集数 1023→1031 · 标签：体检、可溯源堵漏、测试
 - 2026-10-10 · OpenCode 会话 · **v6.61.0** 子 Agent 按角色配模型（SKILL.md Phase 2.5 配档表、`--plan-only` 回执派单模型行、test_v661 5 项、收集数 1018→1023）· 标签：模型配档、P1 落地
 - 2026-10-10 · OpenCode 会话 · v6.57.0→v6.60.0 追平（DRUX_RETRIEVER、L3 基准重放、包清理、管线全线基准、多轮对抗压测、阅读指南、分析段写法）＋ 收口五件（CHANGELOG 补 6.60 条目、本文件追平、dist 重打包、bash 用例 skipif、v7.0.0 资产替换上传）· 标签：收口、压测、dist、发布
