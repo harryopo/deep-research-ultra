@@ -38,7 +38,15 @@ def _session(tmp_path: Path, *, started: datetime = None) -> Path:
     (sess / 'ledger.jsonl').write_text(
         '{"type":"claim","id":"C1","status":"verified","topic":"性能","text":"延迟中位数 8ms"}\n'
         '{"type":"source","claim_id":"C1","url":"https://arxiv.org/abs/2601.00001",'
-        '"title":"Edge Inference","tier":1}\n', encoding='utf-8')
+        '"title":"Edge Inference","tier":1}\n'
+        # v6.71：第二个**独立注册域**。原来这里只有 1 个来源，于是 C1 是"单源采信的
+        # verified claim"——真实流程下这种报告盖不出戳：要么补来源，要么显式
+        # --allow-single-source，而放宽的戳里会带 weak_allowed=1。
+        # 也就是说这里一直造着一个现实中不存在的戳；v6.71 的验戳检查把它挡下来了。
+        # 修的是桩的形状，不是检查的严度——这三条测的是 hook 的放行/拦截，
+        # 不该受账本交叉验证强度的影响。
+        '{"type":"source","claim_id":"C1","url":"https://dl.acm.org/doi/10.1145/3700001",'
+        '"title":"Edge Inference (ACM)","tier":1}\n', encoding='utf-8')
     return sess
 
 
@@ -48,7 +56,9 @@ def _report(sess: Path, *, stamp: bool = False, edit_after_stamp: bool = False,
     text = (f'{first_line}\n' if first_line else '') + BODY
     path.write_text(text, encoding='utf-8')
     if stamp:
-        write_stamp(str(path), str(ledger_dir or sess), {'claims': 1, 'sources': 1})
+        # sources 跟着上面账本里的条数走：v6.71 起验戳会拿戳里的数字与账本重算值比对，
+        # 这里传 1 而账本有 2，会被当成"盖戳之后被人手改过"而拦下。
+        write_stamp(str(path), str(ledger_dir or sess), {'claims': 1, 'sources': 2})
         if edit_after_stamp:
             # 盖戳之后偷改正文：戳与正文不再相符，这正是防伪戳要抓的那一件事
             path.write_text(path.read_text(encoding='utf-8').replace('8ms', '3ms'),

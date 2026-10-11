@@ -589,26 +589,12 @@ def validate_report(report_md: str,
     # 要第二个注册域来交叉验证它自身是判据错配。ledger.verify_primary() 会打上
     # evidence_tier=B + verify_method，这里只认带反查记录的档 B——缺 method 即
     # 无凭据，仍按档 A 的 ≥2 来源拦，防止档 B 变成"想升就升"的后门。
-    try:
-        from similarity import effective_independent_count
-    except ImportError:
-        effective_independent_count = lambda srcs, **kw: len({s.get('url') for s in srcs})
-    weak_verified = []
-    for c in claims:
-        if c.get('status') != 'verified':
-            continue
-        if c.get('evidence_tier') == 'B' and str(c.get('verify_method', '')).strip():
-            continue
-        claim_srcs = [s for s in sources if str(s.get('claim_id', '')) == str(c.get('id', ''))]
-        n_indep = effective_independent_count(
-            [{'title': s.get('title', ''), 'url': s.get('url', ''), 'tier': s.get('tier')}
-             for s in claim_srcs])
-        # v6.62：门槛是 max(2, ...) 时 --min-sources 是个**拧不动**的旋钮——
-        # 用户传 1 以为放宽了，实际仍按 2 拦；这种"看似可调、实则无效"比没有旋钮更糟
-        # （人会以为已经放弃交叉验证了）。现在只有收紧有效；要真放宽，走
-        # --allow-single-source，并且这个决定会进 warnings、stats 与防伪戳。
-        if n_indep < max(2, min_sources_per_claim):
-            weak_verified.append(c.get('id'))
+    # v6.62：门槛是 max(2, ...) 时 --min-sources 是个**拧不动**的旋钮——
+    # 用户传 1 以为放宽了，实际仍按 2 拦；这种"看似可调、实则无效"比没有旋钮更糟
+    # （人会以为已经放弃交叉验证了）。现在只有收紧有效；要真放宽，走
+    # --allow-single-source，并且这个决定会进 warnings、stats 与防伪戳。
+    # v6.71：计算抽到 _weak_verified_ids，验戳要用同一份规则重算。
+    weak_verified = _weak_verified_ids(claims, sources, min_sources_per_claim)
     report.stats['weak_verified_claims'] = len(weak_verified)
     if total_claims and weak_verified:
         msg = (f'{len(weak_verified)} 条 verified claim 独立来源不足（<2）：'
@@ -752,6 +738,76 @@ def write_stamp(report_path: str, ledger_dir: Optional[str],
     return line
 
 
+def _effective_independent_count(srcs):
+    """独立来源数。sim 不可用时退回"URL 去重"——与主流程同一兜底，不各写一份。"""
+    try:
+        from similarity import effective_independent_count
+    except ImportError:
+        return len({s.get('url') for s in srcs})
+    return effective_independent_count(
+        [{'title': s.get('title', ''), 'url': s.get('url', ''), 'tier': s.get('tier')}
+         for s in srcs])
+
+
+def _weak_verified_ids(claims, sources, min_sources_per_claim=DEFAULT_MIN_SOURCES):
+    """verified 但独立来源不足的 claim id 列表。
+
+    v6.71 抽出来给两处共用：盖戳前算 weak_allowed、验戳时重算。
+    两处各写一份的话，改了门槛只改一处，验戳就会拿旧规则去质疑新戳——
+    那比不查还糟（假阳性会让人以为戳失效了，就去重新盖）。
+    """
+    out = []
+    for c in claims:
+        if c.get('status') != 'verified':
+            continue
+        if c.get('evidence_tier') == 'B' and str(c.get('verify_method', '')).strip():
+            continue
+        claim_srcs = [s for s in sources
+                      if str(s.get('claim_id', '')) == str(c.get('id', ''))]
+        if _effective_independent_count(claim_srcs) < max(2, min_sources_per_claim):
+            out.append(c.get('id'))
+    return out
+
+
+def _verify_stamp_declarations(stamp: dict, ledger_dir: str) -> tuple:
+    """比对戳里的 claims / sources / weak_allowed 与账本现状。
+
+    v6.71：这三个字段以前是纯装饰——实测把戳改成 `claims=99 sources=99`
+    验戳照样通过。要紧的不是数字本身，是 `weak_allowed`：
+    v6.62 让"放宽单源采信"进戳，是为了让交接的人看见这份报告是单源采信的，
+    而验戳不查它就等于**无声删除即可让降级事实不可见**。
+
+    单向而非双向：`weak_allowed` 是"本次校验传没传 --allow-single-source"的产物，
+    账本里查不出来，所以不能要求它必须等于某个重算值（那会误杀）。
+    只查一个方向——账本里确有单源采信的 verified claim，而戳里没有这条知情信息，
+    那就是被人删了。不存在漏判：当初没放宽就意味着 weak_verified 本来是 0。
+    """
+    try:
+        data = ResearchLedger(ledger_dir).export_json()
+    except Exception as exc:                      # 账本读不动就只报事实，不猜
+        return True, f'（账本无法重算声明数字：{exc}）'
+    claims = data.get('claims') or []
+    sources = data.get('sources') or []
+
+    for key, live in (('claims', len(claims)), ('sources', len(sources))):
+        said = stamp.get(key)
+        if said is None or not str(said).isdigit():
+            continue
+        if int(said) != live:
+            return False, (
+                f'戳里的 {key}={said} 与账本现状（{live}）不符：'
+                f'盖戳之后被人手改过，或这行戳是手抄的，请重新 --stamp')
+
+    weak = _weak_verified_ids(claims, sources)
+    if weak and not stamp.get('weak_allowed'):
+        return False, (
+            f'账本里有 {len(weak)} 条 verified claim 独立来源不足（<2），'
+            f'但戳里没有 weak_allowed——这份报告是单源采信的，'
+            f'这个知情信息被删了（v6.62 写明它"必须跟着交付物走"）。'
+            f'恢复后重新 --stamp；确实要放宽就用 --allow-single-source 过门')
+    return True, ''
+
+
 def verify_stamp(md: str, ledger_dir: Optional[str]) -> tuple:
     """返回 (ok, reason)。reason 里必须点明是哪一半不成立，便于 Lead 自修。"""
     stamp = _parse_stamp(md)
@@ -771,6 +827,9 @@ def verify_stamp(md: str, ledger_dir: Optional[str]) -> tuple:
         if want != _ledger_fingerprint(ledger_dir):
             return False, ('账本与戳不符：盖戳之后 ledger.jsonl 变过'
                            '（新增/降级 claim 都要重新过门），请重新 --stamp')
+        ok, why = _verify_stamp_declarations(stamp, ledger_dir)
+        if not ok:
+            return False, why
     return True, f'戳有效：body={stamp.get("body")} ledger={stamp.get("ledger", "未比对")}'
 
 

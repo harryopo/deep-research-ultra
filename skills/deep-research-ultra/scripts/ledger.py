@@ -1375,16 +1375,48 @@ def existing_sources(root: Path) -> set:
 def _main(argv: Optional[List[str]] = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
 
+    def _value(name: str) -> str:
+        """取 `name` 的值；值缺了、或长得像另一个选项，都必须在这里停住。
+
+        v6.71（端到端验收实测）：旧版 `args[args.index(name) + 1]` 有两种静默失败——
+
+        ① `--session` 出现在末尾 → 越界抛裸 IndexError traceback；
+        ② `--session --text "..."` → 值取到了下一个选项名，于是**创建了一个
+           叫 `--text` 的目录**并把账本写进去，全程 exit 0 且打印成功回执。
+
+        ②比崩溃更糟：调用方看到的是"写成功了"，账本"有数据"，一路走到下游
+        才被告知"账本为空"。参数拼接出错（shell 变量落空、脚本里少一个 $）是
+        常态，不是边角，所以这里按"错一个就停"处理，不猜用户想说什么。
+        """
+        if name not in args:
+            return ''
+        i = args.index(name)
+        if i + 1 >= len(args):
+            print(f'{name} 后面缺值：应写成 {name} <...>', file=sys.stderr)
+            sys.exit(2)
+        val = args[i + 1]
+        if len(val) > 1 and val.startswith('-'):
+            # 措辞必须中性：_value 是所有选项共用的，_value 的上一版这里写死了
+            # "不是路径 / <目录>"，于是 `--url` 落空时会提示"该收目录"——
+            # 报错内容本身在说错的话，比不报错更容易把人带偏。
+            print(
+                f'{name} 的值是 {val!r}——那看起来是下一个选项，不是 {name} 该收的值。\n'
+                f'常见成因：shell 变量落空（PowerShell 里 $L= 少写了 $），'
+                f'于是 {val} 顶上来占了 {name} 的位置。\n'
+                f'正确写法：{name} <值> {val} <值>（{name} 后面必须紧跟真实取值）',
+                file=sys.stderr)
+            sys.exit(2)
+        return val
+
     def _session():
-        if '--session' not in args:
+        v = _value('--session')
+        if not v:
             print('缺少 --session <目录>', file=sys.stderr)
             sys.exit(2)
-        return args[args.index('--session') + 1]
+        return v
 
     def _opt(name: str, default: str = '') -> str:
-        if name in args:
-            return args[args.index(name) + 1]
-        return default
+        return _value(name) or default
 
     if not args or args[0] in ('-h', '--help'):
         print(__doc__)
