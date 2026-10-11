@@ -116,6 +116,125 @@ def _handwritten_sections(md: str) -> List[Tuple[str, str]]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# v6.73 定性高危形态（纯规则，不接 NLI/LLM）
+# ---------------------------------------------------------------------------
+# 每组是一个「正 → 负」词对。判定只看**是否同属一组**，不看主语——
+# 实测「该方法优于基线」→「其部署成本高于基线」正是不该报的那一类：
+# 优于 与 高于 不同组，所以放过。反过来，同组即判反转。
+
+POLAR_GROUPS = (
+    (('高于', '大于', '超过', '优于', '强于', '快于', '好于', '领先', '胜于'),
+     ('低于', '小于', '不足', '劣于', '弱于', '慢于', '差于', '落后', '逊于')),
+    (('增加', '上升', '提高', '提升', '增长', '扩大'),
+     ('减少', '下降', '降低', '下滑', '回落', '收缩')),
+    (('可行', '有效', '可用', '成立'), ('不可行', '无效', '不可用', '不成立')),
+    (('支持', '印证', '证实'), ('反对', '反驳', '证伪', '未能证实')),
+    # 极限形容词。刻意**不收**「最高/最低/最多/最少」——子串匹配会撞上
+    # 「最低延迟」「最高收益」这类正常说法（延迟最低≠极性反转），
+    # 宁可漏也不误报：这是提示不是门，误报会让人先怀疑工具。
+    (('最好', '最佳', '最优', '最强'), ('最差', '最劣', '最弱')),
+)
+
+# 全称量词：报告里有、claim 里没有，就是把局部说成了全体
+UNIVERSAL = ('所有', '全部', '总是', '任何', '每一个', '无一例外',
+             '永远', '必然', '一律', '普遍', '都优于', '都强于')
+
+# 限定词分两类，**两侧作用不同**，第一版把它们混在一起所以漏报了：
+#
+# RESTRICTIVE（真限定）：它把断言缩小了。出现在**报告**里就是"自己又打了折扣"，
+#   那就不是全称断言，不该报警（"在所有场景中，该方法**部分**优于基线"）。
+# CONTEXT（上下文）：只是给全称后面补了个名词，本身不缩小范围。
+#   「所有**场景下**都优于基线」里的"场景下"是"所有"的补语，不是限定——
+#   第一版把它当限定词，于是闸 3 把**真正**的范围扩大自己消掉了（实测漏报）。
+RESTRICTIVE = ('部分', '某些', '特定', '仅在', '只在', '在此条件下', '之一', '未必')
+CONTEXT = ('场景下', '情况下', '条件下', '范围内', '条件下')
+
+
+def _polar_hits(text: str):
+    """文本里出现的极性词，标成 [(组号, 方向, 词)]，方向 0=正 1=负。"""
+    out = []
+    for gi, (pos, neg) in enumerate(POLAR_GROUPS):
+        for w in pos:
+            if w in text:
+                out.append((gi, 0, w))
+        for w in neg:
+            if w in text:
+                out.append((gi, 1, w))
+    return out
+
+
+def _has_universal(text: str):
+    return [u for u in UNIVERSAL if u in text]
+
+
+def _has_qualifier(text: str):
+    """真限定词。报告侧只看这个——上下文词不缩小范围，不该触发豁免。"""
+    return [q for q in RESTRICTIVE if q in text]
+
+
+def _has_context(text: str):
+    return [q for q in CONTEXT if q in text]
+
+
+def qualitative_risks(sentence: str, claim_pool: str) -> List[Dict[str, Any]]:
+    """报告句相对它引用的 claim 池，有哪些定性高危形态。
+
+    返回空列表表示没查出问题。**误报比漏报贵**——这是提示不是门，
+    报错了 Lead 会先怀疑工具而不是先怀疑报告。
+    """
+    risks = []
+    sent_polar = _polar_hits(sentence)
+    pool_polar = _polar_hits(claim_pool)
+
+    # 闸 2：claim 池正反两向都有 → claim 本身在讲两件事，对不上号，放过
+    if pool_polar:
+        pool_dirs = {d for _, d, _ in pool_polar}
+        if len(pool_dirs) > 1:
+            sent_polar = []
+
+    # 闸 1：报告句同一词组两个方向都出现 → 对比讨论，放过
+    if sent_polar:
+        by_group = {}
+        for gi, d, w in sent_polar:
+            by_group.setdefault(gi, set()).add(d)
+        contested = {gi for gi, dirs in by_group.items() if len(dirs) > 1}
+        sent_polar = [t for t in sent_polar if t[0] not in contested]
+
+    seen = set()
+    for gi, sd, sw in sent_polar:
+        for pgi, pd, pw in pool_polar:
+            if pgi == gi and pd != sd and (gi, sw, pw) not in seen:
+                seen.add((gi, sw, pw))
+                risks.append({
+                    'kind': 'polarity_flip',
+                    'detail': f'{sw} ←→ claim 说 {pw}',
+                    'claim_word': pw,
+                    'report_word': sw,
+                })
+                break
+
+    # 范围扩大：报告有全称、claim 没有
+    u_sent = _has_universal(sentence)
+    if u_sent and not _has_universal(claim_pool):
+        # claim 侧两类词都算"它划了范围"——限定词（部分/特定）与上下文词
+        # （在低延迟场景下）都在缩小适用范围。
+        q = _has_qualifier(claim_pool) or _has_context(claim_pool)
+        risks.append({
+            'kind': 'scope_widened',
+            'detail': (f'报告说 {u_sent[0]!r}，但 claim 没有同样口径的全称表述'
+                       + (f'；claim 反而有限定（{q[0]!r}）' if q else '')),
+            'claim_word': q[0] if q else '',
+            'report_word': u_sent[0],
+        })
+
+    # 闸 3：报告句自己在加**真限定**（"在所有场景中，该方法部分优于基线"）。
+    # 这里只看 RESTRICTIVE，不看 CONTEXT——「所有场景下」的"场景下"是"所有"的
+    # 补语，把它算限定会让闸 3 把真正的范围扩大自己消掉（第一版就是这么漏报的）。
+    if u_sent and _has_qualifier(sentence):
+        risks = [r for r in risks if r['kind'] != 'scope_widened']
+    return risks
+
 def _numbers(text: str) -> List[str]:
     return [m.group(0).strip() for m in NUM_RE.finditer(text)]
 
@@ -134,12 +253,15 @@ def check(md: str, claims: Dict[str, Dict],
             stripped = line.strip()
             if not stripped or stripped.startswith('|') or '【待写】' in stripped:
                 continue
-            nums = _numbers(stripped)
-            if not nums:
-                continue
             cited = re.findall(r'\[(\d+)\]', stripped)
             if not cited:
                 continue          # 没引用不是本工具的职责（校验门那条已经拦）
+            nums = _numbers(stripped)
+            # v6.73：以前"这行没数字"就直接下一行，所以定性断言（"所有场景都优于
+            # 基线"）整段无人看管。现在数字与定性两条都走，但**仍要挂引用**——
+            # 没有对照对象的句子判不了忠实度。
+            if not nums and not (_has_universal(stripped) or _polar_hits(stripped)):
+                continue
             pool_parts = []
             for n in cited:
                 cid = reg.get(n)
@@ -156,6 +278,19 @@ def check(md: str, claims: Dict[str, Dict],
                     unsup.append({
                         'section': head,
                         'number': num,
+                        'citations': cited,
+                        'line': stripped[:90],
+                        'claim_texts': [str(claims[reg[n]].get('text', ''))[:60]
+                                        for n in cited if n in reg],
+                    })
+
+            # v6.73：定性检查在数字循环之外，一个句子可能两类问题都有
+            if pool:
+                for r in qualitative_risks(stripped, pool):
+                    unsup.append({
+                        'section': head,
+                        'number': f"[定性] {r['detail']}",
+                        'kind': r['kind'],          # main() 靠它分流措辞
                         'citations': cited,
                         'line': stripped[:90],
                         'claim_texts': [str(claims[reg[n]].get('text', ''))[:60]
@@ -184,21 +319,30 @@ def main(argv: Optional[List[str]] = None) -> int:
     reg = _registry_map(md, url_to_claims)
     checked, unsup = check(md, claims, reg)
 
-    if not checked:
+    if not checked and not unsup:
         print(f'ℹ️ 作者手写段里没有"带引用 + 带数字"的句子——本工具无事可查。'
               f'（没挂引用的句子由 validate_report 的结论引用检查负责）')
         return 0
     if not unsup:
         print(f'✅ {checked} 个数字都能在它引用的 claim 里找到')
         return 0
-    print(f'⚠️ {len(unsup)}/{checked} 个数字在它引用的 claim 里找不到：\n')
+    # v6.73：数字与定性是两类问题，措辞必须分开。
+    # 尤其 `if not checked` 那条旧逻辑会把**只有定性告警**的情况整个吞掉——
+    # 那正是 v6.73 新加的能力最常单独出现的地方（"所有场景都优于基线"没有数字）。
+    numeric = [u for u in unsup if not u.get('kind')]
+    qual = [u for u in unsup if u.get('kind')]
+    print(f'⚠️ 查出 {len(unsup)} 处可疑：'
+          + (f'数字 {len(numeric)}/{checked}，' if checked else '')
+          + f'定性 {len(qual)}\n')
     for u in unsup:
         print(f'  · [{u["section"]}] {u["number"]!r}  (引 {u["citations"]})')
         print(f'    报告：{u["line"]}')
         for t in u['claim_texts']:
             print(f'    claim：{t}')
-    print('\n这些数字可能来自你读过的原文（只是没写进 claim），也可能就是编的——'
+    print('\n这些可能来自你读过的原文（只是没写进 claim），也可能就是编的——'
           '逐个核一下，别默认它成立。')
+    print('定性告警覆盖的是「极性反转」与「范围扩大」两类形态（v6.73），'
+          '换对象/换维度的语义偏移查不出来，那类仍要靠人读。')
     return 1
 
 
