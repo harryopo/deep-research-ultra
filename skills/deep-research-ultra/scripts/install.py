@@ -119,7 +119,7 @@ def run_install(host: str, *, repo_root: Path, home: Path,
     if mcp_path is None:
         mcp_action = 'skipped'
         next_step = ('Qoder 的 MCP 由插件壳提供：把整个仓库导出到插件缓存位 '
-                     '(mkdir -p ~/.qoder/plugins/cache/local/deep-research-ultra/7.0.0 && '
+                     '(mkdir -p ~/.qoder/plugins/cache/local/deep-research-ultra/7.1.0 && '
                      'git archive HEAD | tar -x -C 该目录) 再登记启用，见 README 方式二')
     else:
         cfg = _load_json(mcp_path) if mcp_path.exists() else {}
