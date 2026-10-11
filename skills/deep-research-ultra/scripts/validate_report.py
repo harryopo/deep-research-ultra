@@ -409,11 +409,17 @@ def validate_report(report_md: str,
     report.issues.extend(_own_issues)
 
     if rep is None:
-        # 无账本时只能做文本级校验
-        if not report.issues:
-            report.passed = True
-        else:
-            report.passed = False
+        # v6.62：无账本不再是"文本干净就通过"。
+        # 实测（v6.62 体检）：一份 100% 编造、引用三篇不存在文献的报告，
+        # 不带 --ledger 跑本脚本 → passed=true、exit 0，还能盖出防伪戳、
+        # 验戳也通过——而戳里明明白白写着 ledger=none。那个戳不是验证通过的
+        # 凭证，它只证明"没查过账本"。所以这里改成硬失败：没账本就没有溯源，
+        # 退出码必须让调用方看见。
+        report.issues.append(
+            '未提供证据账本（--ledger）：本次只做了文本级检查——'
+            '引用一致性、覆盖率、逐字对账全部未执行，'
+            '不构成「可溯源已验证」的凭证（v6.62）')
+        report.passed = False
         report.stats['mode'] = 'text-only'
         return report
 
@@ -702,12 +708,22 @@ def _parse_stamp(md: str) -> Dict[str, str]:
 
 def write_stamp(report_path: str, ledger_dir: Optional[str],
                 stats: Dict[str, Any]) -> str:
-    """盖戳（只在 passed 后调用）。重复盖写同一行，不堆积。"""
+    """盖戳（只在 passed 后调用）。重复盖写同一行，不堆积。
+
+    v6.62：没有账本一律不盖章。戳的意义是"这份报告的可溯源性被机器验过"，
+    而 ledger=none 的戳证明的是相反的事——它没验过任何东西。留着它只会让
+    「交付前验戳」这个自检动作在无账本时给出假阳性。
+    """
+    if not ledger_dir:
+        raise ValueError(
+            '无账本不得盖章：防伪戳代表「可溯源性已机器验证」，'
+            '而未提供 --ledger 时引用一致性/覆盖率/逐字对账一项都没跑。'
+            '请带上 --ledger <账本目录>，或先用 --help 看 --stamp 的完整用法')
     path = Path(report_path)
     fields = [
         f'v={STAMP_FMT}',
         f'body={_sha(_body_of(path.read_text(encoding="utf-8", errors="ignore")))}',
-        f'ledger={_ledger_fingerprint(ledger_dir) or "none"}',
+        f'ledger={_ledger_fingerprint(ledger_dir)}',
         f'claims={stats.get("claims", "?")}',
         f'sources={stats.get("sources", "?")}',
     ]
@@ -725,6 +741,12 @@ def verify_stamp(md: str, ledger_dir: Optional[str]) -> tuple:
                        '「已过校验门」目前只是一句自述')
     if stamp.get('body') != _sha(_body_of(md)):
         return False, '正文与戳不符：盖戳之后正文又被改过（或这行戳是手抄的），请重新 --stamp'
+    # v6.62：ledger=none 的戳是「没查过账本」的收据，不是通过凭证。
+    # 交付前自检最常见的形态恰恰是没带 --ledger，所以这里必须拦——
+    # 否则「验戳 ✅」会让人以为溯源链验过了。
+    if stamp.get('ledger') in (None, 'none'):
+        return False, ('戳里没有账本指纹（ledger=none）：这份报告没被溯源验证过，'
+                       '拿它交付等于没跑校验门。带上 --ledger 重新过门并盖戳')
     if ledger_dir:
         want = stamp.get('ledger')
         if want != _ledger_fingerprint(ledger_dir):
@@ -747,9 +769,12 @@ def _main(argv: Optional[List[str]] = None) -> int:
             [--raw <抓取材料目录>]
             # --raw：给了就把账本里每段『…』引文与抓取材料逐字对账，对不上算 issue
   python validate_report.py --report <report.md> --ledger <ledger_dir> --stamp
-            # 过门后盖防伪戳（不过门只留问题清单，不留戳）
+            # 过门后盖防伪戳（不过门只留问题清单，不留戳）；--ledger 必给
   python validate_report.py --report <report.md> [--ledger <ledger_dir>] --verify-stamp
-            # 交付前验戳：没戳/正文改过/账本变过 → 退出码 1''')
+            # 交付前验戳：没戳/正文改过/账本变过/戳里没账本指纹 → 退出码 1
+
+v6.62 起 --ledger 是硬要求：不给账本时引用一致性、覆盖率、逐字对账一项都没跑，
+那样的「通过」不是可溯源凭证，退出码按未通过计。''')
         return 0
 
     def _opt(name: str, default: str = '') -> str:
@@ -790,10 +815,19 @@ def _main(argv: Optional[List[str]] = None) -> int:
         'warnings': result.warnings,
     }, ensure_ascii=False, indent=2))
     if '--stamp' in args:
+        if not ledger_path:
+            print('❌ --stamp 需要 --ledger：没有账本就没有溯源，'
+                  '防伪戳不得盖在未验证的报告上（v6.62）。', file=sys.stderr)
+            return 2
         if not result.passed:
             print('❌ 未过门，不盖戳。修完 issues 再跑一次。')
             return 1
-        print('✅ 已盖防伪戳: ' + write_stamp(report_path, ledger_path, result.stats))
+        try:
+            line = write_stamp(report_path, ledger_path, result.stats)
+        except ValueError as e:
+            print('❌ ' + str(e), file=sys.stderr)
+            return 2
+        print('✅ 已盖防伪戳: ' + line)
     return 0 if result.passed else 1
 
 

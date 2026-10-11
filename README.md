@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.61.0
+# Deep Research Ultra — 超级深度调研工具 v6.62.0
 
 > **Plan-Execute-Synthesize-Reflect 四阶段深度调研范式**
 > **Lead 内联编排 + 子 Agent 并行检索 + 深度调研专家团 + 证据账本与分级**
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.61.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.62.0-brightgreen.svg)]()
 
 
 ---
@@ -28,7 +28,7 @@
 | 🔬 **引擎功能自检 `--probe`（v6.5）** | 探针查询实测每个引擎今天出不出得来数据，区分「0 结果 / 401 缺配置 / 406 限流」，杜绝 `--list` 假绿 |
 | 🛑 **Phase 0 环境闸门（v6.8）** | 环境不足即硬停：出数据引擎 <3、覆盖 <2 层、或没有一手制品通道（论文库/代码仓库）→ 退出码 3 并逐条打印「去哪申请 + 解锁什么 + 怎么设」，配足才开跑；`--allow-degraded` 才允许带缺口降级 |
 | 🧾 **证据与结论分离（v6.10）** | `--ledger` 只登记证据到 evidence.jsonl，claim 必须显式 add-claim；merge 拒收不可溯源来源并打印 新增/去重/拒收，缺 status 一律 pending（不再默认 verified） |
-| 🔐 **报告防伪戳（v6.11）** | `--stamp` 只在过门后往 report.md 尾部盖一行 `drux:validated`（含正文与账本指纹）；交付前 `--verify-stamp` 复核——没戳/改正文/改账本/手抄戳一律 exit 1，"校验 passed"不再是自述 |
+| 🔐 **报告防伪戳（v6.11，v6.62 加固）** | `--stamp` 只在过门后往 report.md 尾部盖一行 `drux:validated`（含正文与账本指纹）；交付前 `--verify-stamp` 复核——没戳/改正文/改账本/手抄戳一律 exit 1。**v6.62 起没有账本就不算过门**：不给 `--ledger` 判未通过、拒绝盖章，`ledger=none` 的旧戳一律验不过——体检时实测过一条完整伪造链（编造报告 → exit 0 → 盖章 → 验戳通过，而戳里写着 `ledger=none`），现已三处堵死 |
 | 🧭 **仓库扫描五态（v6.12）** | `repo_health.py` 分清 ok / not_found / rate_limited / forbidden / unreachable：429、403、断网一律 `unknown` 且退出码 3，不再把限流写成"该仓库高风险"；GitHub 请求自动带 `GITHUB_TOKEN`（Gitee 不漏）
 | 📄 **下载制品校验（v6.13）** | arXiv PDF/LaTeX 落盘前验魔数、篇幅、`%%EOF` 完整性与论文 ID 一致性；HTML 报错页、断流、"换成另一篇"一律返回 None 并打印原因，不再伪装成一次成功下载 |
 | 🧱 **报告骨架 + 单轮产能红线（v6.14）** | `skeleton.py` 从账本直接生成引用编号、来源登记表与分主题 claim 清单，Lead 只写摘要/方法/结论；未达 verified 的断言带 `⚠️ 待核` 出场，残留 `【待写】` 是校验门**硬失败**——"deep 档写不完就拿骨架冒充报告"这条路机器堵死 |
@@ -232,6 +232,11 @@ export HTTPS_PROXY=http://127.0.0.1:7890
 ```bash
 # 下面这类 `python scripts/research.py …` 都在 skill 目录内执行：
 #   cd skills/deep-research-ultra
+
+# ⚠️ 脚本直接落盘的是「证据集」（检索结果页：标题/URL/摘要/CRAAP/Tier），
+#    不是调研报告，不能直接交付。报告由主 Agent 组稿：
+#    skeleton.py 直出引用编号与来源登记表 → 补写摘要/方法/结论 → 过校验门。
+#    下面这些命令跑完，把产物当证据集用。
 
 # 自动选择数据源（推荐，默认 HTML 报告）
 python scripts/research.py "Python Web 框架"

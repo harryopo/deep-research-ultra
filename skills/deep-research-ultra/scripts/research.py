@@ -669,8 +669,11 @@ def cmd_plan_only(args, registry):
               f"{'、'.join(plan.dropped_dimensions)} —— 需要它们就提高 --effort/--depth")
     print("  提示: 可增删子问题、调整 --depth/--effort/--breadth/--perspectives，批准后再执行搜索。")
 
-    # 保存计划
+    # 保存计划（v6.62：先补父目录，--plan-only -o 到不存在的目录不再崩）
     if args.output:
+        p = Path(args.output)
+        if p.parent and not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
         plan.save(args.output)
         print(f"💾 计划已保存到: {args.output}")
 
@@ -1183,6 +1186,20 @@ def cmd_search(args, registry):
                     options=options, ledger=ledger)
 
 
+def _write_out(text: str, dest: str) -> None:
+    """落盘前先建父目录（v6.62）。
+
+    实测踩过的坑：Lead 按交付契约把报告写到会话目录 `.research/<session_id>/`，
+    那层目录若还没建，`Path(...).write_text()` 直接 FileNotFoundError——
+    检索、落账、反思全做完了，最后一步崩掉，退出码 1 还会被读成"调研失败"。
+    写产物不该是可以失败的操作，这里自己把父目录补上。
+    """
+    p = Path(dest)
+    if p.parent and not p.parent.exists():
+        p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding='utf-8')
+
+
 def _output_results(data, args, plan=None, results=None, verification=None, reflections=None,
                     options=None, ledger=None):
     """输出结果（v6.0：options/ledger 透传到报告生成）"""
@@ -1191,7 +1208,7 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
     def emit(text: str):
         """文本产物一律认 -o：以前只有 html 认，`--format json -o x.json` 会静默不落盘。"""
         if args.output:
-            Path(args.output).write_text(text, encoding='utf-8')
+            _write_out(text, args.output)
             print(f'💾 {format} 输出已保存: {args.output}', file=sys.stderr)
         else:
             print(text)
@@ -1254,7 +1271,7 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
             html = "<html><body><h1>无数据</h1></body></html>"
 
         if args.output:
-            Path(args.output).write_text(html, encoding='utf-8')
+            _write_out(html, args.output)
             print(f"💾 HTML 报告已保存: {args.output}", file=sys.stderr)
         else:
             print(html)

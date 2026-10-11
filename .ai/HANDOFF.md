@@ -1,14 +1,14 @@
 # HANDOFF · deep-research-ultra（任何 agent 先读这份）
 
-> 最后更新：2026-10-10 · 更新主体：OpenCode 会话（v6.57.0→v6.61.0 追平 + 收口五件 + P1「子 Agent 按角色配模型」落地）
+> 最后更新：2026-10-11 · 更新主体：OpenCode 会话（v6.57.0→v6.62.0 追平 + 收口五件 + P1 模型配档 + **系统体检与 P0 三条堵漏**）
 > 读法：本文件 → `.ai/knowledge/` → 架构文档 → **以代码为最终准**。描述与代码不符时以代码为准并回来更新本文件。
 
 ## ★1. 会话概览
-- 会话时间区间：2026-10-06 至 2026-10-10（上一轮 10-03 至 10-04 见第 10 节版本记录）
-- 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0，对比报告最后一个 P1）
-- 核心模块：`scripts/{research,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61}_*.py`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；全量 1023 项（本机 Windows 1021 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
-- 本次沉淀摘要：收口五件（CHANGELOG 补 6.60 条目、本文件追平、dist 重打包、bash 用例 skipif、v7.0.0 资产替换上传）＋ P1 模型配档落地（SKILL.md 配档表、`--plan-only` 回执「派单模型」行、5 项新测试、版本追平 6.61.0）
+- 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
+- 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
+- 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；全量 1031 项（本机 Windows 1029 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（校验门绑账本、落盘自建目录、产出边界写清）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
 - `[V]` `scripts/engines/fallback.py` L1 出口白名单——`_EGRESS_ALLOW`＋`egress_denied_reason()`，`_http_get/_http_post` 建连前拒绝；实弹 probe 前后一致（17 引擎）零误伤 — 提交 2dbe217
@@ -31,6 +31,11 @@
 - `[V]` 本会话收口——CHANGELOG 补 v6.60.0 条目（原先最高只到 6.59.0）；本文件追平 v6.60.0；`dist/` 按 HEAD 重打包（原为 6.48.0/894 项时代产物）
 - `[V]` `test_v6223_mcp_config_writer.py` 两条 bash 用例加 `skipif(shutil.which('bash') is None)`——Windows 本机 `run_all_tests.py` 由"1016 过/2 挂"变全绿"1016 过/2 跳"，收集数 1018 不变
 - `[V]` **P1 子 Agent 按角色配模型**（v6.61.0）——SKILL.md Phase 2.5 配档表（检索＝跑腿档 `DRUX_MODEL_RETRIEVER`／判断型＝判断档 `DRUX_MODEL_REVIEWER`／Lead 不传 `model`；宿主无 `model` 参数时忽略本表不许退化串行）＋ `research.py --plan-only` 回执「派单模型」行（未设报变量名、已设原样生效）＋ `tests/test_v661_model_routing.py` 5 项；版本追平 6.61.0（README/index.html 同步，收集数 1018→1023）
+- `[V]` **系统体检**（`docs/dev/v6.62-系统体检报告.md`）——8 维评判框架（外部标尺：DeepResearch Bench ICLR 2026 的 FACT/RACE、DRACO 的四维度与负权重幻觉项、ACL 2026 的 citation faithfulness/claim groundedness）＋ 实弹攻击实验；14 条问题清单（P0×3 / P1×11 / P2×2），每条带 `file:line` 或实测复现步骤
+- `[V]` **P0-1 校验门硬绑账本**（v6.62.0）——体检实测完整伪造链（编造报告 → passed:true exit 0 → 盖章 → 验戳 ✅，而戳里写着 `ledger=none`）。三处堵死：无账本判未通过（exit 1，issue 点明哪三项没跑）／无账本拒绝盖章（exit 2）／`ledger=none` 的戳一律验不过（哪怕正文指纹完全正确）。正路不误伤：带账本合格报告照样盖章验过
+- `[V]` **P0-2 `--output` 自建父目录**（v6.62.0）——`research.py` 新增模块级 `_write_out()`，html/markdown/json/plan 四处共用；原行为实测 FileNotFoundError exit 1（交付契约在目录未建时崩）
+- `[V]` **P0-3 产出边界写清**（v6.62.0）——实测 `research.py --format markdown` 产出是**证据集**（检索结果页）而非报告，与宣传页形态错位；SKILL.md Phase 3、README、index.html 三处写明「脚本产出=证据集，不能直接交付，报告由 Lead 从账本组稿后过门」
+- `[V]` `tests/test_v662_gate_needs_ledger.py` 8 项（含 `ledger=none` 伪造戳、正路不误伤、两条目录自建）；版本追平 6.62.0，收集数 1023→1031
 
 ## ★3. 进行中与断点
 > （已关闭：原 P0「对比类报告实跑验收」compare-os-agents-20261004 过门盖戳 body=b5f033a5；原 P1「GitHub 推送」3 提交已推、分支与 origin 同步；原 P1「dist 上传 Release」**已完成 2026-10-10**——`v7.0.0` 资产替换为内核 6.60.0 包，SHA256 与本地一致 `064DB1BD…B4BE`，标题同步「内核 6.60.0」，notes 换新）
@@ -43,7 +48,20 @@
 7. 标准：误报率有实测数字；不破坏 1018 项存量测试
 
 ## 4. 已知问题与技术债务
-- `[Q]` ~~Windows 本机 2 项测试恒挂~~ ✅ 已收口（2026-10-10）：`test_v6223_mcp_config_writer.py` 两条要起 `bash` 跑 `setup-mcp.sh` 的用例加 `skipif(bash 缺失)`——环境缺件照实报 skip 不再报失败。本机 `run_all_tests.py` 全绿：1016 过 / 2 跳 / 0 挂；收集数 1018 不变，Linux/CI 下两条照跑
+> **2026-10-11 系统体检新增 11 条**（P1×9 / P2×2），完整清单与修法见
+> `docs/dev/v6.62-系统体检报告.md`。P0 三条已于 v6.62.0 全部堵死。以下按严重度摘录。
+- `[P1]` **默认 `--min-sources 1` 与铁律 6「≥2 独立来源」冲突**（`validate_report.py` `DEFAULT_MIN_SOURCES`）——实测一次实跑 5 条全单源、0 verified，报告照样生成且无告警。修法：默认改 2，单源结论硬失败，低质量来源场景用显式开关豁免并记进防伪戳
+- `[P1]` **CRAAP 评分不含相关性**——实测查「RAG 评测基准」召回法律诉讼论文并给 76.4/100（high），系统自己警告 relevance<50 仍照发。修法：`relevance<阈值` → 分数封顶并降级为线索，禁止进结论段
+- `[P1]` **宣称 34 数据源 vs 本机 probe 实测真出数据 14 个**（`--list` 34/30、probe 横幅 25、实跑 14，四个口径互不相同）。`test_v6410` 只钉名义值不钉可用值。修法：宣传改双数字，可用值由 probe 自动生成
+- `[P1]` **`env_check` 网络预检假阴性**——报 `github.com:443 不可达`，同一时刻 probe 里 GitHub 深搜/code 搜索各出 5 条；会让人误弃招牌能力。修法：降级为提示，以 probe 为准
+- `[P1]` **`duckduckgo` 引擎实际请求 startpage.com**（名实不符，排障误导）
+- `[P1]` **SKILL.md 1929 行 ≈27k tokens**，铁律在 1559 行、禁止行为在 1815 行；第 5~14 节是 API 手册，与其自身「SKILL.md 只含运行必需内容」原则冲突。修法：API 迁 `references/`，约束上移，目标 ≤800 行
+- `[P1]` **首次配置唯一路径依赖 bash**（§13.1 第 1 步 `bash setup-mcp.sh --core`），而 README 主打多宿主
+- `[P1]` **probe 自检把上游打限流**（S2 连发两次 429），且与 env_check 归因矛盾
+- `[P1]` **分层架构数字漂移**——§四 写 Layer1=13，`--list` 实测 11；钉子只钉总数不钉分层
+- `[P2]` **31/99 个测试文件是文档钉子（81 处断言）**——防文案改动，防不住功能坏掉；v6.62.0 堵 P0 前无一项测试亮红灯。建议宣传口径拆成「功能测试 N + 文档钉子 M」
+- `[P2]` **注入防线与证据账本尚未实测**——本次只审了代码结构（guard 16 种形态正则、两层判据、留痕账族识别），未做注入攻击实验，也未验证 L3/I4 能否被绕过。框架第 3、6 维暂无结论，需专项实验
+- `[Q]` ~~Windows 本机 2 项测试恒挂~~ ✅ 已收口（2026-10-10）：`test_v6223_mcp_config_writer.py` 两条要起 `bash` 跑 `setup-mcp.sh` 的用例加 `skipif(bash 缺失)`——环境缺件照实报 skip 不再报失败。Linux/CI 下两条照跑
 - `[Q]` Mimosa git 门禁非确定性拦截（工作区第三方存量误报）——重试即过；见工作区 `.learnings/ERR-20261004-001`。对 dev 仓库提交本身无影响
 - `[W]` 报告正文与证据过程分层呈现（claim 行内联 scope/状态对读者偏重）——待优化清单 P1，见 `references/v6.54-对比报告升级设计.md`
 - `[W]` 对比矩阵格子级语义校验（当前靠【待写】硬失败兜底）——同上 P1
@@ -84,15 +102,19 @@
 - `P1` 报告正文/证据分层呈现
 - `P1` ~~基准重放评测（L3 分类器误报率实测）~~ ✅ 已落（v6.58.0，precision/recall 量化 + KNOWN_FP 档案）
 - `P1` ~~子 Agent 按角色配模型~~ ✅ 已落（v6.61.0，配档表＋回执行＋5 项测试）
+- `P0` ~~校验门可被伪造链绕过／落盘崩溃／产出边界错位~~ ✅ 已落（v6.62.0，三条全堵，8 项新测试）
+- **阶段 2 建议顺序**（体检报告 §三）：`min-sources` 对齐铁律 6 → CRAAP 耦合相关性门 → SKILL.md 瘦身到 ≤800 行 → 跨平台首次配置（去 bash 依赖）
+- **阶段 3**：宣传双数字（名义/实测可用）→ env_check 假阴性降级为提示 → probe 同族串行限流 → 分层计数入钉 → 测试口径拆分如实呈现 → **注入攻击端到端专项实验**（补框架第 3、6 维结论）
 - `P1` custom search engine 端点（"新增数据源不改代码"的完整目标，需引擎注册制重构）
 - `P2` L3 sha256＋语义分类器；L5 高危动作二次确认
 
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1023 项**＝内核 973＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
-- 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹，17 引擎应出数据）
-- 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`
+- 测试命令：仓库根 `python run_all_tests.py`（**1031 项**＝内核 981＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
+- 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
+- **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它
 
 ## ★9. 操作禁区
 - **登录态通道红线**：agent-reach 登录态 9 通道不装不配不引 Cookie（用户约束，见第 5.4）
@@ -103,6 +125,7 @@
 - L3 标记只降级不删除；逐字对账不换字符形态；档 B 反查必须真换通道
 
 ## 10. 版本记录
+- 2026-10-11 · OpenCode 会话 · **v6.62.0** 系统体检（8 维框架＋实弹攻击，14 条问题落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条堵漏**（校验门硬绑账本／`--output` 自建目录／产出边界写清）＋ test_v662 8 项＋收集数 1023→1031 · 标签：体检、可溯源堵漏、测试
 - 2026-10-10 · OpenCode 会话 · **v6.61.0** 子 Agent 按角色配模型（SKILL.md Phase 2.5 配档表、`--plan-only` 回执派单模型行、test_v661 5 项、收集数 1018→1023）· 标签：模型配档、P1 落地
 - 2026-10-10 · OpenCode 会话 · v6.57.0→v6.60.0 追平（DRUX_RETRIEVER、L3 基准重放、包清理、管线全线基准、多轮对抗压测、阅读指南、分析段写法）＋ 收口五件（CHANGELOG 补 6.60 条目、本文件追平、dist 重打包、bash 用例 skipif、v7.0.0 资产替换上传）· 标签：收口、压测、dist、发布
 - 2026-10-04 12:30 · ZCode 会话 sess_3de4172a · v6.52.0→v6.56.0 五版本＋Agent-Reach 接入＋L1-L4 防线闭环＋对比报告形态＋报告类型学＋派单任务书化 · 标签：注入防线、报告类型学、任务书化、主体画像
