@@ -646,10 +646,18 @@ class ResearchLedger:
         init() 幂等建目录，路径写错时会让 set-status/verify-primary
         静默建出空账本再返回"0 条"，调用方无从发现 --session 指错了层。
         """
+        # v6.72：原来这里硬写着 "--session 应指向 ledger 目录"。但 ResearchLedger
+        # 被 6 个脚本共用，各家参数名不同（--ledger / --session / 位置参数），
+        # 在异常里指定一个会把人引到用不了的写法上——skeleton.py 收到这条建议时
+        # 根本不认 --session。改成只说该有什么文件、给两条真能跑的命令。
+        # 改版理由留在注释里，不进消息：运行时消息是给当下的人看的，不是给考古的。
         if not self.entries_path.exists():
             raise FileNotFoundError(
                 f'账本不存在: {self.entries_path}'
-                f'（--session 应指向 ledger 目录；先执行 init 或用 research.py 的默认路径）')
+                f'\n（这个目录里应该有 ledger.jsonl。建账本：'
+                f'`ledger.py init --ledger <目录>`，'
+                f'或直接 `research.py "<主题>" --ledger <目录>` 跑一次检索，它会自己建。'
+                f'注意要指到 ledger 目录本身，不是它的上级会话目录。）')
         return self
 
     # ------------------------------------------------------------------
@@ -1409,9 +1417,18 @@ def _main(argv: Optional[List[str]] = None) -> int:
         return val
 
     def _session():
-        v = _value('--session')
+        """本脚本的账本目录。
+
+        v6.72：加 `--ledger` 作为主名。`--session` 继续有效，但要说清它收的
+        其实是**账本目录**不是会话目录——`ResearchLedger.root` 直接等于它，
+        `entries_path = root / 'ledger.jsonl'`。这个名字从一开始就不副实，
+        而 guard.py 的 `--session` 收的确实是会话目录。两个同名不同义的东西并存，
+        正是"三副面孔"的来源。
+        """
+        v = _value('--ledger') or _value('--session')
         if not v:
-            print('缺少 --session <目录>', file=sys.stderr)
+            print('缺少账本目录：--ledger <目录>（--session 是旧名，等价）',
+                  file=sys.stderr)
             sys.exit(2)
         return v
 
@@ -1421,17 +1438,17 @@ def _main(argv: Optional[List[str]] = None) -> int:
     if not args or args[0] in ('-h', '--help'):
         print(__doc__)
         print('''\n用法:
-  python ledger.py init --session <dir>
-  python ledger.py add-claim --session <dir> --text <claim> [--topic <t>] [--status <s>]
+  python ledger.py init --ledger <dir>          # --session <dir> 是旧名，等价
+  python ledger.py add-claim --ledger <dir> --text <claim> [--topic <t>] [--status <s>]
                     [--perspective <p>] [--confidence <0-1>] [--id <id>] [--note <n>]
-  python ledger.py add-source --session <dir> --claim-id <id> --url <u>
+  python ledger.py add-source --ledger <dir> --claim-id <id> --url <u>
                     [--title <t>] [--tier <1-4>] [--craap <score>]
                     # --url 只收 http(s) 绝对地址：站内相对链接、javascript:、
                     # "见前面报告"这类点不回原文的一律退 2 拒收，不占引用编号
-  python ledger.py status --session <dir> [--topic <t>]
+  python ledger.py status --ledger <dir> [--topic <t>]
                     # 无 --topic：{"topics": {主题: 明细}, "totals": {全局合计}}
                     # 有 --topic：只出该主题的明细；主题名打错会列出现有主题并退 2
-  python ledger.py set-status --session <dir> --claim-id <id>[,<id>...]
+  python ledger.py set-status --ledger <dir> --claim-id <id>[,<id>...]
                     [--status <s>] [--note <n>] [--text <就地更正后的 claim 原文>]
                     # --status 与 --text 至少给一个；只给 --text 时状态原样不动
                     # 升 verified 时，原文行首自标【未复核】/【待办】的条目点名拒绝

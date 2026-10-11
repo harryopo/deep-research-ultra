@@ -7,7 +7,7 @@
 - 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
 - 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1109 项（本机 Windows 1107 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1119 项（本机 Windows 1117 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
 - 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（v6.62.0）＋ **体检更正两条并修复**（v6.63.0）＋ **SKILL.md 信息架构重构**（手册搬走＋约束前置，v6.64.0）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
@@ -114,7 +114,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1109 项**＝内核 1059＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1119 项**＝内核 1069＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
 - **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它
@@ -128,6 +128,7 @@
 - L3 标记只降级不删除；逐字对账不换字符形态；档 B 反查必须真换通道
 
 ## 10. 版本记录
+- 2026-10-11 · OpenCode 会话 · **v6.72.0** 账本参数收敛：把"三副面孔"变成清晰两分——`--ledger`＝账本目录 / `--session`＝会话目录。摸底发现 `ledger.py` 的 `--session` 收的其实是账本目录（名不副实），而 `guard.py`/`canary.py` 的 `--session` 是名副其实的会话目录（不动）；`skeleton.py` 收 `--ledger`（位置参数保留，实测两写法产出完全相同）；`ResearchLedger` 异常不再硬编码单一 CLI 的参数名（那个类被 6 个脚本共用）；SKILL.md 统一口径 · 顺带修掉补丁占位符 `{NL}` 流进目标文件导致的 NameError（静态抓不到，现钉"目标脚本不得残留裸占位符"＋"所有对外脚本 --help 不得崩"） · 收集数 1109→1119 · 标签：接口收敛、错误信息、自身失误
 - 2026-10-11 · OpenCode 会话 · **v6.71.0** 端到端验收发现的两个缺口：①`ledger.py` 把 flag 当 session 目录**静默**创建（exit 0 + 成功回执，比崩溃更糟，已抽出 `_value()` 统一守门，10+ 处调用一起覆盖）；②验戳不比对戳内 `claims`/`sources`/`weak_allowed`（`weak_allowed` 是 v6.62 "降级事实必须跟着交付物走"那条承诺的落地点，以前无声删掉即可让单源采信不可见，现做单向校验：账本确有单源 verified claim 而戳里无该字段 → 拒）；顺带修 `test_gate_hook.py` 的会话桩（它一直造着一个现实中盖不出来的戳）——**修桩不放松检查**；**同步体量时发现 HANDOFF 里两处全量数字只被同步过一处**（行 117 从 v6.69 起陈旧了 6 个版本，因为钉子只覆盖 index.html、不覆盖 HANDOFF）→ 新增 `test_v671_handoff_counts.py` 扫"声明形状"而非所有数字（免得把 `1018 项存量测试` 这类历史引用判成陈旧） · 收集数 1095→1109 · 标签：验收、参数健壮性、防伪交付、数字可溯源
 - 2026-10-11 · OpenCode 会话 · **v6.70.0** 数据源数量口径：**P1-6 第五次误判**——宣传页早写对了（"别拿静态数字当结论"），我的修法（CI 刷可用数）会破坏它；只补 README 口径 + 加防退化测试；收集数 1089→1095 · 标签：更正、口径、防退化
 - 2026-10-11 · OpenCode 会话 · **v6.69.0** 测试口径实测：**P2-13 结论翻转**（文档断言 3% 而非体检时说的 29%——那 31 个是"引用文档的文件数"，不是"文档钉子"）；新增 doc_pin_audit.py + 上限测试（钉上限不钉当前值）；顺带修 test_v6160 docstring 的非法转义；收集数 1083→1089 · 标签：更正、监测

@@ -5,6 +5,67 @@
 
 ---
 
+## v6.72.0（2026-10-11）— 账本参数收敛：把"三副面孔"变成清晰的两分
+
+**先把问题说准**——上一版说"CLI 约定三不统一"，那是只数了表象。摸底之后：
+
+| 脚本 | 账本参数 | 实际收的东西 |
+|---|---|---|
+| research / validate_report / claim_support / verify_quotes | `--ledger` | 账本目录 |
+| ledger.py | `--session` | **账本目录**（名字与内容不符） |
+| guard.py | `--session` | 会话目录（名副其实） |
+| skeleton.py | 位置参数 `args[0]` | 账本目录 |
+
+所以不是三种叫法各说各话，而是**一个真实区分 + 三处失准**：`--ledger`（账本目录）
+与 `--session`（会话目录）是两个真概念，guard 要的确实是后者；但 `ledger.py` 的
+`--session` 收的其实是账本目录（`ResearchLedger.root` 直接等于它，
+`entries_path = root / 'ledger.jsonl'`）——**名不副实**；skeleton.py 走位置参数，
+于是三者凑成三副面孔。
+
+### 最误导的一条
+
+```
+$ python skeleton.py --ledger /path -o out.md
+❌ 账本不存在: --ledger\ledger.jsonl（--session 应指向 ledger 目录；先执行 init...）
+```
+
+两处都在骗人：① `--ledger` 被当成**目录名**拼进路径，看着像"账本文件丢了"，
+真实原因只是参数形式不对；② 它建议去用 `--session` —— 而 **skeleton.py 根本不收
+`--session`**，照做只会再错一次。
+
+### 改法：收敛，不是改名
+
+`--session` 在 SKILL.md 的派单模板与 MCP 调用里出现很多次，直接改名会打断现用法。
+
+- `skeleton.py` 收 `--ledger`（位置参数保留）—— 实测**两种写法产出完全相同**
+- `ledger.py` 把 `--ledger` 作为主名（`--session` 保留为旧名）
+- `ResearchLedger` 的异常不再硬编码某一个 CLI 的参数名：那个类被 6 个脚本共用，
+  各家叫法不同，在异常里指定一个必然把人引到用不了的写法
+- SKILL.md 统一：**账本目录 → `--ledger`，会话目录 → `--session`**
+  （`guard.py`/`canary.py` 的 `--session` 名副其实，一律不动）
+
+改约定比改代码慢，而拦错的收益立刻就有。
+
+### 过程中修掉的两个自己的错
+
+1. **补丁里的占位符流进了目标文件**：用 `NL = chr(10)` 拼补丁，`{NL}` 被原样写进
+   skeleton.py 的 f-string，目标文件里没有这个变量 → `NameError` → 裸 traceback。
+   语法能过、只有运行才炸，静态检查抓不到。现在钉住"目标脚本里不得残留裸占位符"，
+   外加一条兜底"所有对外脚本 `--help` 不得抛未捕获异常"。
+2. **错误消息里写了改版考古**：`--session 应指向...` 被我从消息挪进代码注释。
+   运行时消息是给当下的人看的，不是给未来考古的人看的——这条是被
+   `test_ledger_missing_message_does_not_hardcode_one_clis_flag` 抓出来的。
+
+### 变更
+
+- `skeleton.py`：收 `--ledger`/`--session`；首参是未知 flag 时给用法而非把它拼成路径
+- `ledger.py`：`--ledger` 为主名；`_session()` 文档写明它收的是账本目录；
+  "账本不存在"消息不再硬编码单一 CLI 的参数名
+- `SKILL.md`：两处 skeleton 调用与 `ledger.py merge` 改用 `--ledger`；加账本参数口径说明
+- 新增 `tests/test_v672_cli_convergence.py`（10 项）
+
+全量 1119 项（本机 Windows 1117 过 / 2 跳）。
+
 ## v6.71.0（2026-10-11）— 端到端验收：交付末端两个缺口（参数静默错位 + 戳内声明不可查）
 
 **这一版的由来不是"想到了要做"，是实跑出来的**：跑了一次完整链路

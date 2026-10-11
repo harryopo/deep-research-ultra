@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.71.0
+version: 6.72.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -802,7 +802,7 @@ B7 分片必须 UTF-8（Windows 默认编码会让中文被 merge 拒收）
   **分片必须是 UTF-8**：Windows 上写文件的默认编码是 GBK，中文会被 merge 点名拒收（不会翻成乱码入库），
   所以宿主写分片时要显式 `encoding="utf-8"`（`--text`/`--url` 走 argv 传参已实测无损，中文单条直写不受影响）
 - **归并**：所有子 Agent 完成后，Lead 依次跑
-  ① `python scripts/ledger.py merge --session {ledger_dir} --dir {ledger_dir}` —— 必须看到"收到 N 份分片 / 新增 claim N 条"，
+  ① `python scripts/ledger.py merge --ledger {ledger_dir} --dir {ledger_dir}` —— 必须看到"收到 N 份分片 / 新增 claim N 条"，
      份数对不上派发的路数、或条数与子 Agent 自报数不吻合，就是有的分片没被看见；`--dir` 也可以直接给单个分片文件，路径不存在会报错退出而不是回"0 条"；
      份数只数子 Agent 的分片——`--dir` 与 `--session` 同目录时（就是上面这条命令），账本自己的 ledger.jsonl / evidence.jsonl / session.json 不算分片；
      若出现"拒收 N 条"，按 stderr 点名的文件名修形状或改编码后重跑（merge 幂等，重复 merge 只会去重），别放着不管；
@@ -868,6 +868,11 @@ timeline
 ### 验证的假设
 - H1: [假设内容] — 已验证
 - ❌ H2: [假设内容] — 被证伪
+
+> **账本参数口径（v6.72）**：`--ledger` 指**账本目录**（里面有 `ledger.jsonl`），
+> `--session` 指**会话目录**（里面有 report.md 等产物）。`ledger.py` 与
+> `skeleton.py` 的 `--session` 是旧名、仍可用，但已统一推荐写 `--ledger`；
+> `guard.py` / `canary.py` 的 `--session` 指会话目录，名副其实，不要改。
 
 ## 附录 A：MECE 问题树（含 6 状态）
 ## 附录 B：完整来源列表（含 CRAAP 评分）
@@ -966,7 +971,7 @@ python "${SKILL_DIR}/scripts/research.py" "关键词" --format markdown
 **目标**：把"能自动来的"从 Lead 手里拿走，让一轮产能只花在判断上。
 
 ```bash
-python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger \
+python "${SKILL_DIR}/scripts/skeleton.py" --ledger .research/session/ledger \
        -o report.md --title "<报告标题>"
 ```
 
@@ -1410,7 +1415,7 @@ python "${SKILL_DIR}/scripts/tier.py" "https://www.gov.cn/x"                    
 
 # 6. 报告骨架（v6.14）：引用编号 + 来源登记表由账本直出，Lead 只补带【待写】标记的段落
 #    （v6.15：未验证 claim 渲染成 ⚠️ 仅作线索，不再逐条留待写标记）
-python "${SKILL_DIR}/scripts/skeleton.py" .research/session/ledger -o report.md --title "报告标题"
+python "${SKILL_DIR}/scripts/skeleton.py" --ledger .research/session/ledger -o report.md --title "报告标题"
 
 # 6b. 引文逐字对账（v6.44）：账本每段『…』与报告每段「…」都必须在存档的原始材料里逐字命中
 #     只折叠空白、不换字符形态（0–3 写成 0-3 就算 MISS）；材料没存档 → 退 2，不报通过

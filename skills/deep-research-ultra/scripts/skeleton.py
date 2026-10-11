@@ -304,9 +304,35 @@ def _main(argv: Optional[List[str]] = None) -> int:
     if not args or args[0] in ('-h', '--help'):
         print(__doc__)
         print('用法:\n  python skeleton.py <ledger_dir> [-o report_skeleton.md] '
+              '（或 --ledger <ledger_dir>，与其它脚本统一）'
               '[--title "报告标题"] [--merge-from 旧报告.md] [--intent compare]')
         return 0
-    ledger_dir = args[0]
+    # v6.72：账本目录现在两种写法都收——位置参数（旧，照跑）与 --ledger（新）。
+    # 收 --ledger 不是为了改约定，是因为只有位置参数时，"我明明按 --ledger 写了
+    # 怎么报账本不存在"会把人引到完全错误的方向上去。
+    if '--ledger' in args or '--session' in args:
+        flag = '--ledger' if '--ledger' in args else '--session'
+        i = args.index(flag)
+        if i + 1 >= len(args) or (len(args[i + 1]) > 1 and args[i + 1].startswith('-')):
+            print(f'用法错误：{flag} 后面要跟账本目录，例如 {flag} .research/session/ledger',
+                  file=sys.stderr)
+            return 2
+        ledger_dir = args[i + 1]
+        args = args[:i] + args[i + 2:]
+    elif args[0].startswith('-') and args[0] not in ('-h', '--help'):
+        # v6.72：旧版把 `--ledger` 当目录名拼进路径，报成
+        # "账本不存在: --ledger\ledger.jsonl"，还建议去用 --session——
+        # 而本脚本根本不收 --session，那条建议照做只会再错一次。
+        print(f'用法错误：{args[0]} 不是本脚本的用法。账本目录用下面任一种写法：\n'
+              f'  python skeleton.py <账本目录> -o report_skeleton.md       （旧写法，仍有效）\n'
+              f'  python skeleton.py --ledger <账本目录> -o report_skeleton.md   （推荐，与\n'
+              f'    research.py / validate_report.py / claim_support.py 统一）\n'
+              f'注：--session 本脚本也收（旧名），但推荐上面两种。',
+              file=sys.stderr)
+        return 2
+    else:
+        ledger_dir = args[0]
+        args = args[1:]
     out = args[args.index('-o') + 1] if '-o' in args and args.index('-o') + 1 < len(args) else ''
     title = args[args.index('--title') + 1] if '--title' in args else ''
     intent = ''
