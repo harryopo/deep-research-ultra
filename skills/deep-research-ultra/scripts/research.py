@@ -452,8 +452,10 @@ def cmd_probe(registry, args):
     --list 的 ✅ 只代表配置就绪；本命令才代表"这个引擎今天真的能用"。
     环境不足时退出码非 0（3）——Lead 看到 0 就会直接进 Phase 1 开跑。
     """
+    import time
     from probe import (STATUS_AGENT_ONLY, STATUS_EMPTY, STATUS_FAILED, STATUS_OK,
-                       STATUS_SKIPPED, engine_kind, probe_engine, probeable_engines,
+                       STATUS_SKIPPED, ENGINE_FAMILY, FAMILY_GAP_SECONDS,
+                       engine_kind, probe_engine, probeable_engines,
                        source_gate, summarize)
 
     if getattr(args, 'theme_query', None):
@@ -477,9 +479,28 @@ def cmd_probe(registry, args):
     marks = {STATUS_OK: '✅', STATUS_EMPTY: '⚠️', STATUS_FAILED: '❌',
              STATUS_SKIPPED: '⏭ ', STATUS_AGENT_ONLY: '🤖'}
     reports = []
+    # 同族引擎之间让一拍：共用同一个上游时背靠背连发会互相限流，而限流的表现
+    # （429）在回执里很像"这个源没配好"——自检制造它本该检测的故障（体检 P1-11 实测：
+    # s2-citation-graph 委托 S2，与 semantic-scholar 连发双双 429，而单发能通）。
+    gap = max(0.0, float(getattr(args, 'probe_gap', FAMILY_GAP_SECONDS) or 0))
+    seen_family: Dict[str, str] = {}
     for engine in engines:
+        name = engine.get_name()
+        fam = ENGINE_FAMILY.get(name)
+        if gap and fam and fam in seen_family:
+            time.sleep(gap)
         rep = probe_engine(engine, query=args.probe_query or '',
                            max_results=max(3, min(args.limit, 5)))
+        if fam:
+            seen_family.setdefault(fam, name)
+            if rep.get('status') != STATUS_OK:
+                # 措辞只说"可能是同族连发之一因"，不断言就是它。
+                # 实测 2026-10-11：把间隔从 0 放到 12 秒，两个 S2 引擎**仍然双双 429**，
+                # 说明匿名配额可能早被本轮之前的调用耗尽（共享额度），不是这一轮的连发。
+                # 所以这里给的是"排查时先想到的一个原因"，不是结论。
+                rep['note'] += (f'（与 {seen_family[fam]} 同属 {fam} 上游；'
+                                '若两族都拒，优先怀疑该上游的共享配额/限流窗，'
+                                '而不只是同族连发）')
         reports.append(rep)
         print(f"{marks.get(rep['status'], '?')} {rep['engine']:<20} "
               f"{rep['count']:>2} 条  {rep['note']}")
@@ -1473,6 +1494,9 @@ v3 兼容（自动降级到 Layer 4）:
                         help='MCP 健康检查')
     parser.add_argument('--probe', action='store_true',
                         help='引擎功能自检：真实发探针查询，验证引擎今天是否出得来数据')
+    parser.add_argument('--probe-gap', type=float, default=None,
+                        help='同族引擎（同上游）之间的间隔秒数，默认 3；设 0 关掉。'
+                             '共用一个上游时背靠背连发会互相限流（实测 S2 族双双 429）')
     parser.add_argument('--probe-query', default=None,
                         help='覆盖探针查询词（默认按引擎定制，见 probe.py 的 PROBE_QUERIES）')
     parser.add_argument('--theme-query', action='append', default=None, metavar='查询词',

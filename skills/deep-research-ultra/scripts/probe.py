@@ -67,6 +67,27 @@ PROBE_QUERIES: Dict[str, str] = {
     'searxng': 'python',
 }
 
+# 同族 = 共用同一个上游 API。体检 P1-11 实测：`--probe` 串行跑完，
+# `semantic-scholar` 与 `s2-citation-graph` 双双 429——**探针自己把上游打限流了**。
+# 成因：s2-citation-graph 的 search() 委托 S2，两个引擎匿名打同一个端点、还发同一个
+# 探针词，第二发吃的就是第一发刚攒出来的限流窗。而 429 在回执里长得很像"这个源没配好"，
+# 于是自检制造了它本该检测的故障（已验证：单发 S2 能通）。
+#
+# 所以探针要知道"我刚才打过同一个上游"。间隔只设几秒而不是文档里建议的 90 秒——
+# 那个数字是给"人工隔一会儿重跑单发"的建议，不是给一轮自检的，否则整轮要多花好几分钟。
+ENGINE_FAMILY: Dict[str, str] = {
+    'semantic-scholar': 's2',
+    's2-citation-graph': 's2',
+    'arxiv': 'arxiv',
+    'arxiv-fulltext': 'arxiv',
+    'baidu-serp': 'baidu',
+    'baidu-html': 'baidu',
+    'bing-html': 'bing',
+    'github-deep-search': 'github',
+    'github-code-search': 'github',
+}
+FAMILY_GAP_SECONDS = 3.0
+
 # MCP 引擎走 npx/uvx 冷启动，不给预算就能把整轮自检拖死（实测旧实现单次调用 60s 起）
 # 单个 MCP 源整场会话预算（握手 + 一次工具调用）。本机实测冷启动握手：
 # open-websearch 19.2s、paper-search 10.1s、arxiv 1.3s；再加一次真实搜索的耗时，
