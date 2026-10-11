@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.64.0
+version: 6.65.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -104,7 +104,7 @@ python "${SKILL_DIR}/scripts/guard.py" --session {workspace}/.research/{session_
 两道判据只看文件系统：① 会话目录里出现**未申报的文件** → 点名退出码 1（越权写入必然留痕）；
 ② 目录内文本命中指令型片段（伪装系统块、行首 `[system]:` 式伪特权通道、要求隐瞒、要求固定回复、
 要求改交付路径、要凭据、要执行命令、要求往留痕账里写一行、要把东西落到全局 skill 目录／全局记忆
-等 16 种形态）而留痕账里没有对应条目
+等 17 种形态）而留痕账里没有对应条目
 → 硬失败。
 
 判据②分两层（2026-09-29 拿真会话实测后定的：一轮调研在 `scratch/` 里能数出 98 处厂商 README
