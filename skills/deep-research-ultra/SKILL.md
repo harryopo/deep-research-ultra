@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.85.0
+version: 6.86.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -224,6 +224,7 @@ python "${SKILL_DIR}/scripts/guard.py" --session {workspace}/.research/{session_
   错的**：total 把权威/时效掺了进来，不是 relevance 的代理（实测两张名次 1/29 重合，
   `Evaluation Methodology` 的 total 83.2 看着体面而 relevance 只有 30）——按账本的
   `relevance` 读证据，`relevance_capped=True` 是判定器没听懂语料、**不是"不相关"**
+- ❌ **禁止在非技术主题开 `--strict-anchor`**（v6.86）— 每次检索后那行「📎 主题锚词 N/M」是**技术词表**（`retrieval`/`RAG`/`kubernetes`/`vector`…）的字面命中数。留出集实测：RAG 主题命中 96%，而金融 / 医学 / 法律**三组合计 0/155**，且那三组 `relevance>=50` 的前 14 条逐条看过**全部明显切题**。非技术主题下开它会让**全军覆没**——噪声是多了几条错材料，全军覆没是**一份报告都产不出**。看到「⚠️ 命中率只有 0%」那句警告 = 判据不适用于本次主题，**不是**检索没跑出东西，此时更不要为提高命中率去开它。详见 `references/playbooks.md` §1.6
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
 - ❌ **禁止拿探针的 ✅ 替主题背书**（v6.15）— `--probe` 用的是登记死的通用词，派子 Agent 前要用 `--probe --sources <引擎> --theme-query "<该维度真要用的词>"` 预演一次；预演回 0 命中/取不到数据时只能说"这批词到不了"，不许写成"该主题无相关资料"

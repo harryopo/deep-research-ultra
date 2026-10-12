@@ -1,0 +1,4350 @@
+[
+ {
+  "key": "arxiv.org/abs/1604.05406v3",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Gap Risk KVA and Repo Pricing: An Economic Capital Approach in the Black-Scholes-Merton Framework",
+  "url": "https://arxiv.org/abs/1604.05406v3",
+  "snippet": "Although not a formal pricing consideration, gap risk or hedging errors are the norm of derivatives businesses. Starting with the gap risk during a margin period of risk of a repurchase agreement (repo), this article extends the Black-Scholes-Merton option pricing framework by introducing a reserve capital approach to the hedging error's irreducible variability. An extended partial differential eq",
+  "scores": {
+   "relevance": 40.7,
+   "relevance_capped": false,
+   "total": 72.0,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 60.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1307.2493v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "On model-independent pricing/hedging using shortfall risk and quantiles",
+  "url": "https://arxiv.org/abs/1307.2493v1",
+  "snippet": "We consider the pricing and hedging of exotic options in a model-independent set-up using \\emph{shortfall risk and quantiles}. We assume that the marginal distributions at certain times are given. This is tantamount to calibrating the model to call options with discrete set of maturities but a continuum of strikes. In the case of pricing with shortfall risk, we prove that the minimum initial amoun",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 80.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1710.05204v2",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Sequential Design and Spatial Modeling for Portfolio Tail Risk Measurement",
+  "url": "https://arxiv.org/abs/1710.05204v2",
+  "snippet": "We consider calculation of capital requirements when the underlying economic scenarios are determined by simulatable risk factors. In the respective nested simulation framework, the goal is to estimate portfolio tail risk, quantified via VaR or TVaR of a given collection of future economic scenarios representing factor levels at the risk horizon. Traditionally, evaluating portfolio losses of an ou",
+  "scores": {
+   "relevance": 51.7,
+   "relevance_capped": false,
+   "total": 76.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1206.1400v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Binomial Tree Model for Convertible Bond Pricing within Equity to Credit Risk Framework",
+  "url": "https://arxiv.org/abs/1206.1400v1",
+  "snippet": "In the present paper we fill an essential gap in the Convertible Bonds pricing world by deriving a Binary Tree based model for valuation subject to credit risk. This model belongs to the framework known as Equity to Credit Risk. We show that this model converges in continuous time to the model developed by Ayache, Forsyth and Vetzal [2003]. To this end, both forms of credit risk modeling, the so-c",
+  "scores": {
+   "relevance": 80.7,
+   "relevance_capped": false,
+   "total": 88.0,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2203.05719v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Analytical Pricing of 2 Factor Structural PDE model for a Puttable Bond with Credit Risk",
+  "url": "https://arxiv.org/abs/2203.05719v1",
+  "snippet": "In this paper is proposed a 2 factor structural PDE model of pricing puttable bond with credit risk and derived the analytical pricing formula. To this end, first, a 2 factor structural (PDE) model of pricing zero coupon bond with credit risk is provided, the analytical pricing formula is derived under some conditions for default boundary and default recovery, and the strict monotonicity of the bo",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 86.3,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1410.7453v2",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "GMWB Riders in a Binomial Framework - Pricing, Hedging, and Diversification of Mortality Risk",
+  "url": "https://arxiv.org/abs/1410.7453v2",
+  "snippet": "We construct a binomial model for a guaranteed minimum withdrawal benefit (GMWB) rider to a variable annuity (VA) under optimal policyholder behaviour. The binomial model results in explicitly formulated perfect hedging strategies funded using only periodic fee income. We consider the separate perspectives of the insurer and policyholder and introduce a unifying relationship. Decompositions of the",
+  "scores": {
+   "relevance": 45.7,
+   "relevance_capped": false,
+   "total": 74.7,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1311.0118v2",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Regulatory-Compliant Derivatives Pricing is Not Risk-Neutral",
+  "url": "https://arxiv.org/abs/1311.0118v2",
+  "snippet": "Regulations impose idiosyncratic capital and funding costs for holding derivatives. Capital requirements are costly because derivatives desks are risky businesses; funding is costly in part because regulations increase the minimum funding tenor. Idiosyncratic costs mean no single measure makes derivatives martingales for all market participants. Hence Regulatory-compliant pricing is not risk-neutr",
+  "scores": {
+   "relevance": 46.7,
+   "relevance_capped": false,
+   "total": 75.1,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1508.00310v2",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Statistical Emulators for Pricing and Hedging Longevity Risk Products",
+  "url": "https://arxiv.org/abs/1508.00310v2",
+  "snippet": "We propose the use of statistical emulators for the purpose of valuing mortality-linked contracts in stochastic mortality models. Such models typically require (nested) evaluation of expected values of nonlinear functionals of multi-dimensional stochastic processes. Except in the simplest cases, no closed-form expressions are available, necessitating numerical approximation. Rather than building a",
+  "scores": {
+   "relevance": 46.7,
+   "relevance_capped": false,
+   "total": 74.1,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 60.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2608.17481v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "A generic nonparametric value-at-risk estimator for high dimensions",
+  "url": "https://arxiv.org/abs/2608.17481v1",
+  "snippet": "We present in this article a non-parametric value-at-risk (VaR+CVaR) algorithm that remains accurate for an arbitrarily large number of underlying positions. The algorithm solves the two inherent problems of VaR estimation. First, past history is not directly applicable to the future, but all predictions of the future are based on the past. Second, VaR estimation is equivalent to modeling a single",
+  "scores": {
+   "relevance": 43.3,
+   "relevance_capped": false,
+   "total": 86.2,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2107.03979v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "On the Selection of Loss Severity Distributions to Model Operational Risk",
+  "url": "https://arxiv.org/abs/2107.03979v1",
+  "snippet": "Accurate modeling of operational risk is important for a bank and the finance industry as a whole to prepare for potentially catastrophic losses. One approach to modeling operational is the loss distribution approach, which requires a bank to group operational losses into risk categories and select a loss frequency and severity distribution for each category. This approach estimates the annual ope",
+  "scores": {
+   "relevance": 46.7,
+   "relevance_capped": false,
+   "total": 78.1,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2604.05699v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Priced risk in corporate bonds",
+  "url": "https://arxiv.org/abs/2604.05699v1",
+  "snippet": "Recent studies document strong empirical support for multifactor models that aim to explain the cross-sectional variation in corporate bond expected excess returns. We revisit these findings and provide evidence that common factor pricing in corporate bonds is exceedingly difficult to establish. Based on portfolio- and bond-level analyses, we demonstrate that previously proposed bond risk factors,",
+  "scores": {
+   "relevance": 61.7,
+   "relevance_capped": false,
+   "total": 90.6,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2603.20582v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Generative Diffusion Model for Risk-Neutral Derivative Pricing",
+  "url": "https://arxiv.org/abs/2603.20582v1",
+  "snippet": "Denoising diffusion probabilistic models (DDPMs) have emerged as powerful generative models for complex distributions, yet their use in arbitrage-free derivative pricing remains largely unexplored. Financial asset prices are naturally modeled by stochastic differential equations (SDEs), whose forward and reverse density evolution closely parallels the forward noising and reverse denoising structur",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 90.5,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 65.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1111.2683v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Critical Analysis of the Binomial-Tree approach to Convertible Bonds in the framework of Tsiveriotis-Fernandes model",
+  "url": "https://arxiv.org/abs/1111.2683v1",
+  "snippet": "In the present paper we show that the Binomial-tree approach for pricing, hedging, and risk assessment of Convertible bonds in the framework of the Tsiveriotis-Fernandes model has serious drawbacks. Key words: Convertible bonds, Binomial tree, Tsiveriotis-Fernandes model, Convertible bond pricing, Convertible bond Greeks, Convertible Arbitrage, Delta-hedging of Convertible bonds, Risk Assessment o",
+  "scores": {
+   "relevance": 64.0,
+   "relevance_capped": false,
+   "total": 81.2,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2605.12189v2",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "A deep learning approach for pricing convertible bonds with path-dependent reset and call provisions",
+  "url": "https://arxiv.org/abs/2605.12189v2",
+  "snippet": "This paper develops a deep learning framework for pricing convertible bonds with path-dependent downward reset and issuer call provisions governed by rolling-window triggers. We formulate the valuation problem as a path-dependent partial differential equation (PPDE) that captures both the historical stock-price path and the evolution of the conversion price. Model-specific PPDEs are derived under ",
+  "scores": {
+   "relevance": 59.0,
+   "relevance_capped": false,
+   "total": 91.7,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1902.04489v3",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Evaluating Range Value at Risk Forecasts",
+  "url": "https://arxiv.org/abs/1902.04489v3",
+  "snippet": "The debate of what quantitative risk measure to choose in practice has mainly focused on the dichotomy between Value at Risk (VaR) -- a quantile -- and Expected Shortfall (ES) -- a tail expectation. Range Value at Risk (RVaR) is a natural interpolation between these two prominent risk measures, which constitutes a tradeoff between the sensitivity of the latter and the robustness of the former, tur",
+  "scores": {
+   "relevance": 38.3,
+   "relevance_capped": false,
+   "total": 72.2,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2109.10818v2",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Solution Representations of Solving Problems for the Black-Scholes equations and Application to the Pricing Options on Bond with Credit Risk",
+  "url": "https://arxiv.org/abs/2109.10818v2",
+  "snippet": "In this paper is investigated the pricing problem of options on bonds with credit risk based on analysis on two kinds of solving problems for the Black-Scholes equations. First, a solution representation of the Black-Scholes equation with the maturity payoff function which is the product of the power function, normal distribution function and characteristic function is provided. Then a solution re",
+  "scores": {
+   "relevance": 59.0,
+   "relevance_capped": false,
+   "total": 83.4,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1510.07199v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Coherent CVA and FVA with Liability Side Pricing of Derivatives",
+  "url": "https://arxiv.org/abs/1510.07199v1",
+  "snippet": "This article presents FVA and CVA of a bilateral derivative in a coherent manner, based on recent developments in fair value accounting and ISDA standards. We argue that a derivative liability, after primary risk factors being hedged, resembles in economics an issued variable funding note, and should be priced at the market rate of the issuer's debt. For the purpose of determining the fair value, ",
+  "scores": {
+   "relevance": 43.3,
+   "relevance_capped": false,
+   "total": 72.9,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 60.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/0710.0241v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Adapted Downhill Simplex Method for Pricing Convertible Bonds",
+  "url": "https://arxiv.org/abs/0710.0241v1",
+  "snippet": "The paper is devoted to modeling optimal exercise strategies of the behavior of investors and issuers working with convertible bonds. This implies solution of the problems of stock price modeling, payoff computation and min-max optimization. Stock prices (underlying asset) were modeled under the assumption of the geometric Brownian motion of their values. The Monte Carlo method was used for calcul",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 80.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2205.04520v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "A Unified Bayesian Framework for Pricing Catastrophe Bond Derivatives",
+  "url": "https://arxiv.org/abs/2205.04520v1",
+  "snippet": "Catastrophe (CAT) bond markets are incomplete and hence carry uncertainty in instrument pricing. As such various pricing approaches have been proposed, but none treat the uncertainty in catastrophe occurrences and interest rates in a sufficiently flexible and statistically reliable way within a unifying asset pricing framework. Consequently, little is known empirically about the expected risk-prem",
+  "scores": {
+   "relevance": 56.7,
+   "relevance_capped": false,
+   "total": 82.6,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2602.14354v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Application of Quasi Monte Carlo and Global Sensitivity Analysis to Option Pricing and Greeks",
+  "url": "https://arxiv.org/abs/2602.14354v1",
+  "snippet": "Quasi Monte Carlo (QMC) and Global Sensitivity Analysis (GSA) techniques are applied for pricing and hedging representative financial instruments of increasing complexity. We compare standard Monte Carlo (MC) vs QMC results using Sobol' low discrepancy sequences, different sampling strategies, and various analyses of performance. We find that QMC outperforms MC in most cases, including the highest",
+  "scores": {
+   "relevance": 32.3,
+   "relevance_capped": false,
+   "total": 81.3,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1804.01475v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Pricing sovereign contingent convertible debt",
+  "url": "https://arxiv.org/abs/1804.01475v1",
+  "snippet": "We develop a pricing model for Sovereign Contingent Convertible bonds (S-CoCo) with payment standstills triggered by a sovereign's Credit Default Swap (CDS) spread. We model CDS spread regime switching, which is prevalent during crises, as a hidden Markov process, coupled with a mean-reverting stochastic process of spread levels under fixed regimes, in order to obtain S-CoCo prices through simulat",
+  "scores": {
+   "relevance": 61.7,
+   "relevance_capped": false,
+   "total": 80.3,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2412.08987v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Isogeometric Analysis for the Pricing of Financial Derivatives with Nonlinear Models: Convertible Bonds and Options",
+  "url": "https://arxiv.org/abs/2412.08987v1",
+  "snippet": "Computational efficiency is essential for enhancing the accuracy and practicality of pricing complex financial derivatives. In this paper, we discuss Isogeometric Analysis (IGA) for valuing financial derivatives, modeled by two nonlinear Black-Scholes PDEs: the Leland model for European call with transaction costs and the AFV model for convertible bonds with default options. We compare the solutio",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 89.8,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1512.07340v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Liability-side Pricing of Swaps and Coherent CVA and FVA by Regression/Simulation",
+  "url": "https://arxiv.org/abs/1512.07340v1",
+  "snippet": "An uncollateralized swap hedged back-to-back by a CCP swap is used to introduce FVA. The open IR01 of FVA, however, is a sure sign of risk not being fully hedged, a theoretical no-arbitrage pricing concern, and a bait to lure market risk capital, a practical business concern. By dynamically trading the CCP swap, with the liability-side counterparty provides counterparty exposure hedge and swap fun",
+  "scores": {
+   "relevance": 37.3,
+   "relevance_capped": false,
+   "total": 70.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 60.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/0912.3028v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Credit Default Swap Calibration and Equity Swap Valuation under Counterparty Risk with a Tractable Structural Model",
+  "url": "https://arxiv.org/abs/0912.3028v1",
+  "snippet": "In this paper we develop a tractable structural model with analytical default probabilities depending on some dynamics parameters, and we show how to calibrate the model using a chosen number of Credit Default Swap (CDS) market quotes. We essentially show how to use structural models with a calibration capability that is typical of the much more tractable credit-spread based intensity models. We a",
+  "scores": {
+   "relevance": 45.7,
+   "relevance_capped": false,
+   "total": 75.2,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2409.04541v3",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Quantifying Seasonal Weather Risk in Indian Markets: Stochastic Model for Risk-Averse State-Specific Temperature Derivative Pricing",
+  "url": "https://arxiv.org/abs/2409.04541v3",
+  "snippet": "This technical report presents a stochastic model for pricing weather derivatives and devising hedging strategies tailored to Indian markets. We model temperature dynamics using a modified Ornstein-Uhlenbeck process with jumps to account for sudden shocks, such as heatwaves and coldwaves. Historical data from 12 Indian states (1951-2023) is used for calibration, and Monte Carlo simulations are emp",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 85.2,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 60.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1801.06595v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "convertible bond pricing model risk factors",
+  "title": "Modelo de maturidade em gerenciamento de riscos em projetos (Project Risk Management Model Maturity)",
+  "url": "https://arxiv.org/abs/1801.06595v1",
+  "snippet": "The globalization feeded by the technology explosion that begans in the end of the last century, started the world to change faster every day. The only today's certain is the tomorrow's uncertain. Risk is defined as uncertain where one or many causes composed of ocurrence probality can generate an impact or consequence (threat if negative and oportunity if positive, to a determinated goal). The Ri",
+  "scores": {
+   "relevance": 40.7,
+   "relevance_capped": false,
+   "total": 73.0,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.22541/au.160253880.03314597/v1",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "A Simple and Precise Method for Pricing Convertible Bond with Credit Risk",
+  "url": "https://doi.org/10.22541/au.160253880.03314597/v1",
+  "snippet": "This paper presents a new model for valuing hybrid defaultable financial instruments, such as, convertible bonds. In contrast to previous studies, the model relies on the probability distribution of a default jump rather than the default jump itself, as the default jump is usually inaccessible. As such, the model can back out the market prices of convertible bonds. A prevailing belief in the marke",
+  "scores": {
+   "relevance": 88.0,
+   "relevance_capped": false,
+   "total": 84.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.31221/osf.io/rdega",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "A Simple and Precise Method for Pricing Convertible Bond with Credit Risk",
+  "url": "https://doi.org/10.31221/osf.io/rdega",
+  "snippet": "This paper presents a new model for valuing hybrid defaultable financial instruments, such as, convertible bonds. In contrast to previous studies, the model relies on the probability distribution of a default jump rather than the default jump itself, as the default jump is usually inaccessible. As such, the model can back out the market prices of convertible bonds. A prevailing belief in the marke",
+  "scores": {
+   "relevance": 88.0,
+   "relevance_capped": false,
+   "total": 84.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.31226/osf.io/k6zj3",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "A Simple and Precise Method for Pricing Convertible Bond with Credit Risk",
+  "url": "https://doi.org/10.31226/osf.io/k6zj3",
+  "snippet": "This paper presents a new model for valuing hybrid defaultable financial instruments, such as, convertible bonds. In contrast to previous studies, the model relies on the probability distribution of a default jump rather than the default jump itself, as the default jump is usually inaccessible. As such, the model can back out the market prices of convertible bonds. A prevailing belief in the marke",
+  "scores": {
+   "relevance": 88.0,
+   "relevance_capped": false,
+   "total": 84.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.31229/osf.io/gwt54",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "A Simple and Precise Method for Pricing Convertible Bond with Credit Risk",
+  "url": "https://doi.org/10.31229/osf.io/gwt54",
+  "snippet": "This paper presents a new model for valuing hybrid defaultable financial instruments, such as, convertible bonds. In contrast to previous studies, the model relies on the probability distribution of a default jump rather than the default jump itself, as the default jump is usually inaccessible. As such, the model can back out the market prices of convertible bonds. A prevailing belief in the marke",
+  "scores": {
+   "relevance": 88.0,
+   "relevance_capped": false,
+   "total": 84.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.2078509",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Binomial Tree Model for Convertible Bond Pricing within Equity to Credit Risk Framework",
+  "url": "https://doi.org/10.2139/ssrn.2078509",
+  "snippet": "[Journal/Proc.] SSRN Electronic Journal\n[DOI] 10.2139/ssrn.2078509\n[出版方] Elsevier BV",
+  "scores": {
+   "relevance": 64.0,
+   "relevance_capped": false,
+   "total": 75.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1002/9781118374696.ch2",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Convertible Bond Anatomy",
+  "url": "https://doi.org/10.1002/9781118374696.ch2",
+  "snippet": "[Journal/Proc.] The Handbook of Convertible Bonds\n[DOI] 10.1002/9781118374696.ch2\n[页码] 25-41\n[出版方] Wiley",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 71.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.294464",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Pricing Convertible Bonds with Interest Rate, Equity, Credit, and FX Risk",
+  "url": "https://doi.org/10.2139/ssrn.294464",
+  "snippet": "Pricing convertible bonds poses numerical challenges that are not easily overcome. We present a quasi five-factor model with interest rate, equity, credit, currency, and local volatility risk. This is implemented using unconditionally stable PDE methods. We extend a method to address credit risk, and propose a means to deal with cross-currency convertibles. A procedure for extracting the price of ",
+  "scores": {
+   "relevance": 100,
+   "relevance_capped": false,
+   "total": 89.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1057/jdhf.2014.5",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "A simple and precise method for pricing convertible bond with credit risk",
+  "url": "https://doi.org/10.1057/jdhf.2014.5",
+  "snippet": "[Journal/Proc.] Journal of Derivatives & Hedge Funds\n[DOI] 10.1057/jdhf.2014.5\n[页码] 259-277\n[出版方] Springer Science and Business Media LLC",
+  "scores": {
+   "relevance": 70.0,
+   "relevance_capped": false,
+   "total": 77.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.14711/thesis-b560269",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Valuation and credit risk premium of Euro-convertible bond : an empirical investigation",
+  "url": "https://doi.org/10.14711/thesis-b560269",
+  "snippet": "[DOI] 10.14711/thesis-b560269\n[出版方] The Hong Kong University of Science and Technology Library",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 73.9,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1017/9781139047432.004",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Defaultable bond pricing with hazard function",
+  "url": "https://doi.org/10.1017/9781139047432.004",
+  "snippet": "[Journal/Proc.] Credit Risk\n[DOI] 10.1017/9781139047432.004\n[页码] 71-93\n[出版方] Cambridge University Press",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 71.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.2190023",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Pricing Contingent Convertible Bond with Idiosyncratic Risk",
+  "url": "https://doi.org/10.2139/ssrn.2190023",
+  "snippet": "[Journal/Proc.] SSRN Electronic Journal\n[DOI] 10.2139/ssrn.2190023\n[出版方] Elsevier BV",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 73.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.26686/wgtn.16967896",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Convertible Bond Pricing with Stochastic Volatility",
+  "url": "https://doi.org/10.26686/wgtn.16967896",
+  "snippet": "<p>The aim of this paper is to compare the performance of different pricing models in valuing bonds with callable and convertible features. Additionally, we wish to provide a theoretical foundation and derivations of the models as we move through the paper. Much of the foundations for our approach to convertible bonds pricing, including optimal conditions for call and conversion, can be attributed",
+  "scores": {
+   "relevance": 68.0,
+   "relevance_capped": false,
+   "total": 80.8,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1007/s11766-010-2288-8",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "The pricing of perpetual convertible bond with credit risk",
+  "url": "https://doi.org/10.1007/s11766-010-2288-8",
+  "snippet": "[Journal/Proc.] Applied Mathematics-A Journal of Chinese Universities\n[DOI] 10.1007/s11766-010-2288-8\n[页码] 277-290\n[出版方] Springer Science and Business Media LLC",
+  "scores": {
+   "relevance": 70.0,
+   "relevance_capped": false,
+   "total": 77.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.155688",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "A Comparison of Bond Pricing Models in the Pricing of Credit Risk",
+  "url": "https://doi.org/10.2139/ssrn.155688",
+  "snippet": "This paper compares alternative default-free bond pricing models in their abilities to price the credit risk of companies. The theoretical framework is the reduced-form approach of Duffie and Singleton (1999). The parameters of a CKLS (1992) type stochastic differential equation that describes the dynamics of the credit spreads on coupon bonds are estimated by using the GMM. The data are credit sp",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 85.4,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1007/978-3-642-19339-2_9",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Pricing of Convertible Bond Based on GARCH Model",
+  "url": "https://doi.org/10.1007/978-3-642-19339-2_9",
+  "snippet": "[Journal/Proc.] Quantitative Financial Risk Management\n[DOI] 10.1007/978-3-642-19339-2_9\n[页码] 77-86\n[出版方] Springer Berlin Heidelberg",
+  "scores": {
+   "relevance": 56.0,
+   "relevance_capped": false,
+   "total": 72.3,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1016/j.econmod.2011.05.007",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "A lattice approach for pricing convertible bond asset swaps with market risk and counterparty risk",
+  "url": "https://doi.org/10.1016/j.econmod.2011.05.007",
+  "snippet": "[Journal/Proc.] Economic Modelling\n[DOI] 10.1016/j.econmod.2011.05.007\n[页码] 2143-2153\n[出版方] Elsevier BV",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 71.7,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2307/j.ctv30pnvpg.11",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Empirical Models of Defaultable Bond Spreads",
+  "url": "https://doi.org/10.2307/j.ctv30pnvpg.11",
+  "snippet": "[Journal/Proc.] Credit Risk\n[DOI] 10.2307/j.ctv30pnvpg.11\n[页码] 156-172\n[出版方] Princeton University Press",
+  "scores": {
+   "relevance": 42.0,
+   "relevance_capped": false,
+   "total": 67.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.6899459",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Credit Ratings and the Pricing of Risk in the Indian Corporate Bond Market",
+  "url": "https://doi.org/10.2139/ssrn.6899459",
+  "snippet": "This paper examines the pricing of credit risk in the Indian corporate bond market, where credit ratings are highly concentrated in the highest categories. Using a comprehensive dataset of bond issuances from 2010 to 2019, we document substantial variation in spreads within the AAA category. The results show that spreads are systematically related to ownership structure, rating agency, firm fundam",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 96.4,
+   "currency": 100.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.2524210",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Contingent Convertible Bond: Pricing Approach and ABBANK Case",
+  "url": "https://doi.org/10.2139/ssrn.2524210",
+  "snippet": "The recent financial crisis has brought about the need to revise capital structure of several large banks, which raises the question about a new kind of financial instrument that can enhance the loss absorption of the banks in bad time and still overcome their reluctance to issue equity in good times. Along the controversial discussion, contingent convertible bond (CoCo) has emerged in the hope fo",
+  "scores": {
+   "relevance": 74.0,
+   "relevance_capped": false,
+   "total": 80.7,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1515/9781400829170-009",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "7 Empirical Models of Defaultable Bond Spreads",
+  "url": "https://doi.org/10.1515/9781400829170-009",
+  "snippet": "[Journal/Proc.] Credit Risk\n[DOI] 10.1515/9781400829170-009\n[页码] 156-172\n[出版方] Princeton University Press",
+  "scores": {
+   "relevance": 42.0,
+   "relevance_capped": false,
+   "total": 67.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.1006996",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "The Pricing of Risk in European Credit and Corporate Bond Markets",
+  "url": "https://doi.org/10.2139/ssrn.1006996",
+  "snippet": "This paper investigates the determinants of the default risk premia embedded in the European credit default swap spreads. Using a modified version of the intertemporal capital asset pricing model, we show that default risk premia represent compensation for bearing exposure to systematic risk and to a new common factor capturing the proneness of the asset returns to extreme events. This new factor ",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 83.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.5220/0012829300004547",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Empirical Analysis of Convertible Bond Pricing and Arbitrage Based on Black-Scholes Model",
+  "url": "https://doi.org/10.5220/0012829300004547",
+  "snippet": "[Journal/Proc.] Proceedings of the 1st International Conference on Data Science and Engineering\n[DOI] 10.5220/0012829300004547\n[页码] 132-136\n[出版方] SCITEPRESS - Science and Technology Publications",
+  "scores": {
+   "relevance": 44.0,
+   "relevance_capped": false,
+   "total": 75.7,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1109/cdc.2006.377343",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Arbitrage Pricing of Convertible Securities with Credit Risk",
+  "url": "https://doi.org/10.1109/cdc.2006.377343",
+  "snippet": "[Journal/Proc.] Proceedings of the 45th IEEE Conference on Decision and Control\n[DOI] 10.1109/cdc.2006.377343\n[页码] 2889-2894\n[出版方] IEEE",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 73.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1002/9781118374696.ch4",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Convertible Bonds Market",
+  "url": "https://doi.org/10.1002/9781118374696.ch4",
+  "snippet": "[Journal/Proc.] The Handbook of Convertible Bonds\n[DOI] 10.1002/9781118374696.ch4\n[页码] 55-66\n[出版方] Wiley",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 71.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.2665191",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Implementing a Trinomial Convertible Bond Pricing Model",
+  "url": "https://doi.org/10.2139/ssrn.2665191",
+  "snippet": "[Journal/Proc.] SSRN Electronic Journal\n[DOI] 10.2139/ssrn.2665191\n[出版方] Elsevier BV",
+  "scores": {
+   "relevance": 50.0,
+   "relevance_capped": false,
+   "total": 70.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1002/9781118738177.ch5",
+  "groups": [
+   "F-金融"
+  ],
+  "engine": "crossref",
+  "query": "convertible bond pricing credit risk",
+  "title": "Bond Pricing",
+  "url": "https://doi.org/10.1002/9781118738177.ch5",
+  "snippet": "[Journal/Proc.] Treasury Finance and Development Banking\n[DOI] 10.1002/9781118738177.ch5\n[页码] 127-170\n[出版方] Wiley",
+  "scores": {
+   "relevance": 40.0,
+   "relevance_capped": false,
+   "total": 66.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2402.09476v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "AI-Enabled Lung Cancer Prognosis",
+  "url": "https://arxiv.org/abs/2402.09476v1",
+  "snippet": "Lung cancer is the primary cause of cancer-related mortality, claiming approximately 1.79 million lives globally in 2020, with an estimated 2.21 million new cases diagnosed within the same period. Among these, Non-Small Cell Lung Cancer (NSCLC) is the predominant subtype, characterized by a notably bleak prognosis and low overall survival rate of approximately 25% over five years across all diseas",
+  "scores": {
+   "relevance": 51.7,
+   "relevance_capped": false,
+   "total": 85.3,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1906.00240v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Lung cancer screening with low-dose CT scans using a deep learning approach",
+  "url": "https://arxiv.org/abs/1906.00240v1",
+  "snippet": "Lung cancer is the leading cause of cancer deaths. Early detection through low-dose computed tomography (CT) screening has been shown to significantly reduce mortality but suffers from a high false positive rate that leads to unnecessary diagnostic procedures. Quantitative image analysis coupled to deep learning techniques has the potential to reduce this false positive rate. We conducted a comput",
+  "scores": {
+   "relevance": 83.3,
+   "relevance_capped": false,
+   "total": 88.9,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1804.01901v2",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Towards radiologist-level cancer risk assessment in CT lung screening using deep learning",
+  "url": "https://arxiv.org/abs/1804.01901v2",
+  "snippet": "Importance: Lung cancer is the leading cause of cancer mortality in the US, responsible for more deaths than breast, prostate, colon and pancreas cancer combined and it has been recently demonstrated that low-dose computed tomography (CT) screening of the chest can significantly reduce this death rate. Objective: To compare the performance of a deep learning model to state-of-the-art automated alg",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 84.3,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2206.01088v2",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Machine Learning-based Lung and Colon Cancer Detection using Deep Feature Extraction and Ensemble Learning",
+  "url": "https://arxiv.org/abs/2206.01088v2",
+  "snippet": "Cancer is a fatal disease caused by a combination of genetic diseases and a variety of biochemical abnormalities. Lung and colon cancer have emerged as two of the leading causes of death and disability in humans. The histopathological detection of such malignancies is usually the most important component in determining the best course of action. Early detection of the ailment on either front consi",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 82.2,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 65.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2007.12898v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "3D Neural Network for Lung Cancer Risk Prediction on CT Volumes",
+  "url": "https://arxiv.org/abs/2007.12898v1",
+  "snippet": "With an estimated 160,000 deaths in 2018, lung cancer is the most common cause of cancer death in the United States. Lung cancer CT screening has been shown to reduce mortality by up to 40% and is now included in US screening guidelines. Reducing the high error rates in lung cancer screening is imperative because of the high clinical and financial costs caused by diagnosis mistakes. Despite the us",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 83.0,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1906.01054v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Deep 3D Convolutional Neural Network for Automated Lung Cancer Diagnosis",
+  "url": "https://arxiv.org/abs/1906.01054v1",
+  "snippet": "Computer Aided Diagnosis has emerged as an indispensible technique for validating the opinion of radiologists in CT interpretation. This paper presents a deep 3D Convolutional Neural Network (CNN) architecture for automated CT scan-based lung cancer detection system. It utilizes three dimensional spatial information to learn highly discriminative 3 dimensional features instead of 2D features like ",
+  "scores": {
+   "relevance": 51.7,
+   "relevance_capped": false,
+   "total": 76.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2309.15750v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Automated CT Lung Cancer Screening Workflow using 3D Camera",
+  "url": "https://arxiv.org/abs/2309.15750v1",
+  "snippet": "Despite recent developments in CT planning that enabled automation in patient positioning, time-consuming scout scans are still needed to compute dose profile and ensure the patient is properly positioned. In this paper, we present a novel method which eliminates the need for scout scans in CT lung cancer screening by estimating patient scan range, isocenter, and Water Equivalent Diameter (WED) fr",
+  "scores": {
+   "relevance": 73.3,
+   "relevance_capped": false,
+   "total": 91.7,
+   "currency": 60.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2509.06169v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Reasoning Language Model for Personalized Lung Cancer Screening",
+  "url": "https://arxiv.org/abs/2509.06169v1",
+  "snippet": "Accurate risk assessment in lung cancer screening is critical for enabling early cancer detection and minimizing unnecessary invasive procedures. The Lung CT Screening Reporting and Data System (Lung-RADS) has been widely used as the standard framework for patient management and follow-up. Nevertheless, Lung-RADS faces trade-offs between sensitivity and specificity, as it stratifies risk solely ba",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 91.2,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1806.07416v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Fast CapsNet for Lung Cancer Screening",
+  "url": "https://arxiv.org/abs/1806.07416v1",
+  "snippet": "Lung cancer is the leading cause of cancer-related deaths in the past several years. A major challenge in lung cancer screening is the detection of lung nodules from computed tomography (CT) scans. State-of-the-art approaches in automated lung nodule classification use deep convolutional neural networks (CNNs). However, these networks require a large number of training samples to generalize well. ",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 81.5,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2510.16310v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Lung Cancer Classification from CT Images Using ResNet",
+  "url": "https://arxiv.org/abs/2510.16310v1",
+  "snippet": "Lung cancer, a malignancy originating in lung tissues, is commonly diagnosed and classified using medical imaging techniques, particularly computed tomography (CT). Despite the integration of machine learning and deep learning methods, the predictive efficacy of automated systems for lung cancer classification from CT images remains below the desired threshold for clinical adoption. Existing resea",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 91.5,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1811.01424v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "False Positive Reduction in Lung Computed Tomography Images using Convolutional Neural Networks",
+  "url": "https://arxiv.org/abs/1811.01424v1",
+  "snippet": "Recent studies have shown that lung cancer screening using annual low-dose computed tomography (CT) reduces lung cancer mortality by 20% compared to traditional chest radiography. Therefore, CT lung screening has started to be used widely all across the world. However, analyzing these images is a serious burden for radiologists. In this study, we propose a novel and simple framework that analyzes ",
+  "scores": {
+   "relevance": 77.3,
+   "relevance_capped": false,
+   "total": 87.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2404.11221v4",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Virtual Lung Screening Trial (VLST): An In Silico Study Inspired by the National Lung Screening Trial for Lung Cancer Detection",
+  "url": "https://arxiv.org/abs/2404.11221v4",
+  "snippet": "Clinical imaging trials play a crucial role in advancing medical innovation but are often costly, inefficient, and ethically constrained. Virtual Imaging Trials (VITs) present a solution by simulating clinical trial components in a controlled, risk-free environment. The Virtual Lung Screening Trial (VLST), an in silico study inspired by the National Lung Screening Trial (NLST), illustrates the pot",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 90.8,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1902.08236v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Lung Cancer Detection using Co-learning from Chest CT Images and Clinical Demographics",
+  "url": "https://arxiv.org/abs/1902.08236v1",
+  "snippet": "Early detection of lung cancer is essential in reducing mortality. Recent studies have demonstrated the clinical utility of low-dose computed tomography (CT) to detect lung cancer among individuals selected based on very limited clinical information. However, this strategy yields high false positive rates, which can lead to unnecessary and potentially harmful procedures. To address such challenges",
+  "scores": {
+   "relevance": 64.0,
+   "relevance_capped": false,
+   "total": 81.2,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2307.11274v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Screening Mammography Breast Cancer Detection",
+  "url": "https://arxiv.org/abs/2307.11274v1",
+  "snippet": "Breast cancer is a leading cause of cancer-related deaths, but current programs are expensive and prone to false positives, leading to unnecessary follow-up and patient anxiety. This paper proposes a solution to automated breast cancer detection, to improve the efficiency and accuracy of screening programs. Different methodologies were tested against the RSNA dataset of radiographic breast images ",
+  "scores": {
+   "relevance": 70.0,
+   "relevance_capped": false,
+   "total": 87.5,
+   "currency": 60.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2402.04267v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Application analysis of ai technology combined with spiral CT scanning in early lung cancer screening",
+  "url": "https://arxiv.org/abs/2402.04267v1",
+  "snippet": "At present, the incidence and fatality rate of lung cancer in China rank first among all malignant tumors. Despite the continuous development and improvement of China's medical level, the overall 5-year survival rate of lung cancer patients is still lower than 20% and is staged. A number of studies have confirmed that early diagnosis and treatment of early stage lung cancer is of great significanc",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 90.8,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1811.00849v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Algorithms for screening of Cervical Cancer: A chronological review",
+  "url": "https://arxiv.org/abs/1811.00849v1",
+  "snippet": "There are various algorithms and methodologies used for automated screening of cervical cancer by segmenting and classifying cervical cancer cells into different categories. This study presents a critical review of different research papers published that integrated AI methods in screening cervical cancer via different approaches analyzed in terms of typical metrics like dataset size, drawbacks, a",
+  "scores": {
+   "relevance": 51.7,
+   "relevance_capped": false,
+   "total": 76.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2408.09367v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Improving Lung Cancer Diagnosis and Survival Prediction with Deep Learning and CT Imaging",
+  "url": "https://arxiv.org/abs/2408.09367v1",
+  "snippet": "Lung cancer is a major cause of cancer-related deaths, and early diagnosis and treatment are crucial for improving patients' survival outcomes. In this paper, we propose to employ convolutional neural networks to model the non-linear relationship between the risk of lung cancer and the lungs' morphology revealed in the CT images. We apply a mini-batched loss that extends the Cox proportional hazar",
+  "scores": {
+   "relevance": 59.0,
+   "relevance_capped": false,
+   "total": 86.9,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2609.12007v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Robust POMDP Framework for Lung Cancer Screening Problems",
+  "url": "https://arxiv.org/abs/2609.12007v1",
+  "snippet": "Lung cancer remains a leading cause of cancer mortality because many cases are diagnosed at advanced stages. Low-dose computed tomography (LDCT) screening can reduce mortality through earlier detection. Partially observable Markov decision process (POMDP) models can personalize screening by maintaining a belief over an individual's latent cancer state. However, cancer-state transition probabilitie",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 96.2,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2312.03028v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Double Integral Enhanced Zeroing Neural Network Optimized with ALSOA fostered Lung Cancer Classification using CT Images",
+  "url": "https://arxiv.org/abs/2312.03028v1",
+  "snippet": "Lung cancer is one of the deadliest diseases and the leading cause of illness and death. Since lung cancer cannot predicted at premature stage, it able to only be discovered more broadly once it has spread to other lung parts. The risk grows when radiologists and other specialists determine whether lung cancer is current. Owing to significance of determining type of treatment and its depth based o",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 83.9,
+   "currency": 60.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2512.22242v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Fairness Evaluation of Risk Estimation Models for Lung Cancer Screening",
+  "url": "https://arxiv.org/abs/2512.22242v1",
+  "snippet": "Lung cancer is the leading cause of cancer-related mortality in adults worldwide. Screening high-risk individuals with annual low-dose CT (LDCT) can support earlier detection and reduce deaths, but widespread implementation may strain the already limited radiology workforce. AI models have shown potential in estimating lung cancer risk from LDCT scans. However, high-risk populations for lung cance",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 93.8,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2110.13036v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Dual Skip Connections Minimize the False Positive Rate of Lung Nodule Detection in CT images",
+  "url": "https://arxiv.org/abs/2110.13036v1",
+  "snippet": "Pulmonary cancer is one of the most commonly diagnosed and fatal cancers and is often diagnosed by incidental findings on computed tomography. Automated pulmonary nodule detection is an essential part of computer-aided diagnosis, which is still facing great challenges and difficulties to quickly and accurately locate the exact nodules' positions. This paper proposes a dual skip connection upsampli",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 87.3,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1311.3723v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Fragment Descriptors in Virtual Screening",
+  "url": "https://arxiv.org/abs/1311.3723v1",
+  "snippet": "This article reviews the application of fragment descriptors at different stages of virtual screening: filtering, similarity search, and direct activity assessment using QSAR/QSPR models. Several case studies are considered. It is demonstrated that the power of fragment descriptors stems from their universality, very high computational efficiency, simplicity of interpretation and versatility.\n[Com",
+  "scores": {
+   "relevance": 38.3,
+   "relevance_capped": false,
+   "total": 71.2,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2010.01173v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Deep Expectation-Maximization for Semi-Supervised Lung Cancer Screening",
+  "url": "https://arxiv.org/abs/2010.01173v1",
+  "snippet": "We present a semi-supervised algorithm for lung cancer screening in which a 3D Convolutional Neural Network (CNN) is trained using the Expectation-Maximization (EM) meta-algorithm. Semi-supervised learning allows a smaller labelled data-set to be combined with an unlabeled data-set in order to provide a larger and more diverse training sample. EM allows the algorithm to simultaneously calculate a ",
+  "scores": {
+   "relevance": 73.3,
+   "relevance_capped": false,
+   "total": 84.4,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2511.20116v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "LungEvaty: A Scalable, Open-Source Transformer-based Deep Learning Model for Lung Cancer Risk Prediction in LDCT Screening",
+  "url": "https://arxiv.org/abs/2511.20116v1",
+  "snippet": "Lung cancer risk estimation is gaining increasing importance as more countries introduce population-wide screening programs using low-dose CT (LDCT). As imaging volumes grow, scalable methods that can process entire lung volumes efficiently are essential to tap into the full potential of these large screening datasets. Existing approaches either over-rely on pixel-level annotations, limiting scala",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 95.1,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1306.2584v2",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Multi-cancer molecular signatures and their interrelationships",
+  "url": "https://arxiv.org/abs/1306.2584v2",
+  "snippet": "Although cancer is known to be characterized by several unifying biological hallmarks, systems biology has had limited success in identifying molecular signatures present in in all types of cancer. The current availability of rich data sets from many different cancer types provides an opportunity for thorough computational data mining in search of such common patterns. Here we report the identific",
+  "scores": {
+   "relevance": 38.3,
+   "relevance_capped": false,
+   "total": 72.2,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2311.12810v1",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "lung cancer CT screening false positive",
+  "title": "Combining low-dose CT-based radiomics and metabolomics for early lung cancer screening support",
+  "url": "https://arxiv.org/abs/2311.12810v1",
+  "snippet": "Due to its predominantly asymptomatic or mildly symptomatic progression, lung cancer is often diagnosed in advanced stages, resulting in poorer survival rates for patients. As with other cancers, early detection significantly improves the chances of successful treatment. Early diagnosis can be facilitated through screening programs designed to detect lung tissue tumors when they are still small, t",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 87.6,
+   "currency": 60.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1164/rccm.200411-1479oc",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Early Lung Cancer Detection Using Spiral Computed Tomography and Positron Emission Tomography",
+  "url": "https://doi.org/10.1164/rccm.200411-1479oc",
+  "snippet": "RATIONALE: Lung cancer screening using computed tomography (CT) is effective in detecting lung cancer in early stages. Concerns regarding false-positive rates and unnecessary invasive procedures have been raised. OBJECTIVE: To study the efficiency of a lung cancer protocol using spiral CT and F-18-fluorodeoxyglucose positron emission tomography (FDG-PET). METHODS: High-risk individuals underwent s",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 88.7,
+   "currency": 25.0,
+   "authority": 95,
+   "accuracy": 85.0,
+   "purpose": 60.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1146/annurev-med-020917-053556",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Computed Tomography Scanning for Early Detection of Lung Cancer",
+  "url": "https://doi.org/10.1146/annurev-med-020917-053556",
+  "snippet": "Parallel and often unrelated developments in health care and technology have all been necessary to bring about early detection of lung cancer and the opportunity to decrease mortality from lung cancer through early detection of the disease by computed tomography. Lung cancer screening programs provide education for patients and clinicians, support smoking cessation as primary prevention for lung c",
+  "scores": {
+   "relevance": 100,
+   "relevance_capped": false,
+   "total": 88.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.6004/jnccn.2006.0048",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Computed Tomography Screening for the Early Detection of Lung Cancer",
+  "url": "https://doi.org/10.6004/jnccn.2006.0048",
+  "snippet": "Although lung cancer is the leading cause of cancer-related death in the world and has an increased chance of cure if detected at an earlier stage, routine lung cancer screening is currently not recommended in the United States. Unfortunately, most patients with lung cancer present only after the onset of symptoms and have advanced disease that cannot be surgically resected. The overall 5-year sur",
+  "scores": {
+   "relevance": 95.0,
+   "relevance_capped": false,
+   "total": 88.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.3310/hta20400",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "The UK Lung Cancer Screening Trial: a pilot randomised controlled trial of low-dose computed tomography screening for the early detection of lung cancer",
+  "url": "https://doi.org/10.3310/hta20400",
+  "snippet": "BACKGROUND: Lung cancer kills more people than any other cancer in the UK (5-year survival < 13%). Early diagnosis can save lives. The USA-based National Lung Cancer Screening Trial reported a 20% relative reduction in lung cancer mortality and 6.7% all-cause mortality in low-dose computed tomography (LDCT)-screened subjects. OBJECTIVES: To (1) analyse LDCT lung cancer screening in a high-risk UK ",
+  "scores": {
+   "relevance": 89.0,
+   "relevance_capped": false,
+   "total": 86.9,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1111/1759-7714.12253",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Early detection of lung cancer: Low‐dose computed tomography screening in C hina",
+  "url": "https://doi.org/10.1111/1759-7714.12253",
+  "snippet": "Lung cancer is currently the leading cause of cancer-related death in China and western countries for both men and women. Overall, the five-year survival rate of lung cancer is approximately 15%, whereas the five-year survival for patients with surgically resected early-stage disease is 60-80%. Screening is conceptually a good strategy for reducing the mortality rate of lung cancer. Randomized con",
+  "scores": {
+   "relevance": 95.0,
+   "relevance_capped": false,
+   "total": 89.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1186/isrctn30604390",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Spiral computed tomography scanning for the early detection of lung cancer",
+  "url": "https://doi.org/10.1186/isrctn30604390",
+  "snippet": "[Concepts] Computed tomography, Spiral computed tomography, Spiral (railway), Lung cancer, Tomography\n[Cited by 2]",
+  "scores": {
+   "relevance": 90.0,
+   "relevance_capped": false,
+   "total": 83.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 65.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "pubmed.ncbi.nlm.nih.gov/32879014",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Using Low-Dose Computed Tomography for Early Detection of Lung Cancer.",
+  "url": "https://pubmed.ncbi.nlm.nih.gov/32879014",
+  "snippet": "PURPOSE: To determine whether low-dose computed tomography (LD-CT) affects the rate of early lung cancer detection in a high-risk population, how that rate compares with the rate given in the National Lung Screening Trial (NLST), whether using LD-CT provides a stage shift in lung cancer, and whether NLST results are reproducible. METHODS: Patient medical records from a Kentucky community hospital ",
+  "scores": {
+   "relevance": 100,
+   "relevance_capped": false,
+   "total": 92.8,
+   "currency": 25.0,
+   "authority": 95,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1007/s11042-022-12722-5",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Neuro-evolutional based computer aided detection system on computed tomography for the early detection of lung cancer",
+  "url": "https://doi.org/10.1007/s11042-022-12722-5",
+  "snippet": "[Concepts] Computer science, Cuckoo search, Artificial intelligence, Lung cancer, Particle swarm optimization\n[Cited by 8]",
+  "scores": {
+   "relevance": 74.0,
+   "relevance_capped": false,
+   "total": 82.7,
+   "currency": 45.0,
+   "authority": 95,
+   "accuracy": 65.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "pubmed.ncbi.nlm.nih.gov/29298928",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Early Detection of Lung Cancer Using Low-dose Computed Tomography.",
+  "url": "https://pubmed.ncbi.nlm.nih.gov/29298928",
+  "snippet": "[Concepts] Computed tomography, Lung cancer, Medicine, Radiology, Nuclear medicine\n[Cited by 2]",
+  "scores": {
+   "relevance": 90.0,
+   "relevance_capped": false,
+   "total": 84.2,
+   "currency": 25.0,
+   "authority": 95,
+   "accuracy": 65.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.33612/diss.171374829",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Deep learning for lung cancer on computed tomography: early detection and prognostic prediction",
+  "url": "https://doi.org/10.33612/diss.171374829",
+  "snippet": "Lung cancer is one of the most fatal cancers in the world, the leading cause of death among both men and women. The five-year survival rate for lung cancer patients is only between 10 and 20%. However, the mortality rate can be reduced if lung cancer is diagnosed at an early stage and treated promptly. Screening trials have been established in many countries to improve early detetion of lung cance",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 90.7,
+   "currency": 45.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1016/s1076-6332(00)80487-0",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Project title Early detection and diagnosis of lung cancer using computed tomography",
+  "url": "https://doi.org/10.1016/s1076-6332(00)80487-0",
+  "snippet": "[Concepts] Computed tomography, Lung cancer, Medicine, Radiology, Tomography",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 78.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 55.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.52532/2663-4864-2024-4-74-357",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "APPLICATION OF LUNG CANCER CT ARTIFICIAL INTELLIGENCE TECHNOLOGY IN LOW-DOSE COMPUTED TOMOGRAPHY FOR EARLY DETECTION OF LUNG CANCER",
+  "url": "https://doi.org/10.52532/2663-4864-2024-4-74-357",
+  "snippet": "Relevance: In recent years, there has been an increase in the use of artificial intelligence (AI) technology in chest low-dose computed tomography (LDCT), which has attracted considerable attention. LDCT scans are widely used for early detection and monitoring of lung diseases, making the accurate analysis of these scans crucial for effective diagnosis and treatment. The study aimed to evaluate th",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 97.4,
+   "currency": 90.0,
+   "authority": 95,
+   "accuracy": 75.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.2482/haigan.35.437",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "The Early Detection of Pleural Dissemination of Lung Cancer by Thin-slice Computed Tomography.",
+  "url": "https://doi.org/10.2482/haigan.35.437",
+  "snippet": "胸水が貯留する以前の肺癌の胸膜播種の存在診断能を向上させることを目的として, 10mm幅の通常の造影CTと2mm幅のthin-slice CTを術前の症例に施行し, retrospectiveにCT画像とその切除病理所見を比較検討した. 対象は最近約3年間に神奈川県立がんセンター外科において開胸手術を受けた原発性肺癌220例のうち, 術前に通常の造影CTと原発巣を中心にその隣接する葉間領域のthin-slice CTの両画像と病理所見が比較検討できた100例である. 100例中91例は病理学的には胸膜播種を認めず, そのthin-slice CT画像では葉間胸膜は全例で線状または帯状の高吸収域として描出された. 9例では明らかな胸水の貯留は認めないが, 病理学的には胸膜播種が確認され, その5例 (56%) のthin-slice CT画像では通常のCT画像では描出されない葉間胸膜の不整の",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 85.4,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1016/j.jtho.2023.11.013",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Perspective on Management of Low-Dose Computed Tomography Findings on Low-Dose Computed Tomography Examinations for Lung Cancer Screening. From the International Association for the Study of Lung Cancer Early Detection and Screening Committee",
+  "url": "https://doi.org/10.1016/j.jtho.2023.11.013",
+  "snippet": "[Concepts] Medicine, Lung cancer screening, Lung cancer, Intensive care medicine, Regimen\n[Cited by 24]",
+  "scores": {
+   "relevance": 74.0,
+   "relevance_capped": false,
+   "total": 82.9,
+   "currency": 60.0,
+   "authority": 85,
+   "accuracy": 65.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.52532/2521-6414-2024-4-74-357",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "APPLICATION OF LUNG CANCER CT ARTIFICIAL INTELLIGENCE TECHNOLOGY IN LOW-DOSE COMPUTED TOMOGRAPHY FOR EARLY DETECTION OF LUNG CANCER",
+  "url": "https://doi.org/10.52532/2521-6414-2024-4-74-357",
+  "snippet": "Relevance: In recent years, there has been an increase in the use of artificial intelligence (AI) technology in chest low-dose computed tomography (LDCT), which has attracted considerable attention. LDCT scans are widely used for early detection and monitoring of lung diseases, making the accurate analysis of these scans crucial for effective diagnosis and treatment. ДИАГНОСТИКА 38 Онкология и Рад",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 96.2,
+   "currency": 75.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.3233/cbm-2009-0126",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Early detection of lung cancers – Comparison of computed tomography, cytology and fuzzy-based tumor markers panels",
+  "url": "https://doi.org/10.3233/cbm-2009-0126",
+  "snippet": "Lung cancer is still a primary cause of cancer death in the western world. Thus, a comprehensive primary diagnostic program which comprises the measurement of biomarkers released by lung cancers is of great importance in the clinical management of lung cancer patients. This review present data for the early lung cancer detection comparing computed tomography (CT), sputum cytology and a tumor marke",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 86.7,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 60.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.3389/fonc.2023.1193746",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "A multi-class deep learning model for early lung cancer and chronic kidney disease detection using computed tomography images",
+  "url": "https://doi.org/10.3389/fonc.2023.1193746",
+  "snippet": "Lung cancer is a fatal disease caused by an abnormal proliferation of cells in the lungs. Similarly, chronic kidney disorders affect people worldwide and can lead to renal failure and impaired kidney function. Cyst development, kidney stones, and tumors are frequent diseases impairing kidney function. Since these conditions are generally asymptomatic, early, and accurate identification of lung can",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 91.9,
+   "currency": 60.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 60.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.64411/g4eas641",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "THE ROLE OF LOW-DOSE COMPUTED TOMOGRAPHY IN THE EARLY DETECTION OF LUNG CANCER IN HIGH-RISK PATIENTS",
+  "url": "https://doi.org/10.64411/g4eas641",
+  "snippet": "This scientific article analyzes the diagnostic potential and clinical significance of low-dose computed tomography (LDCT) in the early detection of lung cancer among high-risk patients. Lung cancer remains the leading cause of cancer-related mortality worldwide, with most cases diagnosed at advanced stages. Therefore, early diagnosis of lung cancer represents a critical issue in modern healthcare",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 97.4,
+   "currency": 90.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.25258/ijddt.16.72s.51",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "ROLE OF ARTIFICIAL INTELLIGENCE IN THE EARLY DETECTION OF LUNG CANCER ON COMPUTED TOMOGRAPHY: A DIAGNOSTIC ACCURACY STUDY",
+  "url": "https://doi.org/10.25258/ijddt.16.72s.51",
+  "snippet": ".\n[Concepts] Diagnostic accuracy, Lung cancer, Medicine, Artificial intelligence, Computed tomography",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 90.4,
+   "currency": 100.0,
+   "authority": 85,
+   "accuracy": 55.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "en.cnki.com.cn/article_en/cjfdtotal-yebm200702003.htm",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Early Lung Cancer Detection Using Spiral Computed Tomography and Positron Emission Tomography",
+  "url": "http://en.cnki.com.cn/Article_en/CJFDTotal-YEBM200702003.htm",
+  "snippet": "[Concepts] Positron emission tomography, Tomography, Lung cancer, Spiral computed tomography, Computed tomography",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 46.1,
+   "currency": 25.0,
+   "authority": 50.0,
+   "accuracy": 55.0,
+   "purpose": 70.0,
+   "grade": "low"
+  }
+ },
+ {
+  "key": "doi.org/10.1016/0169-5002(96)85876-4",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "The early detection of pleural dissemination of lung cancer by thin-slice computed tomography",
+  "url": "https://doi.org/10.1016/0169-5002(96)85876-4",
+  "snippet": "[Concepts] Medicine, Lung cancer, Computed tomography, Radiology, Medical physics",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 80.4,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 55.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.4103/1687-8426.203800",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Immunohistochemical staining and computed tomography in early detection of lung cancer among heavy smokers: A pilot study",
+  "url": "https://doi.org/10.4103/1687-8426.203800",
+  "snippet": "Early diagnosis of lung cancer carries a good prognosis. The aim of the present study was early detection of lung cancer among heavy smokers using immunohistochemical staining and chest computed tomography (CT). This descriptive cross-sectional study comprised 80 heavy smokers with smoking index more than 40 pack-years. They were recruited from the Smoking Cessation Clinic, Mansoura University Hos",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 87.7,
+   "currency": 25.0,
+   "authority": 95,
+   "accuracy": 75.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1007/978-981-95-0269-1_113",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "HOVG-Net: A Hybrid Model for the Early Detection of Lung Cancer in Computed Tomography",
+  "url": "https://doi.org/10.1007/978-981-95-0269-1_113",
+  "snippet": "[Concepts] Thresholding, Artificial intelligence, Lung cancer, Computed tomography, Hough transform",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 88.9,
+   "currency": 90.0,
+   "authority": 85,
+   "accuracy": 55.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "pubmed.ncbi.nlm.nih.gov/17393640",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Early detection with computed tomography scans can detect lung cancer, may save lives.",
+  "url": "https://pubmed.ncbi.nlm.nih.gov/17393640",
+  "snippet": "[Concepts] Computed tomography, Lung cancer, Radiology, Medicine, Tomography",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 80.2,
+   "currency": 25.0,
+   "authority": 95,
+   "accuracy": 55.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1177/107327480301000405",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "A Systematic Review and Lessons Learned from Early Lung Cancer Detection Trials Using Low-Dose Computed Tomography of the Chest",
+  "url": "https://doi.org/10.1177/107327480301000405",
+  "snippet": "BACKGROUND: Computed tomography (CT) screening of the chest has shown promise for early detection of lung cancer, but evidence for a reduction in lung cancer mortality by CT screening is not available. METHODS: We reviewed 208 articles to synthesize available evidence for efficacy of CT screening in detecting potentially curative stages of lung cancer and for evidence in reducing lung cancer morta",
+  "scores": {
+   "relevance": 94.0,
+   "relevance_capped": false,
+   "total": 89.7,
+   "currency": 25.0,
+   "authority": 95,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1016/j.jtho.2024.06.013",
+  "groups": [
+   "G-医学"
+  ],
+  "engine": "openalex",
+  "query": "lung cancer computed tomography early detection",
+  "title": "Beyond Low-Dose Computed Tomography: Emerging Diagnostic Tools for Early Lung Cancer Detection",
+  "url": "https://doi.org/10.1016/j.jtho.2024.06.013",
+  "snippet": "[Concepts] Medicine, Computed tomography, Lung cancer, Radiology, Lung cancer screening\n[Cited by 3]",
+  "scores": {
+   "relevance": 84.0,
+   "relevance_capped": false,
+   "total": 87.7,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 65.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.25073/2588-1167/vnuls.4397",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Statutory Interpretation: How Legal Reasoning and Linguistics Interact",
+  "url": "https://doi.org/10.25073/2588-1167/vnuls.4397",
+  "snippet": "The relationship between law and language has been widely discussed as early as in 1963 when Mellinkoff published the well-known book ‘The Language of the Law’ in the US. The linguistic analysis presented in this paper is an attempt to study legal interpretation from an interdisciplinary perspective. In particular, it is intended to demonstrate actual disputes (mostly US cases) that require interp",
+  "scores": {
+   "relevance": 100,
+   "relevance_capped": false,
+   "total": 93.8,
+   "currency": 45.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.55454/rcsas.6.09.2026.002",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Legal Semantics and Statutory Interpretation in India: A Linguistic Analysis of Legislative Language and Judicial Reasoning",
+  "url": "https://doi.org/10.55454/rcsas.6.09.2026.002",
+  "snippet": "Language is the primary tool employed to interpret and enforce the law․ Every statute‚ constitutional provision‚ judicial decision‚ and legal concept largely depends on the definition of the words and phrases that compose it․ India is a multilingual and multicultural society where language is of utmost importance in interpreting statutes․ Semantic interpretation can resolve many issues such as amb",
+  "scores": {
+   "relevance": 86.5,
+   "relevance_capped": false,
+   "total": 93.8,
+   "currency": 100.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.2307/1228963",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Statutory Interpretation as Practical Reasoning",
+  "url": "https://doi.org/10.2307/1228963",
+  "snippet": "In the last decade, statutory interpretation has reemerged as an important topic of academic theory and discussion. This development is welcome, since few topics are more relevant to legal craft and education than the interpretation of statutes, now our primary source of law. The recent theoretical views, however, contrast with practicing lawyers' strategies of statutory interpretation. When pract",
+  "scores": {
+   "relevance": 87.5,
+   "relevance_capped": false,
+   "total": 86.6,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1017/9781108554572",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Statutory Interpretation",
+  "url": "https://doi.org/10.1017/9781108554572",
+  "snippet": "Statutory interpretation involves the reconstruction of the meaning of a legal statement when it cannot be considered as accepted or granted. This phenomenon needs to be considered not only from the legal and linguistic perspective, but also from the argumentative one - which focuses on the strategies for defending a controversial or doubtful viewpoint. This book draws upon linguistics, legal theo",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 81.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.4337/9781788111645",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Economic Approaches to Legal Reasoning and Interpretation",
+  "url": "https://doi.org/10.4337/9781788111645",
+  "snippet": "This insightful research review provides analysis of the most important contemporary work by experts in the economic analysis of legal reasoning and interpretation. It explores a wide range of topics in the field, from constitutional to statutory interpretation, precedent and the interpretation of contracts. The articles discussed raise key questions concerning the optimal construction of institut",
+  "scores": {
+   "relevance": 87.5,
+   "relevance_capped": false,
+   "total": 83.4,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1017/9781316761380.002",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Modeling Statutory Reasoning",
+  "url": "https://doi.org/10.1017/9781316761380.002",
+  "snippet": "INTRODUCTION The Law is a domain of rules, and many of those legal rules are embodied in statutes and regulations. Since rules can be expressed logically and computers can reason deductively, computationally modeling statutory reasoning should be easy. One simply inputs a fact situation to the computer program; the program identifies the relevant rules, determines whether or not the rules’ conditi",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 80.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.5860/choice.47-2281",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Thinking like a lawyer: a new introduction to legal reasoning",
+  "url": "https://doi.org/10.5860/choice.47-2281",
+  "snippet": "* Preface * Is There Legal Reasoning? * Rules--in Law and Elsewhere 2.1 Of Rules in General 2.2 The Core and the Fringe 2.3 The Generality of Rules 2.4 The Formality of Law * The Practice and Problems of Precedent 3.1 Precedent in Two Directions 3.2 Precedent--The Basic Idea 3.3 A Strange Idea 3.4 On Identifying a Precedent 3.5 On the Force of Precedent--Overruling, Distinguishing, and Other Types",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 80.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "scholarship.law.columbia.edu/books/92",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Introduction to law and legal reasoning",
+  "url": "https://scholarship.law.columbia.edu/books/92",
+  "snippet": "This course book serves an undergraduate course in introduction to legal reasoning. It is designed to initiate students in the legal methods of case law analysis and statutory interpretation, prompting students to take a critical distance from the wielding of the methods. It helps students acquire or refine the techniques of close reading, analogizing, distinguishing, positing related fact pattern",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 72.0,
+   "currency": 25.0,
+   "authority": 50.0,
+   "accuracy": 75.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.20965/jaciii.1997.p0094",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Statutory Interpretation by Case-Based Reasoning through Abductive Logic Programming",
+  "url": "https://doi.org/10.20965/jaciii.1997.p0094",
+  "snippet": "This paper presents a method for solving statutory interpretation problem in the legal domain by using abductive logic programming. To interpret a rule, we must make an interpretation for legal predicates and terms in the rule; this interpretation is subject to change according to context. In this paper, we solve this problem byomparing and contrasting cases such as the CABARET system. This is don",
+  "scores": {
+   "relevance": 81.5,
+   "relevance_capped": false,
+   "total": 84.5,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.3233/faia230952",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Conceptual Structures in Statutory Interpretation",
+  "url": "https://doi.org/10.3233/faia230952",
+  "snippet": "This paper introduces a framework of conceptual structures allocated to statutory expressions during interpretive heuresis. Drawing from cognitive science research on conceptual structures, the study seeks to enhance existing computational models of legal reasoning across various domains. A comprehensive set of conceptual structures applicable in statutory interpretation is reconstructed. This fra",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 85.2,
+   "currency": 60.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1016/j.landusepol.2026.107960",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Assessing ChatGPT’s legal reasoning in statutory land consolidation: The case of Cyprus",
+  "url": "https://doi.org/10.1016/j.landusepol.2026.107960",
+  "snippet": "[Concepts] Statutory law, Rubric, Political science, Land use, Consolidation (business)",
+  "scores": {
+   "relevance": 59.0,
+   "relevance_capped": false,
+   "total": 81.7,
+   "currency": 100.0,
+   "authority": 85,
+   "accuracy": 55.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "digital.sandiego.edu/law_fac_books/3",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Legal Rules and Legal Reasoning",
+  "url": "https://digital.sandiego.edu/law_fac_books/3",
+  "snippet": "Part 1 Legal rules and indirect consequentialism: pursuing the good - indirectly law and exclusionary reasons. Part 2 The dilemma of rule-following: the gap the deceptive nature of rules can law survive the asymmetry of authority?. Part 3 Rules and legal reasoning: precedent - constrained by precedent, precedent analogy - bad beginnings, the banality of legal reasoning legal principles - striking ",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 72.5,
+   "currency": 25.0,
+   "authority": 50.0,
+   "accuracy": 75.0,
+   "purpose": 75.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "dx.doi.org/10.2139/ssrn.3515550",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Statutory Interpretation Arguments",
+  "url": "http://dx.doi.org/10.2139/ssrn.3515550",
+  "snippet": "[Concepts] Statutory interpretation, Interpretation (philosophy), Law and economics, Law, Political science",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 73.2,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 55.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2139/ssrn.1475297",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "On Judicial Discretion in Statutory Interpretation",
+  "url": "https://doi.org/10.2139/ssrn.1475297",
+  "snippet": "[Concepts] Statutory interpretation, Judicial discretion, Discretion, Law, Interpretation (philosophy)",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 70.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 55.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.2307/3312014",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Dynamic Statutory Interpretation",
+  "url": "https://doi.org/10.2307/3312014",
+  "snippet": "Contrary to traditional theories of statutory interpretation, which ground statutes in the original legislative text or intent, legal scholar William Eskridge argues that statutory interpretation changes in response to new political alignments, new interpreters, and new ideologies. It does so, first of all, because it involves richer authoritative texts than does either common law or constitutiona",
+  "scores": {
+   "relevance": 67.5,
+   "relevance_capped": false,
+   "total": 79.6,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1111/1467-9337.00162",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Comparative Statutory Interpretation in the British Isles",
+  "url": "https://doi.org/10.1111/1467-9337.00162",
+  "snippet": "Existing studies of statutory interpretation are often of excellent quality but they have tended either to focus on legal practice to the detriment of comparative jurisprudence, or have examined legal reasoning at a level of abstraction which has made empirical study difficult. The author examines a recent development in this area and considers how it might be used to begin a project to identify a",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 77.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 65.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "ijcai.org/proceedings/89-1/papers/084.pdf",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Combining case-based and rule-based reasoning: a heuristic approach",
+  "url": "http://ijcai.org/Proceedings/89-1/Papers/084.pdf",
+  "snippet": "In this paper we discuss a heuristically controlled approach to combining reasoning with cases and reasoning with rules. Our task is interpretation of under-defined terms that occur in legal statutes (like the Internal Revenue Code) where certain terms must be applied to particular cases even though their meanings are not defined by the statute and the statutory rules are unclear as to scope and m",
+  "scores": {
+   "relevance": 62.5,
+   "relevance_capped": false,
+   "total": 65.9,
+   "currency": 40.0,
+   "authority": 50.0,
+   "accuracy": 75.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hmx013",
+  "groups": [
+   "H-法律",
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Formal Models of Statutory Interpretation in Multilingual Legal Systems",
+  "url": "https://doi.org/10.1093/slr/hmx013",
+  "snippet": "Using the case of Buchanan v. Babco, the paper argues that multi-lingual settings are particularly suitable for disclosing cognitive and reasoning tasks that lawyers have to perform when interpreting a statute. It shows how approaches developed in computer science to model the way in which conflicting ontologies or worldviews are merged and inconsistencies between them repaired can also help our u",
+  "scores": {
+   "relevance": 80.0,
+   "relevance_capped": false,
+   "total": 81.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1145/2746090.2746114",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Incorporation of complex doctrinal theories in a model of statutory interpretation",
+  "url": "https://doi.org/10.1145/2746090.2746114",
+  "snippet": "This paper shows how a complex legal doctrinal theory (the doctrine of causation in law) may be represented in a semi-formal, two-layered model of statutory interpretation. The content of the theory is clarified by the proposed knowledge representation. It is argued that doctrinal theories in the reading proposed here are a source of intermediate legal concepts and, in consequence, of rules that e",
+  "scores": {
+   "relevance": 69.0,
+   "relevance_capped": false,
+   "total": 76.9,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "hdl.handle.net/2115/15753",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Legal Reasoning and Interpretation of Justice",
+  "url": "http://hdl.handle.net/2115/15753",
+  "snippet": "Preliminary Remarks -My Basic View of Legal ReasoningLegal reasoning is a network of reasons for legal decisions.This network is a complex one: a composite.multilayered.open.and purposive network in which both normative and non-normative propositions are logically connected.This is the essence of my basic view of legal reasoning(Il.Legal reasoning is structured in such a way that not only statutor",
+  "scores": {
+   "relevance": 87.5,
+   "relevance_capped": false,
+   "total": 56.1,
+   "currency": 40.0,
+   "authority": 50.0,
+   "accuracy": 85.0,
+   "purpose": 75.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/acprof:oso/9780199756148.001.0001",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Statutory and Common Law Interpretation",
+  "url": "https://doi.org/10.1093/acprof:oso/9780199756148.001.0001",
+  "snippet": "This book analyzes statutory and common law interpretation and compares the two. In respect to statutory interpretation, it first asks whether judges are “faithful agents” of the legislature or “independent cooperative partners.” It concludes that the obvious answer is that neither simple categorization really fits—that the function of judges involves a combination of roles. The next issue address",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 79.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 65.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "scholarship.kentlaw.iit.edu/cklawreview/vol70/iss4/7",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Interpretation and Legal Reasoning in Roman Law",
+  "url": "https://scholarship.kentlaw.iit.edu/cklawreview/vol70/iss4/7",
+  "snippet": "[Concepts] Interpretation (philosophy), Epistemology, Law, Philosophy, Political science\n[Cited by 23]",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 69.8,
+   "currency": 40.0,
+   "authority": 50.0,
+   "accuracy": 65.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.7176/jlpg/87-08",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "The Role of Legal Reasoning in the Conduct of Human Affairs",
+  "url": "https://doi.org/10.7176/jlpg/87-08",
+  "snippet": "Legal reasoning is part of the judicial process that revolves around what judges and courts do in deciding or adjudicating cases. The judicial process traditionally recognizes four major themes namely: legal reasoning, judicial discretion, precedent and statutory interpretation. This article focuses on legal reasoning. A judge makes a judgment about human affairs. There is a claim that he reasons ",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 80.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "opencommons.uconn.edu/law_papers/31",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Misreading Like a Lawyer: Cognitive Bias in Statutory Interpretation",
+  "url": "https://opencommons.uconn.edu/law_papers/31",
+  "snippet": "Statutory interpretation dilemmas arise in all areas of law, where we often script them as scenes of conflict between a statute's literal text and its animating purpose. This Article argues that, for an important class of disputes, this supposed discord between text and purpose is an illusion. In fact, lawyers are overlooking ambiguities of literal meaning that align well with statutory purpose. T",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 73.5,
+   "currency": 25.0,
+   "authority": 50.0,
+   "accuracy": 80.0,
+   "purpose": 75.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1609/aaai.v40i46.41328",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "System L: Toward System 2-Style Legal Reasoning",
+  "url": "https://doi.org/10.1609/aaai.v40i46.41328",
+  "snippet": "Dual-system theory distinguishes between fast, intuitive System 1 and slow, deliberative System 2. While this dichotomy describes many forms of reasoning, it oversimplifies the reality of expert legal reasoning. Legal reasoning is not merely a process of slow, logical deliberation. It is intrinsically normative, embedding precedent analysis, statutory interpretation, policy balancing, and social v",
+  "scores": {
+   "relevance": 75.0,
+   "relevance_capped": false,
+   "total": 88.2,
+   "currency": 100.0,
+   "authority": 85,
+   "accuracy": 65.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "psvmkendra.com/index.php/journal/article/view/2080",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "openalex",
+  "query": "statutory interpretation legal reasoning",
+  "title": "Legal Maxims and Judicial Interpretation: A Critical Analysis in the Indian Legal System",
+  "url": "https://psvmkendra.com/index.php/journal/article/view/2080",
+  "snippet": "Law is not merely a collection of statutory provisions but a dynamic instrument for achieving justice. Every legal system depends upon judges to interpret legislation whenever ambiguity, inconsistency, or unforeseen circumstances arise. Since legislatures cannot anticipate every factual situation, judicial interpretation has become indispensable in ensuring that statutes operate effectively and co",
+  "scores": {
+   "relevance": 69.0,
+   "relevance_capped": false,
+   "total": 64.7,
+   "currency": 60.0,
+   "authority": 50.0,
+   "accuracy": 70.0,
+   "purpose": 75.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hms044",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Interpretation is Understanding and Application: The Case for Concurrent Legal Interpretation",
+  "url": "https://doi.org/10.1093/slr/hms044",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/hms044\n[页码] 101-127\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 50.0,
+   "relevance_capped": false,
+   "total": 70.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hmt025",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Concurrent Legal Interpretation versus Moderate Intentionalism",
+  "url": "https://doi.org/10.1093/slr/hmt025",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/hmt025\n[页码] 244-260\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 68.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/20.2.164",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Judicial interpretation: Hart and European legal reasoning",
+  "url": "https://doi.org/10.1093/slr/20.2.164",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/20.2.164\n[页码] 164-173\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 71.1,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/12.3.228",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Legal Professional Privilege, Statutory Interpretation and Yuill",
+  "url": "https://doi.org/10.1093/slr/12.3.228",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/12.3.228\n[页码] 228-235\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 71.1,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1007/978-1-349-13153-2_17",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "An Introduction to Statute Law and Statutory Interpretation",
+  "url": "https://doi.org/10.1007/978-1-349-13153-2_17",
+  "snippet": "[Journal/Proc.] Legal Method\n[DOI] 10.1007/978-1-349-13153-2_17\n[页码] 187-192\n[出版方] Macmillan Education UK",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 71.1,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1007/978-1-349-15075-5_18",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "An Introduction to Statute Law and Statutory Interpretation",
+  "url": "https://doi.org/10.1007/978-1-349-15075-5_18",
+  "snippet": "[Journal/Proc.] Legal Method\n[DOI] 10.1007/978-1-349-15075-5_18\n[页码] 227-232\n[出版方] Macmillan Education UK",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 71.1,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1007/978-1-349-14289-7_17",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "An Introduction to Statute Law and Statutory Interpretation",
+  "url": "https://doi.org/10.1007/978-1-349-14289-7_17",
+  "snippet": "[Journal/Proc.] Legal Method\n[DOI] 10.1007/978-1-349-14289-7_17\n[页码] 223-229\n[出版方] Macmillan Education UK",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 71.1,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1002/cala.30340",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Court's interpretation of statute sinks former employee's lawsuit",
+  "url": "https://doi.org/10.1002/cala.30340",
+  "snippet": "Case name: Almeida v. University of Medicine and Dentistry of New Jersey, et al. , No. A‐5628‐12T2 (N.J. Super. Ct. App. 03/23/15).\n[Journal/Proc.] Campus Legal Advisor\n[DOI] 10.1002/cala.30340\n[页码] 7-8\n[出版方] Wiley",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 68.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hmx018",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "The Nature of Legal Interpretation – What Jurists Can Learn about Legal Interpretation from Linguistics and Philosophy, 2017",
+  "url": "https://doi.org/10.1093/slr/hmx018",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/hmx018\n[页码] 100-101\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 40.0,
+   "relevance_capped": false,
+   "total": 66.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hmi007",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Interpretation Acts--Impediments to Legal Certainty and Access to the Law",
+  "url": "https://doi.org/10.1093/slr/hmi007",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/hmi007\n[页码] 64-68\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 68.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.5040/9781526530257.ch-002",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Interpretation and Application of Tax Statute",
+  "url": "https://doi.org/10.5040/9781526530257.ch-002",
+  "snippet": "[Journal/Proc.] Irish Capital Gains Tax 2024\n[DOI] 10.5040/9781526530257.ch-002\n[页码] 35-94\n[出版方] Bloomsbury Publishing Plc",
+  "scores": {
+   "relevance": 50.0,
+   "relevance_capped": false,
+   "total": 77.8,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1111/lest.12010",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Coke, the statute, wives and lovers: routes to a harsher interpretation of the Statute of Westminster II c. 34 on dower and adultery",
+  "url": "https://doi.org/10.1111/lest.12010",
+  "snippet": "In the Statute of Westminster II (1285) c. 34, it was enacted that a widow could lose her action of dower, and the possibility of claiming the usual proportion of her deceased husband's real property, if, while he was alive, she had left him for a lover, and the married couple had not been reconciled during the husband's life. This new exception to the action of dower represented an important chan",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 73.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hmx026",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Special Issue on Legal Interpretation",
+  "url": "https://doi.org/10.1093/slr/hmx026",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/hmx026\n[页码] iii-iii\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 68.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hmx025",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Special Issue on Legal Interpretation",
+  "url": "https://doi.org/10.1093/slr/hmx025",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/hmx025\n[页码] iv-vii\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 68.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1061/(asce)la.1943-4170.0000011",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Limitation of Liability Clause Violates Anti-Indemnity Statute",
+  "url": "https://doi.org/10.1061/(asce)la.1943-4170.0000011",
+  "snippet": "[Journal/Proc.] Journal of Legal Affairs and Dispute Resolution in Engineering and Construction\n[DOI] 10.1061/(asce)la.1943-4170.0000011\n[页码] 154-155\n[出版方] American Society of Civil Engineers (ASCE)",
+  "scores": {
+   "relevance": 42.0,
+   "relevance_capped": false,
+   "total": 67.5,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.52340/lm.2021.03",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "STATUTE OF LIMITATIONS, CONTRA LEGEM INTERPRETATION AND ONE INTERESTING DECISION FROM THE GEORGIAN CIVIL CASE LAW",
+  "url": "https://doi.org/10.52340/lm.2021.03",
+  "snippet": "[Journal/Proc.] JOURNAL \"LEGAL METHODS\"\n[DOI] 10.52340/lm.2021.03\n[出版方] Sulkhan-Saba Orbeliani University Publishing House",
+  "scores": {
+   "relevance": 40.0,
+   "relevance_capped": false,
+   "total": 69.8,
+   "currency": 45.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.5040/9781526530219.ch-004a",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Interpretation and Application of Tax Statute",
+  "url": "https://doi.org/10.5040/9781526530219.ch-004a",
+  "snippet": "[Journal/Proc.] Irish Income Tax 2024\n[DOI] 10.5040/9781526530219.ch-004a\n[页码] 31-90\n[出版方] Bloomsbury Publishing plc",
+  "scores": {
+   "relevance": 50.0,
+   "relevance_capped": false,
+   "total": 77.8,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.18356/1169c259-en",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Statute of the United Nations Dispute Tribunal",
+  "url": "https://doi.org/10.18356/1169c259-en",
+  "snippet": "[DOI] 10.18356/1169c259-en\n[出版方] United Nations Publications",
+  "scores": {
+   "relevance": 40.0,
+   "relevance_capped": false,
+   "total": 66.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.5040/9781509929993.ch-004",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Legal Interpretation in Contracts to Innovate: Potential Matters of Dispute",
+  "url": "https://doi.org/10.5040/9781509929993.ch-004",
+  "snippet": "[Journal/Proc.] Networks of Collaborative Contracts for Innovation\n[DOI] 10.5040/9781509929993.ch-004\n[出版方] Hart Publishing",
+  "scores": {
+   "relevance": 50.0,
+   "relevance_capped": false,
+   "total": 70.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/hmy033",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Virtuous Adjudication; or the Relevance of Judicial Character to Legal Interpretation",
+  "url": "https://doi.org/10.1093/slr/hmy033",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/hmy033\n[页码] 87-95\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 40.0,
+   "relevance_capped": false,
+   "total": 66.8,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.22364/iscflul.8.2.05",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Poetry and Tax Statute: Translation as Interpretation",
+  "url": "https://doi.org/10.22364/iscflul.8.2.05",
+  "snippet": "This paper applies the literary critique of translating poetry to the field of translating statute to raise significant constitutional and practical issues. The field of focus is taxation law, an area notable for its complexity and intricacy in a large number of countries. A linguistic argument is made that the demands that are made on the words of tax law parallel those made in poetry and this ne",
+  "scores": {
+   "relevance": 58.0,
+   "relevance_capped": false,
+   "total": 78.0,
+   "currency": 45.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.4324/9781315093765-10",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "On a General Theory of Interpretation: The Betti-Gadamer Dispute in Legal Hermeneutics",
+  "url": "https://doi.org/10.4324/9781315093765-10",
+  "snippet": "[Journal/Proc.] Gadamer and Law\n[DOI] 10.4324/9781315093765-10\n[页码] 283-335\n[出版方] Routledge",
+  "scores": {
+   "relevance": 44.0,
+   "relevance_capped": false,
+   "total": 67.2,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1093/slr/1.1.5",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Interpretation and the Interpretation Act 1978",
+  "url": "https://doi.org/10.1093/slr/1.1.5",
+  "snippet": "[Journal/Proc.] Statute Law Review\n[DOI] 10.1093/slr/1.1.5\n[页码] 5-13\n[出版方] Oxford University Press (OUP)",
+  "scores": {
+   "relevance": 36.0,
+   "relevance_capped": false,
+   "total": 67.6,
+   "currency": 40.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.5771/9783845258683_124",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "THE ROME STATUTE AND THE GERMAN LEGAL ORDER",
+  "url": "https://doi.org/10.5771/9783845258683_124",
+  "snippet": "[Journal/Proc.] The Rome Statute and Domestic Legal Orders\n[DOI] 10.5771/9783845258683_124\n[页码] 124-145\n[出版方] Nomos",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 71.0,
+   "currency": 25.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "doi.org/10.1163/9789004725515_004",
+  "groups": [
+   "H-法律"
+  ],
+  "engine": "crossref",
+  "query": "legal statute interpretation application dispute",
+  "title": "Rules of Interpretation under the Rome Statute",
+  "url": "https://doi.org/10.1163/9789004725515_004",
+  "snippet": "[Journal/Proc.] The Role of State Parties to the Rome Statute in the Interpretation of the Statute\n[DOI] 10.1163/9789004725515_004\n[页码] 68-116\n[出版方] Brill | Nijhoff",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 80.7,
+   "currency": 90.0,
+   "authority": 85,
+   "accuracy": 70.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2506.06962v3",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "AR-RAG: Autoregressive Retrieval Augmentation for Image Generation",
+  "url": "https://arxiv.org/abs/2506.06962v3",
+  "snippet": "We introduce Autoregressive Retrieval Augmentation (AR-RAG), a novel paradigm that enhances image generation by autoregressively incorporating knearest neighbor retrievals at the patch level. Unlike prior methods that perform a single, static retrieval before generation and condition the entire generation on fixed reference images, AR-RAG performs context-aware retrievals at each generation step, ",
+  "scores": {
+   "relevance": 56.7,
+   "relevance_capped": false,
+   "total": 90.3,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2504.13684v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Intelligent Interaction Strategies for Context-Aware Cognitive Augmentation",
+  "url": "https://arxiv.org/abs/2504.13684v1",
+  "snippet": "Human cognition is constrained by processing limitations, leading to cognitive overload and inefficiencies in knowledge synthesis and decision-making. Large Language Models (LLMs) present an opportunity for cognitive augmentation, but their current reactive nature limits their real-world applicability. This position paper explores the potential of context-aware cognitive augmentation, where LLMs d",
+  "scores": {
+   "relevance": 38.3,
+   "relevance_capped": false,
+   "total": 81.9,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2502.01549v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "VideoRAG: Retrieval-Augmented Generation with Extreme Long-Context Videos",
+  "url": "https://arxiv.org/abs/2502.01549v1",
+  "snippet": "Retrieval-Augmented Generation (RAG) has demonstrated remarkable success in enhancing Large Language Models (LLMs) through external knowledge integration, yet its application has primarily focused on textual content, leaving the rich domain of multi-modal video knowledge predominantly unexplored. This paper introduces VideoRAG, the first retrieval-augmented generation framework specifically design",
+  "scores": {
+   "relevance": 86.7,
+   "relevance_capped": false,
+   "total": 100.0,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2202.11233v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Retrieval Augmented Classification for Long-Tail Visual Recognition",
+  "url": "https://arxiv.org/abs/2202.11233v1",
+  "snippet": "We introduce Retrieval Augmented Classification (RAC), a generic approach to augmenting standard image classification pipelines with an explicit retrieval module. RAC consists of a standard base image encoder fused with a parallel retrieval branch that queries a non-parametric external memory of pre-encoded images and associated text snippets. We apply RAC to the problem of long-tail classificatio",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 85.8,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2504.17204v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Factually: Exploring Wearable Fact-Checking for Augmented Truth Discernment",
+  "url": "https://arxiv.org/abs/2504.17204v1",
+  "snippet": "Wearable devices are transforming human capabilities by seamlessly augmenting cognitive functions. In this position paper, we propose a voice-based, interactive learning companion designed to amplify and extend cognitive abilities through informal learning. Our vision is threefold: (1) to enable users to discover new knowledge on-the-go through contextual interactive quizzes, fostering critical th",
+  "scores": {
+   "relevance": 38.3,
+   "relevance_capped": false,
+   "total": 82.9,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2605.14473v4",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Does RAG Know When Retrieval Is Wrong? Diagnosing Context Compliance under Knowledge Conflict",
+  "url": "https://arxiv.org/abs/2605.14473v4",
+  "snippet": "Retrieval-Augmented Generation (RAG) is usually evaluated by whether the final answer is correct. Under knowledge conflict, this hides a key question: did the model follow retrieved evidence, rely on its parametric prior, or produce a post-hoc rationale? We study this as context compliance, the regime in which retrieved context controls the answer even when it conflicts with the model's prior know",
+  "scores": {
+   "relevance": 64.0,
+   "relevance_capped": false,
+   "total": 93.4,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2504.14689v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Designing AI Systems that Augment Human Performed vs. Demonstrated Critical Thinking",
+  "url": "https://arxiv.org/abs/2504.14689v1",
+  "snippet": "The recent rapid advancement of LLM-based AI systems has accelerated our search and production of information. While the advantages brought by these systems seemingly improve the performance or efficiency of human activities, they do not necessarily enhance human capabilities. Recent research has started to examine the impact of generative AI on individuals' cognitive abilities, especially critica",
+  "scores": {
+   "relevance": 19.0,
+   "relevance_capped": false,
+   "total": 74.2,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2402.12317v2",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "EVOR: Evolving Retrieval for Code Generation",
+  "url": "https://arxiv.org/abs/2402.12317v2",
+  "snippet": "Recently the retrieval-augmented generation (RAG) has been successfully applied in code generation. However, existing pipelines for retrieval-augmented code generation (RACG) employ static knowledge bases with a single source, limiting the adaptation capabilities of Large Language Models (LLMs) to domains they have insufficient knowledge of. In this work, we develop a novel pipeline, EVOR, that em",
+  "scores": {
+   "relevance": 56.7,
+   "relevance_capped": false,
+   "total": 88.1,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2411.18583v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Automated Literature Review Using NLP Techniques and LLM-Based Retrieval-Augmented Generation",
+  "url": "https://arxiv.org/abs/2411.18583v1",
+  "snippet": "This research presents and compares multiple approaches to automate the generation of literature reviews using several Natural Language Processing (NLP) techniques and retrieval-augmented generation (RAG) with a Large Language Model (LLM). The ever-increasing number of research articles provides a huge challenge for manual literature review. It has resulted in an increased demand for automation. D",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 86.2,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2402.15276v3",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "CFIR: Fast and Effective Long-Text To Image Retrieval for Large Corpora",
+  "url": "https://arxiv.org/abs/2402.15276v3",
+  "snippet": "Text-to-image retrieval aims to find the relevant images based on a text query, which is important in various use-cases, such as digital libraries, e-commerce, and multimedia databases. Although Multimodal Large Language Models (MLLMs) demonstrate state-of-the-art performance, they exhibit limitations in handling large-scale, diverse, and ambiguous real-world needs of retrieval, due to the computa",
+  "scores": {
+   "relevance": 46.7,
+   "relevance_capped": false,
+   "total": 83.6,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2502.00306v2",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Riddle Me This! Stealthy Membership Inference for Retrieval-Augmented Generation",
+  "url": "https://arxiv.org/abs/2502.00306v2",
+  "snippet": "Retrieval-Augmented Generation (RAG) enables Large Language Models (LLMs) to generate grounded responses by leveraging external knowledge databases without altering model parameters. Although the absence of weight tuning prevents leakage via model parameters, it introduces the risk of inference adversaries exploiting retrieved documents in the model's context. Existing methods for membership infer",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 92.2,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2509.25716v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "DeepCodeSeek: Real-Time API Retrieval for Context-Aware Code Generation",
+  "url": "https://arxiv.org/abs/2509.25716v1",
+  "snippet": "Current search techniques are limited to standard RAG query-document applications. In this paper, we propose a novel technique to expand the code and index for predicting the required APIs, directly enabling high-quality, end-to-end code generation for auto-completion and agentic AI applications. We address the problem of API leaks in current code-to-code benchmark datasets by introducing a new da",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 92.2,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 95.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2504.19754v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Reconstructing Context: Evaluating Advanced Chunking Strategies for Retrieval-Augmented Generation",
+  "url": "https://arxiv.org/abs/2504.19754v1",
+  "snippet": "Retrieval-augmented generation (RAG) has become a transformative approach for enhancing large language models (LLMs) by grounding their outputs in external knowledge sources. Yet, a critical question persists: how can vast volumes of external knowledge be managed effectively within the input constraints of LLMs? Traditional methods address this by chunking external documents into smaller, fixed-si",
+  "scores": {
+   "relevance": 67.3,
+   "relevance_capped": false,
+   "total": 94.1,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2507.23334v2",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "MUST-RAG: MUSical Text Question Answering with Retrieval Augmented Generation",
+  "url": "https://arxiv.org/abs/2507.23334v2",
+  "snippet": "Recent advancements in Large language models (LLMs) have demonstrated remarkable capabilities across diverse domains. While they exhibit strong zero-shot performance on various tasks, LLMs' effectiveness in music-related applications remains limited due to the relatively small proportion of music-specific knowledge in their training data. To address this limitation, we propose MusT-RAG, a comprehe",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 91.2,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2309.15217v2",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Ragas: Automated Evaluation of Retrieval Augmented Generation",
+  "url": "https://arxiv.org/abs/2309.15217v2",
+  "snippet": "We introduce Ragas (Retrieval Augmented Generation Assessment), a framework for reference-free evaluation of Retrieval Augmented Generation (RAG) pipelines. RAG systems are composed of a retrieval and an LLM based generation module, and provide LLMs with knowledge from a reference textual database, which enables them to act as a natural language layer between a user and textual databases, reducing",
+  "scores": {
+   "relevance": 65.0,
+   "relevance_capped": false,
+   "total": 86.8,
+   "currency": 60.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2510.22344v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "FAIR-RAG: Faithful Adaptive Iterative Refinement for Retrieval-Augmented Generation",
+  "url": "https://arxiv.org/abs/2510.22344v1",
+  "snippet": "While Retrieval-Augmented Generation (RAG) mitigates hallucination and knowledge staleness in Large Language Models (LLMs), existing frameworks often falter on complex, multi-hop queries that require synthesizing information from disparate sources. Current advanced RAG methods, employing iterative or adaptive strategies, lack a robust mechanism to systematically identify and fill evidence gaps, of",
+  "scores": {
+   "relevance": 59.0,
+   "relevance_capped": false,
+   "total": 91.2,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2407.19669v2",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "mGTE: Generalized Long-Context Text Representation and Reranking Models for Multilingual Text Retrieval",
+  "url": "https://arxiv.org/abs/2407.19669v2",
+  "snippet": "We present systematic efforts in building long-context multilingual text representation model (TRM) and reranker from scratch for text retrieval. We first introduce a text encoder (base size) enhanced with RoPE and unpadding, pre-trained in a native 8192-token context (longer than 512 of previous multilingual encoders). Then we construct a hybrid TRM and a cross-encoder reranker by contrastive lea",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 85.2,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2601.05264v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Engineering the RAG Stack: A Comprehensive Review of the Architecture and Trust Frameworks for Retrieval-Augmented Generation Systems",
+  "url": "https://arxiv.org/abs/2601.05264v1",
+  "snippet": "This article provides a comprehensive systematic literature review of academic studies, industrial applications, and real-world deployments from 2018 to 2025, providing a practical guide and detailed overview of modern Retrieval-Augmented Generation (RAG) architectures. RAG offers a modular approach for integrating external knowledge without increasing the capacity of the model as LLM systems expa",
+  "scores": {
+   "relevance": 54.0,
+   "relevance_capped": false,
+   "total": 87.9,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2212.10423v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Fine-Grained Distillation for Long Document Retrieval",
+  "url": "https://arxiv.org/abs/2212.10423v1",
+  "snippet": "Long document retrieval aims to fetch query-relevant documents from a large-scale collection, where knowledge distillation has become de facto to improve a retriever by mimicking a heterogeneous yet powerful cross-encoder. However, in contrast to passages or sentences, retrieval on long documents suffers from the scope hypothesis that a long document may cover multiple topics. This maximizes their",
+  "scores": {
+   "relevance": 46.7,
+   "relevance_capped": false,
+   "total": 78.1,
+   "currency": 45.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1811.08772v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Overcoming low-utility facets for complex answer retrieval",
+  "url": "https://arxiv.org/abs/1811.08772v1",
+  "snippet": "Many questions cannot be answered simply; their answers must include numerous nuanced details and additional context. Complex Answer Retrieval (CAR) is the retrieval of answers to such questions. In their simplest form, these questions are constructed from a topic entity (e.g., `cheese') and a facet (e.g., `health effects'). While topic matching has been thoroughly explored, we observe that some f",
+  "scores": {
+   "relevance": 38.3,
+   "relevance_capped": false,
+   "total": 72.2,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "medium"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2503.10589v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Long Context Tuning for Video Generation",
+  "url": "https://arxiv.org/abs/2503.10589v1",
+  "snippet": "Recent advances in video generation can produce realistic, minute-long single-shot videos with scalable diffusion transformers. However, real-world narrative videos require multi-shot scenes with visual and dynamic consistency across shots. In this work, we introduce Long Context Tuning (LCT), a training paradigm that expands the context window of pre-trained single-shot video diffusion models to ",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 89.5,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2604.18362v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "ArbGraph: Conflict-Aware Evidence Arbitration for Reliable Long-Form Retrieval-Augmented Generation",
+  "url": "https://arxiv.org/abs/2604.18362v1",
+  "snippet": "Retrieval-augmented generation (RAG) remains unreliable in long-form settings, where retrieved evidence is noisy or contradictory, making it difficult for RAG pipelines to maintain factual consistency. Existing approaches focus on retrieval expansion or verification during generation, leaving conflict resolution entangled with generation. To address this limitation, we propose ArbGraph, a framewor",
+  "scores": {
+   "relevance": 80.7,
+   "relevance_capped": false,
+   "total": 98.2,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2506.08938v2",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "FaithfulRAG: Fact-Level Conflict Modeling for Context-Faithful Retrieval-Augmented Generation",
+  "url": "https://arxiv.org/abs/2506.08938v2",
+  "snippet": "Large language models (LLMs) augmented with retrieval systems have demonstrated significant potential in handling knowledge-intensive tasks. However, these models often struggle with unfaithfulness issues, generating outputs that either ignore the retrieved context or inconsistently blend it with the LLM`s parametric knowledge. This issue is particularly severe in cases of knowledge conflict, wher",
+  "scores": {
+   "relevance": 75.7,
+   "relevance_capped": false,
+   "total": 95.0,
+   "currency": 90.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2411.00744v2",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "CARROT: A Learned Cost-Constrained Retrieval Optimization System for RAG",
+  "url": "https://arxiv.org/abs/2411.00744v2",
+  "snippet": "Large Language Models (LLMs) have demonstrated impressive ability in generation and reasoning tasks but struggle with handling up-to-date knowledge, leading to inaccuracies or hallucinations. Retrieval-Augmented Generation (RAG) mitigates this by retrieving and incorporating external knowledge into input prompts. In particular, due to LLMs' context window limitations and long-context hallucination",
+  "scores": {
+   "relevance": 53.3,
+   "relevance_capped": false,
+   "total": 86.9,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 100,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2601.11863v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Utilizing Metadata for Better Retrieval-Augmented Generation",
+  "url": "https://arxiv.org/abs/2601.11863v1",
+  "snippet": "Retrieval-Augmented Generation systems depend on retrieving semantically relevant document chunks to support accurate, grounded outputs from large language models. In structured and repetitive corpora such as regulatory filings, chunk similarity alone often fails to distinguish between documents with overlapping language. Practitioners often flatten metadata into input text as a heuristic, but the",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 91.0,
+   "currency": 100.0,
+   "authority": 100,
+   "accuracy": 90.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/1908.01798v1",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "arxiv-fulltext",
+  "query": "retrieval augmented generation long context conflict",
+  "title": "Unsupervised Context Retrieval for Long-tail Entities",
+  "url": "https://arxiv.org/abs/1908.01798v1",
+  "snippet": "Monitoring entities in media streams often relies on rich entity representations, like structured information available in a knowledge base (KB). For long-tail entities, such monitoring is highly challenging, due to their limited, if not entirely missing, representation in the reference KB. In this paper, we address the problem of retrieving textual contexts for monitoring long-tail entities. We p",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 78.8,
+   "currency": 25.0,
+   "authority": 100,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2501.01880",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Long Context vs. RAG for LLMs: An Evaluation and Revisits",
+  "url": "http://arxiv.org/abs/2501.01880",
+  "snippet": "Extending context windows (i.e., Long Context, LC) and using retrievers to selectively access relevant information (i.e., Retrieval-Augmented Generation, RAG) are the two main strategies to enable LLMs to incorporate extremely long external contexts. This paper revisits recent studies on this topic, highlighting their key insights and discrepancies. We then provide a more comprehensive evaluation ",
+  "scores": {
+   "relevance": 74.0,
+   "relevance_capped": false,
+   "total": 84.2,
+   "currency": 75.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.18653/v1/2025.findings-acl.1365",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "ECoRAG: Evidentiality-guided Compression for Long Context RAG",
+  "url": "https://doi.org/10.18653/v1/2025.findings-acl.1365",
+  "snippet": "Large Language Models (LLMs) have shown remarkable performance in Open-Domain Question Answering (ODQA) by leveraging external documents through Retrieval-Augmented Generation (RAG).To reduce RAG overhead, from longer context, context compression is necessary.However, prior compression methods do not focus on filtering out non-evidential information, which limit the performance in LLM-based RAG.We",
+  "scores": {
+   "relevance": 68.0,
+   "relevance_capped": false,
+   "total": 88.8,
+   "currency": 90.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2605.14473",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Does RAG Know When Retrieval Is Wrong? Diagnosing Context Compliance under Knowledge Conflict",
+  "url": "https://arxiv.org/abs/2605.14473",
+  "snippet": "Retrieval-Augmented Generation (RAG) is usually evaluated by whether the final answer is correct. Under knowledge conflict, this hides a key question: did the model follow retrieved evidence, rely on its parametric prior, or produce a post-hoc rationale? We study this as context compliance, the regime in which retrieved context controls the answer even when it conflicts with the model's prior know",
+  "scores": {
+   "relevance": 78.0,
+   "relevance_capped": false,
+   "total": 93.3,
+   "currency": 100.0,
+   "authority": 95,
+   "accuracy": 75.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2506.05167",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "ECoRAG: Evidentiality-guided Compression for Long Context RAG",
+  "url": "http://arxiv.org/abs/2506.05167",
+  "snippet": "Large Language Models (LLMs) have shown remarkable performance in Open-Domain Question Answering (ODQA) by leveraging external documents through Retrieval-Augmented Generation (RAG). To reduce RAG overhead, from longer context, context compression is necessary. However, prior compression methods do not focus on filtering out non-evidential information, which limit the performance in LLM-based RAG.",
+  "scores": {
+   "relevance": 68.0,
+   "relevance_capped": false,
+   "total": 83.8,
+   "currency": 90.0,
+   "authority": 95,
+   "accuracy": 75.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.18653/v1/2025.acl-long.1476",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Astute RAG: Overcoming Imperfect Retrieval Augmentation and Knowledge Conflicts for Large Language Models",
+  "url": "https://doi.org/10.18653/v1/2025.acl-long.1476",
+  "snippet": "Retrieval-augmented generation (RAG), while effective in integrating external knowledge to enhance large language models (LLMs), can be undermined by imperfect retrieval, which may introduce irrelevant, misleading, or even malicious information.Despite its importance, previous studies have rarely explored the behavior of RAG with errors from imperfect retrieval, and how potential conflicts arise b",
+  "scores": {
+   "relevance": 62.0,
+   "relevance_capped": false,
+   "total": 86.2,
+   "currency": 90.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2506.02503",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "KARE-RAG: Knowledge-Aware Refinement and Enhancement for RAG",
+  "url": "https://arxiv.org/abs/2506.02503",
+  "snippet": "Retrieval-Augmented Generation (RAG) equips large language models with external knowledge and is central to knowledge-intensive tasks. As RAG systems enter real-world use, generators must reliably leverage retrieved evidence. Recent fine-tuning methods improve adaptation to RAG scenarios, but optimization remains challenging because retrieval may return incomplete, fragmented, noisy, or conflictin",
+  "scores": {
+   "relevance": 64.0,
+   "relevance_capped": false,
+   "total": 85.9,
+   "currency": 90.0,
+   "authority": 95,
+   "accuracy": 70.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2410.07176",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Astute RAG: Overcoming Imperfect Retrieval Augmentation and Knowledge Conflicts for Large Language Models",
+  "url": "http://arxiv.org/abs/2410.07176",
+  "snippet": "Retrieval augmented generation (RAG), while effectively integrating external knowledge to address the inherent limitations of large language models (LLMs), can be hindered by imperfect retrieval that contain irrelevant, misleading, or even malicious information. Previous studies have rarely connected the behavior of RAG through joint analysis, particularly regarding error propagation coming from i",
+  "scores": {
+   "relevance": 62.0,
+   "relevance_capped": false,
+   "total": 80.0,
+   "currency": 75.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2506.05278",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Micro-Act: Mitigating Knowledge Conflict in LLM-based RAG via Actionable Self-Reasoning",
+  "url": "http://arxiv.org/abs/2506.05278",
+  "snippet": "Retrieval-Augmented Generation (RAG) systems commonly suffer from Knowledge Conflicts, where retrieved external knowledge contradicts the inherent, parametric knowledge of large language models (LLMs). It adversely affects performance on downstream tasks such as question answering (QA). Existing approaches often attempt to mitigate conflicts by directly comparing two knowledge sources in a side-by",
+  "scores": {
+   "relevance": 68.0,
+   "relevance_capped": false,
+   "total": 84.3,
+   "currency": 90.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.18653/v1/2026.mellm-1.9",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "When Retrieval Hurts: Evidence Utilization, Script Fidelity, and Knowledge Conflicts in Multilingual RAG",
+  "url": "https://doi.org/10.18653/v1/2026.mellm-1.9",
+  "snippet": "Varalekshmy M Mohan, Swathi Jayakumar, Gadha Saji Menon, Sachin Kurup, Veena G, Vani Kanjirangat. Proceedings of the 1st Workshop on Multilinguality in the Era of Large Language Models (MeLLM 2026). 2026.\n[Concepts] Linguistics, Computer science, Natural language processing, Artificial intelligence, Feature (linguistics)",
+  "scores": {
+   "relevance": 44.0,
+   "relevance_capped": false,
+   "total": 77.4,
+   "currency": 100.0,
+   "authority": 85,
+   "accuracy": 65.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.3390/bdcc8090115",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "QA-RAG: Exploring LLM Reliance on External Knowledge",
+  "url": "https://doi.org/10.3390/bdcc8090115",
+  "snippet": "Large language models (LLMs) can store factual knowledge within their parameters and have achieved superior results in question-answering tasks. However, challenges persist in providing provenance for their decisions and keeping their knowledge up to date. Some approaches aim to address these challenges by combining external knowledge with parametric memory. In contrast, our proposed QA-RAG soluti",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 80.5,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2603.03292",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "From Conflict to Consensus: Boosting Medical Reasoning via Multi-Round Agentic RAG",
+  "url": "https://arxiv.org/abs/2603.03292",
+  "snippet": "Large Language Models (LLMs) exhibit high reasoning capacity in medical question-answering, but their tendency to produce hallucinations and outdated knowledge poses critical risks in healthcare fields. While Retrieval-Augmented Generation (RAG) mitigates these issues, existing methods rely on noisy token-level signals and lack the multi-round refinement required for complex reasoning. In this pap",
+  "scores": {
+   "relevance": 64.0,
+   "relevance_capped": false,
+   "total": 88.9,
+   "currency": 100.0,
+   "authority": 95,
+   "accuracy": 75.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2405.03085",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Compressing Long Context for Enhancing RAG with AMR-based Concept Distillation",
+  "url": "http://arxiv.org/abs/2405.03085",
+  "snippet": "Large Language Models (LLMs) have made significant strides in information acquisition. However, their overreliance on potentially flawed parametric knowledge leads to hallucinations and inaccuracies, particularly when handling long-tail, domain-specific queries. Retrieval Augmented Generation (RAG) addresses this limitation by incorporating external, non-parametric knowledge. Nevertheless, the ret",
+  "scores": {
+   "relevance": 74.0,
+   "relevance_capped": false,
+   "total": 84.2,
+   "currency": 75.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.18653/v1/2025.fever-1.22",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "AIC CTU@FEVER 8: On-premise fact checking through long context RAG",
+  "url": "https://doi.org/10.18653/v1/2025.fever-1.22",
+  "snippet": "In this paper, we present our fact verification pipeline which has scored first in FEVER 8 shared task in real-world automated factchecking.Our system is a simple two-step RAG pipeline based on our last year's submission.We show how the pipeline can be redeployed on-premise, achieving state-of-the-art fact-checking performance (in sense of Ev 2 R test-score), even under the constraint of a single ",
+  "scores": {
+   "relevance": 62.0,
+   "relevance_capped": false,
+   "total": 87.2,
+   "currency": 90.0,
+   "authority": 95,
+   "accuracy": 75.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2609.37171",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Bridging Semantic Gaps in RAG through Generated Context Knowledge Fusion",
+  "url": "https://arxiv.org/abs/2609.37171",
+  "snippet": "Retrieval-Augmented Generation has established itself as a fundamental framework in natural language processing, seamlessly integrating information retrieval with the generative capabilities of large language models. However, this process is fundamentally constrained by a critical challenge: semantic space mismatch between queries and retrieved contexts. We propose Knowledge-Aware Semantic Bridgin",
+  "scores": {
+   "relevance": 68.0,
+   "relevance_capped": false,
+   "total": 88.8,
+   "currency": 100.0,
+   "authority": 95,
+   "accuracy": 65.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1609/aaai.v40i38.40462",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Safe RAG by RAG: Untying the Bell That RAG Rang with the RAG Hand",
+  "url": "https://doi.org/10.1609/aaai.v40i38.40462",
+  "snippet": "Retrieval-augmented generation (RAG) is widely adopted for knowledge-intensive tasks, but unverified external knowledge can pose risks such as data injection and retrieval pollution, leading to unexpected generation. Existing defenses rely on patch-based fixes, which limit generalization and increase system latency. To address these issues, we propose RAG2RAG, a framework-level security solution s",
+  "scores": {
+   "relevance": 48.0,
+   "relevance_capped": false,
+   "total": 81.8,
+   "currency": 100.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1109/ms.2026.3677583",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Toward Explainable and Automated Software License Checking via RAG and Knowledge Graphs",
+  "url": "https://doi.org/10.1109/ms.2026.3677583",
+  "snippet": "Software development increasingly depends on large ecosystems of libraries, frameworks, and platforms, enabling faster delivery yet at the same time intensifying the challenge of license incompatibility. Such conflicts often remain undetected until late in the development lifecycle, where they are more costly and disruptive to resolve. Addressing such issues early is therefore essential for ensuri",
+  "scores": {
+   "relevance": 64.0,
+   "relevance_capped": false,
+   "total": 88.4,
+   "currency": 100.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1145/3626772.3657834",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "The Power of Noise: Redefining Retrieval for RAG Systems",
+  "url": "https://doi.org/10.1145/3626772.3657834",
+  "snippet": "Retrieval-Augmented Generation (RAG) has recently emerged as a method to extend beyond the pre-trained knowledge of Large Language Models by augmenting the original prompt with relevant passages or documents retrieved by an Information Retrieval (IR) system. RAG has become increasingly important for Generative AI solutions, especially in enterprise settings or in any domain in which knowledge is c",
+  "scores": {
+   "relevance": 48.0,
+   "relevance_capped": false,
+   "total": 79.0,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2406.13121",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Can Long-Context Language Models Subsume Retrieval, RAG, SQL, and More?",
+  "url": "http://arxiv.org/abs/2406.13121",
+  "snippet": "Long-context language models (LCLMs) have the potential to revolutionize our approach to tasks traditionally reliant on external tools like retrieval systems or databases. Leveraging LCLMs' ability to natively ingest and process entire corpora of information offers numerous advantages. It enhances user-friendliness by eliminating the need for specialized knowledge of tools, provides robust end-to-",
+  "scores": {
+   "relevance": 74.0,
+   "relevance_capped": false,
+   "total": 85.2,
+   "currency": 75.0,
+   "authority": 100,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2609.25469",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "RAG-NAROK: Retrieval-Aware Knowledge Corpus Poisoning in RAG with Source-specific Refutation",
+  "url": "https://arxiv.org/abs/2609.25469",
+  "snippet": "Retrieval augmented generation (RAG) systems have emerged as the dominant architecture for grounding large language model (LLM) outputs in verifiable external knowledge, yet their structural reliance on a dynamic retrieval pipeline introduces a largely unexplored class of adversarial vulnerability. Existing knowledge-base poisoning attacks are fundamentally static. Adversarial documents are pre-co",
+  "scores": {
+   "relevance": 52.0,
+   "relevance_capped": false,
+   "total": 85.2,
+   "currency": 100.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2505.12662",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Know3-RAG: A Knowledge-aware RAG Framework with Adaptive Retrieval, Generation, and Filtering",
+  "url": "http://arxiv.org/abs/2505.12662",
+  "snippet": "Recent advances in large language models (LLMs) have led to impressive progress in natural language generation, yet their tendency to produce hallucinated or unsubstantiated content remains a critical concern. To improve factual reliability, Retrieval-Augmented Generation (RAG) integrates external knowledge during inference. However, existing RAG systems face two major limitations: (1) unreliable ",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 77.1,
+   "currency": 90.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 75.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2410.23000",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Long$^2$RAG: Evaluating Long-Context & Long-Form Retrieval-Augmented Generation with Key Point Recall",
+  "url": "http://arxiv.org/abs/2410.23000",
+  "snippet": "Retrieval-augmented generation (RAG) is a promising approach to address the limitations of fixed knowledge in large language models (LLMs). However, current benchmarks for evaluating RAG systems suffer from two key deficiencies: (1) they fail to adequately measure LLMs' capability in handling long-context retrieval due to a lack of datasets that reflect the characteristics of retrieved documents, ",
+  "scores": {
+   "relevance": 68.0,
+   "relevance_capped": false,
+   "total": 82.0,
+   "currency": 75.0,
+   "authority": 95,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2606.18310",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Conflict-Aware Retriever Editing for Knowledge Injection Attacks on LLM-Based RAG Systems",
+  "url": "https://arxiv.org/abs/2606.18310",
+  "snippet": "Injecting malicious knowledge into retrieval-augmented generation (RAG) systems can manipulate retrieved evidence and mislead downstream generation, posing a serious security threat for AI applications. Existing RAG injection attacks mainly rely on manipulating external knowledge bases, such as crafting malicious corpus. However, the synthetic text crafted by such data-centric methods could be det",
+  "scores": {
+   "relevance": 62.0,
+   "relevance_capped": false,
+   "total": 89.7,
+   "currency": 100.0,
+   "authority": 95,
+   "accuracy": 85.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.59350/7gfzv-88m36",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "When RAG and LLM Conflict: Who Will AI Listen to?",
+  "url": "https://doi.org/10.59350/7gfzv-88m36",
+  "snippet": "Understanding the Balance between Internal Knowledge and External Sources Author Qingqin Fang ( ORCID: 0009–0003–5348–4264) Introduction Previous research often emphasized the limitations of LLM's information acquisition pathways, focusing on enhancing its capabilities in this regard.\n[Concepts] Political science, Psychology, Psychoanalysis",
+  "scores": {
+   "relevance": 46.0,
+   "relevance_capped": false,
+   "total": 77.3,
+   "currency": 75.0,
+   "authority": 85,
+   "accuracy": 75.0,
+   "purpose": 80.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2604.25313",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Faithfulness-QA: A Counterfactual Entity Substitution Dataset for Training Context-Faithful RAG Models",
+  "url": "https://arxiv.org/abs/2604.25313",
+  "snippet": "Retrieval-Augmented Generation (RAG) models frequently produce answers grounded in parametric memory rather than the retrieved context, undermining the core promise of retrieval augmentation. A fundamental obstacle to fixing this unfaithfulness is the lack of training data that explicitly requires models to prefer context over internal knowledge. We introduce Faithfulness-QA, a large-scale dataset",
+  "scores": {
+   "relevance": 58.0,
+   "relevance_capped": false,
+   "total": 88.3,
+   "currency": 100.0,
+   "authority": 95,
+   "accuracy": 90.0,
+   "purpose": 60.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "arxiv.org/abs/2510.12668",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Understanding Parametric Knowledge Injection in Retrieval-Augmented Generation",
+  "url": "http://arxiv.org/abs/2510.12668",
+  "snippet": "Context-grounded generation underpins many LLM applications, including long-document question answering (QA), conversational personalization, and retrieval-augmented generation (RAG). However, classic token-based context concatenation is costly for long inputs and can be lost in the middle at extreme context lengths. Recent work explores context parameterization, which encodes context into lightwe",
+  "scores": {
+   "relevance": 60.0,
+   "relevance_capped": false,
+   "total": 79.5,
+   "currency": 90.0,
+   "authority": 95,
+   "accuracy": 70.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ },
+ {
+  "key": "doi.org/10.1038/s41746-025-01651-w",
+  "groups": [
+   "I-RAG对照"
+  ],
+  "engine": "openalex",
+  "query": "rag long context knowledge conflict",
+  "title": "Leveraging long context in retrieval augmented language models for medical question answering",
+  "url": "https://doi.org/10.1038/s41746-025-01651-w",
+  "snippet": "While holding great promise for improving and facilitating healthcare through applications of medical literature summarization, large language models (LLMs) struggle to produce up-to-date responses on evolving topics due to outdated knowledge or hallucination. Retrieval-augmented generation (RAG) is a pivotal innovation that improves the accuracy and relevance of LLM responses by integrating LLMs ",
+  "scores": {
+   "relevance": 62.0,
+   "relevance_capped": false,
+   "total": 85.2,
+   "currency": 90.0,
+   "authority": 85,
+   "accuracy": 80.0,
+   "purpose": 70.0,
+   "grade": "high"
+  }
+ }
+]

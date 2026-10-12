@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -175,16 +176,63 @@ def check_single_source() -> bool:
 # 3) prov：结论挂在可复算的物件上
 # ---------------------------------------------------------------------------
 
-# CHANGELOG 里出现「实测」且带数字的版本 → 必须有对应脚本/夹具
-# 键是 CHANGELOG 里的版本号，值是能复算它的受控脚本
+# CHANGELOG 里标「实测」且带数字的版本 → 必须有受版本控制的复算脚本
+# 键是 CHANGELOG 里的版本号，值是能复算它的脚本
 PROVENANCE = {
+    # v6.84.0 之前不强制：那时的版本段里 23 个里有 20 个含实测数字，
+    # 全补分析脚本等于补一套没用的东西。检查从 v6.84.0 起生效，
+    # 之前的条目视为既有事实（见 BASELINE）。
     "v6.83.0": [SCRIPTS / "analysis" / "relevance.py"],
+    "v6.86.0": [SCRIPTS / "analysis" / "holdout.py"],
 }
+
+# 豁免：同样是实测数字，但**不需要**分析脚本 —— 必须在代码里写清理由，
+# 否则「忘记登记」和「有理由地豁免」就分不开，那道门形同虚设。
+EXEMPT = {
+    "v6.84.0": "本版数字是测试计数（1187）与版本钉子，"
+               "由 run_all_tests.py 与 git tag 复算，不是分析结论",
+    "v6.85.0": "纯版本对齐，无实测数字",
+}
+
+# 检查从哪个版本开始生效。写成常量而不是"当前版本"，
+# 是为了让规则可预测 —— 否则每升一版就等于又豁免了一版。
+BASELINE = (6, 84, 0)
+
+# 注意：这个正则**不能**要求开头有 "##" —— `re.split(r"^##\s+")` 切出来的段
+# 开头已经是版本号了。第一版这里写着 "##\s+v(...)"，于是扫描永远返回空；
+# 而「空」恰好等于「没有未登记项」，两次空抵消，**检查看起来一直是绿的**。
+# 这类静默失效比报错更坏：报错会被看见。
+_VER = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
+
+
+def _vtuple(ver):
+    m = re.match(r"v(\d+)\.(\d+)\.(\d+)", ver or "")
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (0, 0, 0)
+
+
+def _sections_with_measured(text):
+    """找出所有「标了实测且带小数」的版本段。
+
+    为什么要扫出来而不是只查 PROVENANCE 里那几项：v6.86 的第一版
+    就是这么漏的 —— CHANGELOG 里写了新的实测数字，而 `PROVENANCE` 是
+    硬编码的，**没人提醒要登记**，检查照样全绿。只查登记项 = 查自己。
+    """
+    found = []
+    parts = re.split(r"^##\s+", text, flags=re.M)[1:]
+    for sec in parts:
+        m = _VER.match(sec)
+        if not m:
+            continue
+        ver = f"v{m.group(1)}.{m.group(2)}.{m.group(3)}"
+        body = sec[len(m.group(0)):]
+        if "实测" in body and re.search(r"\d+\.\d", body):
+            found.append(ver)
+    return found
 
 
 def check_provenance() -> bool:
     print()
-    print("provenance —— 标「实测」的数字能被别人重跑")
+    print("provenance —— 标「实测」的结论能被别人重跑")
     print("  （v6.84 的起因：v6.83 的 precision/recall/AUC 写进了 CHANGELOG，"
           "但产出脚本在 gitignore 里 —— 数字只有一半可复算。"
           "对应 2606.19544 的「高可复现性配低效度」）")
@@ -192,6 +240,16 @@ def check_provenance() -> bool:
     ok = True
     changelog = REPO / "CHANGELOG.md"
     text = changelog.read_text(encoding="utf-8") if changelog.exists() else ""
+
+    # --- 正向：扫描 CHANGELOG，看有没有「该登记却没登记」的版本段 ---
+    unregistered = [ver for ver in _sections_with_measured(text)
+                    if ver not in PROVENANCE and ver not in EXEMPT
+                    and _vtuple(ver) >= BASELINE]
+    ok &= _out(not unregistered, "v6.84.0 之后标「实测」的版本段都已登记",
+               f"未登记: {unregistered} —— 要么把复算脚本加进 PROVENANCE，"
+               f"要么在 EXEMPT 里写明为什么不需要（别默默跳过）"
+               if unregistered else
+               f"已登记 {len(PROVENANCE)} 项 + 豁免 {len(EXEMPT)} 项")
 
     for ver, scripts in PROVENANCE.items():
         has_section = f"## {ver}" in text
@@ -204,7 +262,7 @@ def check_provenance() -> bool:
                    f"缺: {missing}" if missing else
                    "、".join(p.relative_to(REPO).as_posix() for p in scripts))
 
-    # 反向：analysis/ 里的脚本必须真的跑得起来且与 CHANGELOG 对账通过
+    # --- 反向：analysis/ 里的脚本必须真的跑得起来且与 CHANGELOG 对账通过 ---
     for p in sorted((SCRIPTS / "analysis").glob("*.py")):
         if "--check" not in p.read_text(encoding="utf-8"):
             ok &= _out(False, f"{p.name} 支持 --check",

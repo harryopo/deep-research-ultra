@@ -1346,6 +1346,22 @@ def _report_anchor_hits(results, strict: bool = False) -> None:
     既然收益明确而误杀存在，那就按本项目一贯的做法——**提示不是门**：
     要它动行为得显式 `--strict-anchor`。
 
+    v6.86 补了一条更要紧的行为：**命中率过低时必须显眼地说「表可能不覆盖你这个
+    主题」**。留出集实测（207 条，锚词表定稿后才采）：
+
+        F-金融（可转债定价）   0/52 命中 (0%)
+        G-医学（肺癌 CT 筛查） 0/52 命中 (0%)
+        H-法律（法条解释）     0/51 命中 (0%)
+        I-RAG 对照            50/52 命中 (96%)   ← 对照组证明表本身没坏
+
+    那三组 relevance>=50 的前 14 条逐条看过，**全部明显切题**
+    （`Pricing Convertible Bonds…` rel=100、`Early Detection of Lung Cancer…`
+    rel=100、`Statutory Interpretation…` rel=100），只是表里全是技术词。
+
+    所以 v6.83 那句「不命中不等于不相关」太温和了：看到「52 条里 0 条命中」，
+    用户需要立刻知道**不是检索没跑出东西，是判据不适用于这个主题**，
+    否则会误以为源坏了。
+
     两条路径都要调（缓存命中那条会提前 return），所以抽成函数。
     """
     results = results or []
@@ -1355,7 +1371,18 @@ def _report_anchor_hits(results, strict: bool = False) -> None:
     miss = [r for r in results
             if not _CS.topic_anchor_hits(getattr(r, 'title', '') or '')]
     hit = len(results) - len(miss)
+    ratio = hit / len(results)
     print(f"📎 主题锚词：{hit}/{len(results)} 条标题命中锚词", file=sys.stderr)
+
+    if ratio < 0.25 and miss:
+        # 命中率这么低，几乎不是「结果都不切题」，而是「这张表不覆盖你这个主题」。
+        # 这条**加在**原有的未命中说明之上，不是替换它 —— 两层意思都要在，
+        # 原句说的是「个别条目会漏」，这条说的是「整批都可能判据不适用」。
+        print(f"   ⚠️ 命中率只有 {ratio * 100:.0f}%——**这张锚词表很可能不覆盖你这个"
+              f"主题**。实测它在金融/医学/法律三个领域是 0/155（对照的 RAG 主题 "
+              f"96%），所以低命中通常说明判据不适用，不是检索没跑出东西。"
+              f"别把这当成「结果都不相关」，也别为此开 --strict-anchor："
+              f"那会让这个主题全军覆没，一份报告都产不出。", file=sys.stderr)
     if miss:
         mode = "已过滤（--strict-anchor）" if strict else "仅提示，未过滤"
         print(f"   未命中的 {len(miss)} 条（{mode}）：泛词捞进来的跨领域结果最常见。"
