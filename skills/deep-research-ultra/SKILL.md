@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.83.0
+version: 6.84.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -16,6 +16,38 @@ allowed-tools: Read Write Bash Glob Grep AskUserQuestion Agent WebSearch WebFetc
 > 下文 `${SKILL_DIR}` 一律指这个子目录。scripts 与 references 的相对关系不变，
 > 但**从旧版本升级的安装位需要重新拷贝整个 skill 目录**，否则 `research.py` 会找不到 `tier.py` 等同级模块。
 > 注册为宿主插件是**可选加分项**（见 README 方式二），本 skill 的强制校验不依赖它。
+
+---
+
+## 〇·八、过程门：检查过程，不只检查产出（v6.84）
+
+本 skill 的校验门、证据账本、防伪戳全都在查**产出**（报告对不对、引用有没有据）。
+**对过程零检查** —— 而本项目实测下来，agent 的高频错误恰恰都在过程里。
+
+交付前跑一次：
+
+```bash
+python "${SKILL_DIR}/scripts/preflight.py"
+```
+
+三项检查：每个脚本能跑（`--help` 不崩）／被钉住的概念只在一处定义／
+CHANGELOG 里标「实测」的数字能被受版本控制的脚本重跑。
+
+**这一节为什么不加"让 agent 再审视一遍自己"的环节**——因为那按文献是**有害的**：
+
+| 文献 | 结论 |
+|---|---|
+| ICLR 2024（Huang et al.） | LLM 没有 oracle 信号时无法可靠自我纠正 |
+| 2402.08115 | 加 self-critique **显著降低**性能，反省轮次越多退化越明显 |
+| 2507.06920 | LLM 的错误**高度聚集**，同模型验证者有**相同的盲区**（同质化陷阱） |
+| 2606.19544 | 高重测一致性可与严重偏置**并存**——原始一致率把区分度高估 33–41pp |
+
+所以过程门只做**结构上不同、失效模式不相关**的检查：可执行的机械判定，
+以及"把结论挂在一个可复算的外部物件上"。完整推导见
+`docs/dev/v6.84-过程门与文献依据.md`。
+
+**它挡不住什么**：像"我根本没想到要去查"这类错误没有机械判据，只能靠纪律。
+不要因为过了过程门就以为过程没问题——它自己也会这么说。
 
 ---
 
@@ -176,6 +208,13 @@ python "${SKILL_DIR}/scripts/guard.py" --session {workspace}/.research/{session_
 - ❌ **禁止一句主题词发给所有引擎**（v6.17）— 相关性打分算字面词覆盖，中文主题发给英文学术库
   会把切题命中全判成噪声（实测 3/3）。派单时用 `--source-query 引擎名=查询词` 给学术库英文词、
   国内平台中文词；内置词典只 34 个通用词，翻不动专业词，翻译是 Lead 的活
+- ❌ **禁止把量化结论挂在跑不了的草稿上**（v6.84）— 结论里的每个数字都必须能被别人重跑：
+  产出它的脚本或夹具**必须进版本控制**，不能躺在 gitignore 的 `.research/` 里。
+  实测反例：v6.83 把 precision/recall/AUC 写进 CHANGELOG，样本夹具进了版本控制、
+  产出脚本没有 —— **数字只有一半可复算**。按文献（2606.19544）那叫
+  **高可复现性配低效度**：我记得那些数字、每次说得一样，但没人能重跑，
+  而原始一致率把区分度高估 33–41 个百分点。落地：进版本控制的分析脚本放
+  `scripts/analysis/`，带 `--check` 自证与 CHANGELOG 一致，由 `preflight.py` 盯
 - ❌ **禁止把泛词堆当查询词、也禁止拿 `craap_score` 当"有多切题"**（v6.81）— 相关性按
   **字面词覆盖**打分，所以 `benchmark`/`dataset`/`evaluation` 会把任何领域的 benchmark 论文
   捞进来。实测查询 `rag evaluation benchmark dataset faithfulness`，捞回
