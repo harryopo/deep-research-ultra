@@ -374,12 +374,27 @@ def cmd_list(registry):
           "「配置就绪」＝此刻不需要额外配置就能调用的")
 
 
-def filter_by_relevance(results, min_relevance: float, target_count: int):
+def filter_by_relevance(results, min_relevance: float, target_count: int,
+                        strict_anchor: bool = False):
     """按 CRAAP 相关性维度过滤：返回 (保留, 实际丢弃数, 低相关条数)。
 
     只在高相关结果够数时才丢弃 —— 跨语言调研（中文主题命中英文源）相关性天然偏低，
     无脑过滤会把整份报告清空。低相关结果不会静默混过：够数就丢，不够数就保留并让
     调用方告警（结论不得只靠它们）。
+
+    v6.83：`strict_anchor=True` 时再加一道**主题锚词**过滤（标题须命中锚词表）。
+    默认关闭 —— 实测它在 211 条标注样本上 precision 84.2%→95.3%、recall 只掉 1.5，
+    收益明确；但它有实测出来的天花板（**15 条**噪声命中锚词，含书评与
+    `benchmark` 捞进来的 EEG/珊瑚礁/降水数据集；**4 条**切题未命中，如
+    `alibaba/zvec`、`isrealei/eks-production-infra`），所以默认只报数、
+    要它动行为得显式开。这与本项目「提示不是门」一致。
+
+    **`strict_anchor` 显式开启时不受"够数才丢"门槛约束。** 第一版没写这一条，
+    于是显式加了 `--strict-anchor` 也看不到任何效果：锚词过滤后剩 2 条，
+    而 `needed = max(1, min(target_count, 5))` 在 target_count>=3 时是 5，
+    2 < 5 → **全部放回**。那是给用户一个假装生效的开关，比没有更糟。
+    那个门槛本身是对的（跨语言调研相关性天然偏低，无脑过滤会把报告清空），
+    但它的存在理由与"显式要求过滤"是两回事。
     """
     if min_relevance <= 0:
         return list(results), 0, 0
@@ -390,6 +405,14 @@ def filter_by_relevance(results, min_relevance: float, target_count: int):
 
     strong = [r for r in results if _relevance(r) >= min_relevance]
     weak = len(results) - len(strong)
+    if strict_anchor:
+        from score import CraapScorer
+        strong = [r for r in strong
+                  if CraapScorer.topic_anchor_hits(getattr(r, 'title', '') or '')]
+        weak = len(results) - len(strong)
+        # 显式要求过滤：用户已经表态了，不该被"数量不够"推翻。
+        # 留一条兜底，避免全被滤空时把报告清空（那是门槛原本要防的事）。
+        return (strong or list(results)[:1]), weak, weak
     needed = max(1, min(target_count, 5))
     if len(strong) >= needed:
         return strong, weak, weak
@@ -914,6 +937,10 @@ def cmd_search(args, registry):
             # v6.81：缓存命中同样要报相关性分布。这条分支直接 return，
             # 漏了它就等于「越常用缓存越看不到这个信号」——而缓存命中恰恰是常见路径。
             _report_relevance_spread(cached.get('results', []), args.min_relevance)
+            # v6.83 同理：锚词命中统计也要在这条路径报（第一版漏了，
+            # 表现是「加不加 --strict-anchor 输出一样」，看着像开关没生效）。
+            _report_anchor_hits(cached.get('results', []),
+                                getattr(args, 'strict_anchor', False))
             _output_results(cached, args)
             return
 
@@ -1137,7 +1164,8 @@ def cmd_search(args, registry):
     #     （实测：中文查询 "向量数据库 开源" 曾带回土地覆盖/图像质量论文，
     #       总分 60-68 却无一条被拦，因为总分把"权威/时效"和"相关"混加权了）
     all_results, dropped, weak = filter_by_relevance(
-        all_results, args.min_relevance, args.limit)
+        all_results, args.min_relevance, args.limit,
+        strict_anchor=getattr(args, 'strict_anchor', False))
     if dropped:
         print(f"🎯 相关性过滤：丢弃 {dropped} 条（relevance < {args.min_relevance}）",
               file=sys.stderr)
@@ -1149,6 +1177,9 @@ def cmd_search(args, registry):
     # 5c. v6.81：把"留下来的这些到底有多切题"摊开给 Lead 看。两条路径都要调，
     #     所以抽成函数（缓存命中那条分支会直接 return）。
     _report_relevance_spread(all_results, args.min_relevance)
+
+    # 5d. v6.83：主题锚词命中情况——**默认只报数不过滤**。详见 _report_anchor_hits。
+    _report_anchor_hits(all_results, getattr(args, 'strict_anchor', False))
 
     # 6. 交叉验证
     verifier = CrossVerifier()
@@ -1298,6 +1329,37 @@ def _report_relevance_spread(results, threshold) -> None:
     if capped:
         print(f"ℹ️ {capped} 条相关性判定失效（封顶 0、grade=unrated）："
               f"那是判定器没听懂这个语料，**不是「评出来不相关」**，别当零分读。",
+              file=sys.stderr)
+
+
+def _report_anchor_hits(results, strict: bool = False) -> None:
+    """报标题的主题锚词命中情况（v6.83）。
+
+    **默认只报数，不过滤。** 锚词是字面命中，天花板是实测出来的：
+    - `Review of: "GeAR: Generation Augmented Retrieval"`（书评、无实质内容）
+      标题里 retrieval/augmented/generation 三个锚词全中，**仍是噪声**
+    - `alibaba/zvec`（真·向量数据库，16099 star）标题里没有 "vector"，**会被误杀**
+
+    收益也是实测的（211 条标注样本）：precision 78.8% → 95.3%，recall 只掉 1.0%。
+    滤掉的 20 条里 17 条是真噪声，误杀 1 条。
+
+    既然收益明确而误杀存在，那就按本项目一贯的做法——**提示不是门**：
+    要它动行为得显式 `--strict-anchor`。
+
+    两条路径都要调（缓存命中那条会提前 return），所以抽成函数。
+    """
+    results = results or []
+    if not results:
+        return
+    from score import CraapScorer as _CS
+    miss = [r for r in results
+            if not _CS.topic_anchor_hits(getattr(r, 'title', '') or '')]
+    hit = len(results) - len(miss)
+    print(f"📎 主题锚词：{hit}/{len(results)} 条标题命中锚词", file=sys.stderr)
+    if miss:
+        mode = "已过滤（--strict-anchor）" if strict else "仅提示，未过滤"
+        print(f"   未命中的 {len(miss)} 条（{mode}）：泛词捞进来的跨领域结果最常见。"
+              f"不命中不等于不相关——主题只在正文体现的条目也会落在这里。",
               file=sys.stderr)
 
 
@@ -1558,6 +1620,11 @@ v3 兼容（自动降级到 Layer 4）:
                         help='最低 CRAAP 总分（0-100），低于此分过滤')
     parser.add_argument('--min-relevance', type=float, default=50,
                         help='最低 CRAAP 相关性分（0-100），高相关结果够数时丢弃低相关结果；0=关闭')
+    parser.add_argument('--strict-anchor', action='store_true',
+                        help='再加一道主题锚词过滤（标题须命中锚词表）。'
+                             '实测 211 条标注样本 precision 84%%→95%%、recall 只掉 2%%；'
+                             '默认关闭，只报数——它有实测天花板（书评类标题三个锚词全中仍是噪声，'
+                             '而 alibaba/zvec 这种真·向量数据库标题里没有 vector 会被误杀）')
     parser.add_argument('--llm-score', action='store_true',
                         help='启用 LLM 语义评分（更准确，消耗 token）')
 

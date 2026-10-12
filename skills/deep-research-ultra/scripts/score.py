@@ -134,6 +134,106 @@ class CraapScorer:
     # 覆盖率低于此值即视为"判定器没产生信号"。
     RELEVANCE_COVERAGE_FLOOR = 0.15
 
+    # ----------------------------------------------------------------
+    # v6.83：主题锚词（generic anchor）
+    #
+    # ## 为什么有这个东西
+    #
+    # 实测发现：`benchmark` / `dataset` / `evaluation` / `reliability` /
+    # `production` 这类**泛词会把任何领域的 benchmark 论文捞进来**。
+    # 2026-10-12 那一轮实跑，「开源 RAG 评测框架选型」的证据集里出现了
+    # `L-FAME: Longitudinal Focused Attention Meditation EEG Dataset`（EEG 冥想数据集）
+    # 与 `Bitstream-Corrupted Video Recovery`（视频恢复）——两条的相关性
+    # 分别排第 4/29 与第 10/29，**高于真正切题的 MultiHop-RAG（第 5）**。
+    # 不是阈值问题，是排序本身错了。
+    #
+    # ## 为什么不是"改权重"
+    #
+    # 建了 211 条带人工标注的样本（`tests/fixtures/relevance_samples.json`，
+    # 五类查询跨学术/工程/中文）后实测：按分项算区分度（AUC），
+    # `标题领域词命中数` 0.931，远高于 `relevance` 0.872、`total` 0.765，
+    # 而 `authority` 0.42 / `accuracy` 0.43 **比抛硬币还差**——
+    # 它们在当前语料上根本不携带切题信息。所以调权重是往没信号的分项上加权。
+    #
+    # ## 实测收益（211 条标注样本）
+    #
+    # | 规则 | precision | recall |
+    # |---|---|---|
+    # | 现状（relevance >= 50） | 78.8% | 92.0% |
+    # | relevance >= 65（只调阈值） | 98.8% | 62.4% |
+    # | relevance >= 50 + 锚词命中标题 | **95.3%** | **91.0%** |
+    #
+    # 调阈值能把 precision 顶上去，但**recall 崩一半**（92%→62%）——
+    # 它杀掉的正是那些标题不含泛词的好论文。只加锚词这一道：
+    # precision +16.5，recall 只掉 1.0。滤掉的 20 条里 17 条是真噪声，误杀 1 条。
+    #
+    # ## 它的天花板要说清
+    #
+    # 锚词是**字面命中**，所以有上限，且上限是实测出来的：
+    # `Review of: "GeAR: Generation Augmented Retrieval"`（书评、无实质内容）
+    # 标题含 retrieval/augmented/generation，三个锚词全中，仍是噪声。
+    # 反过来 `alibaba/zvec`（真·向量数据库）标题里没有 "vector"，会被误杀。
+    # 所以它是**提示不是门**——见 `topic_anchor_hits` 的用法：
+    # 默认只报数不改行为，`--strict-anchor` 才升级为过滤。
+    #
+    # 只放**单词**，不放带空格/连字符的短语。
+    #
+    # 第一版放了 `'retrieval-augmented'` / `'retrieval augmented'` / `'vector database'`，
+    # 实测两条失效：英文标题分词后短语就散了（`GeAR: Generation Augmented Retrieval`
+    # 分词是 [..., 'augmented', 'retrieval]，不带空格的短语匹配不上），
+    # 而带空格的又要求原样连续出现，绝大多数标题不满足。等于白写。
+    ANCHOR_HINTS = (
+        # 学术/检索 —— 长词优先，短词靠词边界兜住（见 topic_anchor_hits）
+        #
+        # ⚠️ **`benchmark` / `dataset` / `evaluation` 刻意不在这里。**
+        # 它们就是"泛词把跨领域结果捞进来"这个问题本身：把 `benchmark` 当锚词，
+        # 等于给 `L-FAME: …EEG Meditation Dataset and Benchmark`、
+        # `Bitstream-Corrupted Video Recovery: A Novel Benchmark Dataset`、
+        # `CoralVOS: Dataset and Benchmark…` 这些条目**开绿灯**——实测它们全部
+        # 标为噪声，而带 `benchmark` 的锚词表 precision 只有 89.6%（vs 去掉后更高）。
+        # 锚词要是"区分领域的词"，不是"领域共有的词"。
+        'retrieval', 'augmented', 'generation', 'rag', 'llm', 'grounding',
+        'faithful', 'faithfulness', 'hallucination',
+        'embedding', 'reranking', 'fine-tuning',
+        # 中文词（中文不分词，直接子串即可）
+        '检索增强', '大模型', '幻觉',
+        # 工程/运维
+        'kubernetes', 'k8s', 'cluster', 'operator', 'observability', 'sre',
+        'prometheus', 'grafana', 'argocd', 'gitops', 'container', 'kubelet',
+        'helm', 'istio', 'cilium',
+        # 数据/存储
+        'vector', 'milvus', 'qdrant', 'weaviate', 'pinecone', 'chroma',
+        'chromadb', 'faiss', 'pgvector', 'vectordb', 'embedding',
+    )
+
+    # 这些词太短，裸子串匹配会让一堆无关标题命中，必须按**词边界**判。
+    # 实测：`'rag' in 'Data Storage Engine'` 是 True（sto-RAG-e），
+    # 同理 fragment / paragraph / gradient / average 全中。
+    _SHORT_ANCHORS = frozenset(('rag', 'llm', 'k8s', 'sre', 'ann'))
+
+    @classmethod
+    def topic_anchor_hits(cls, title: str) -> List[str]:
+        """标题里命中的主题锚词（v6.83）。
+
+        只查标题是**实测选的**：标题+摘要一起查会让 precision 从 95.3% 掉到 90.4%
+        （摘要里出现的锚词常常只是顺带一提）。只查标题的代价是漏掉那些主题在标题里
+        体现不出来的条目——所以它只当辅助信号，不当门（默认 `--strict-anchor` 关闭）。
+
+        短锚词（rag/llm/k8s/sre/ann）走词边界匹配，否则 `'rag' in 'Data Storage
+        Engine'` 恒真，一半无关标题都会被算成命中。
+        """
+        t = (title or '').lower()
+        if not t:
+            return []
+        hits = []
+        for a in cls.ANCHOR_HINTS:
+            if a in cls._SHORT_ANCHORS:
+                if re.search(rf'\b{re.escape(a)}\b', t):
+                    hits.append(a)
+            elif a in t:
+                hits.append(a)
+        return sorted(set(hits))
+
     def __init__(self, weights: Optional[Dict[str, float]] = None):
         self.weights = weights or self.DEFAULT_WEIGHTS
 

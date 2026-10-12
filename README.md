@@ -1,4 +1,4 @@
-# Deep Research Ultra — 超级深度调研工具 v6.82.0
+# Deep Research Ultra — 超级深度调研工具 v6.83.0
 
 可溯源的深度调研工具。插件壳 7.3.0。
 
@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.82.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.83.0-brightgreen.svg)]()
 
 在线教程：<https://harryopo.github.io/deep-research-ultra/>
 
@@ -421,7 +421,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
         │   ├── skill_engines.py  github_deep_search.py  platform_engines.py
         │   ├── cn_sources.py  builtin.py  crawl4ai_engine.py
         │   └── fallback.py           # 降级引擎 + curl_cffi TLS 指纹伪装
-        └── tests/                    # 117 个测试文件 / 1118 个用例
+        └── tests/                    # 118 个测试文件 / 1129 个用例
 ```
 
 ## 测试
@@ -437,7 +437,7 @@ cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 python -m pytest tests/ -v
 ```
 
-当前 **1168 项**（内核 1118 + 壳 50）。Windows 上有 2 项因缺 `bash` 跳过
+当前 **1179 项**（内核 1129 + 壳 50）。Windows 上有 2 项因缺 `bash` 跳过
 （跑 `setup-mcp.sh` 的那两条，是环境依赖不是回归）。
 
 ## 与竞品对比
@@ -547,4 +547,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-内核 6.82.0 · 插件壳 7.3.0 · 更新历史见 [CHANGELOG.md](CHANGELOG.md)
+内核 6.83.0 · 插件壳 7.3.0 · 更新历史见 [CHANGELOG.md](CHANGELOG.md)
