@@ -1,6 +1,6 @@
-# Deep Research Ultra — 超级深度调研工具 v6.84.0
+# Deep Research Ultra — 超级深度调研工具 v6.85.0
 
-可溯源的深度调研工具。插件壳 7.3.0。
+可溯源的深度调研工具。插件壳 7.4.0。
 
 **Plan → Execute → Synthesize → Reflect** 四阶段范式。Lead 内联编排，子 Agent 并行检索，
 深度调研专家团对抗，证据账本逐条回源，发布前校验门硬绑账本。
@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-6.84.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-6.85.0-brightgreen.svg)]()
 
 在线教程：<https://harryopo.github.io/deep-research-ultra/>
 
@@ -53,7 +53,7 @@
 
 ### 方式一：解包即用（默认，零注册、零重启）
 
-拿到 `deep-research-ultra-v7.3.0.zip` 时，解压后进入解压出的 `deep-research-ultra/` 目录，
+拿到 `deep-research-ultra-v7.4.0.zip` 时，解压后进入解压出的 `deep-research-ultra/` 目录，
 执行下面三条命令（不需要 git、不需要联网克隆）：
 
 ```bash
@@ -106,8 +106,8 @@ python skills/deep-research-ultra/scripts/install.py --host trae             # �
 
 ```bash
 # 让宿主从本地插件缓存目录加载（Qoder 为例）
-mkdir -p ~/.qoder/plugins/cache/local/deep-research-ultra/7.3.0
-git archive HEAD | tar -x -C ~/.qoder/plugins/cache/local/deep-research-ultra/7.3.0
+mkdir -p ~/.qoder/plugins/cache/local/deep-research-ultra/7.4.0
+git archive HEAD | tar -x -C ~/.qoder/plugins/cache/local/deep-research-ultra/7.4.0
 ```
 
 然后在 `~/.qoder/plugins/installed_plugins_v2.json` 里登记一条 `installPath` 指向上面这个目录，
@@ -547,4 +547,4 @@ class NewEngine(SearchEngine):
 
 ---
 
-内核 6.84.0 · 插件壳 7.3.0 · 更新历史见 [CHANGELOG.md](CHANGELOG.md)
+内核 6.85.0 · 插件壳 7.4.0 · 更新历史见 [CHANGELOG.md](CHANGELOG.md)
