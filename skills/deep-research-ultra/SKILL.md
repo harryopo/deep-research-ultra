@@ -1,6 +1,6 @@
 ---
 name: deep-research-ultra
-version: 6.80.0
+version: 6.81.0
 description: |
   超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
@@ -176,6 +176,15 @@ python "${SKILL_DIR}/scripts/guard.py" --session {workspace}/.research/{session_
 - ❌ **禁止一句主题词发给所有引擎**（v6.17）— 相关性打分算字面词覆盖，中文主题发给英文学术库
   会把切题命中全判成噪声（实测 3/3）。派单时用 `--source-query 引擎名=查询词` 给学术库英文词、
   国内平台中文词；内置词典只 34 个通用词，翻不动专业词，翻译是 Lead 的活
+- ❌ **禁止把泛词堆当查询词、也禁止拿 `craap_score` 当"有多切题"**（v6.81）— 相关性按
+  **字面词覆盖**打分，所以 `benchmark`/`dataset`/`evaluation` 会把任何领域的 benchmark 论文
+  捞进来。实测查询 `rag evaluation benchmark dataset faithfulness`，捞回
+  `L-FAME: …EEG Meditation Dataset` 与 `Bitstream-Corrupted Video Recovery`，**噪声的相关性
+  排第 4/29 与第 10/29，高于真正切题的 MultiHop-RAG（第 5）**。查词至少留一个
+  **领域特征词**（`retrieval-augmented` 这类别人论文里不容易撞上的）。同时**排序本身也可能是
+  错的**：total 把权威/时效掺了进来，不是 relevance 的代理（实测两张名次 1/29 重合，
+  `Evaluation Methodology` 的 total 83.2 看着体面而 relevance 只有 30）——按账本的
+  `relevance` 读证据，`relevance_capped=True` 是判定器没听懂语料、**不是"不相关"**
 - ❌ **禁止把长报告正文塞进返回值/最终消息** — 一律落盘 report.md，回复只给 Phase 6 的短摘要
 - ❌ **禁止跳过 --probe** — `--list`/`--env-check` 的 ✅ 只代表配置就绪，不代表今天出得来数据
 - ❌ **禁止拿探针的 ✅ 替主题背书**（v6.15）— `--probe` 用的是登记死的通用词，派子 Agent 前要用 `--probe --sources <引擎> --theme-query "<该维度真要用的词>"` 预演一次；预演回 0 命中/取不到数据时只能说"这批词到不了"，不许写成"该主题无相关资料"
@@ -404,71 +413,13 @@ python "${SKILL_DIR}/scripts/research.py" --list           # 配置态清单（�
 python "${SKILL_DIR}/scripts/research.py" --probe --sources openalex,baidu-serp
 ```
 
-#### 检索词要按语料语言给（`--source-query`）
+#### 检索词怎么写（`--source-query`）
 
-相关性打分算的是**字面词覆盖**。把一句中文主题原样发给 arXiv/OpenAlex/Semantic Scholar，
-命中的英文论文必然被判成噪声——实测同一批人工确认切题的论文，中文提问下 relevance
-23.6/34.5/28.6，换英文提问 29.2/58.3/47.5；按 relevance<50 的规则，中文提问时 3/3 全成噪声，
-这就是"验证率 0%"的来路。内置词典（`router.py` 的 `zh_to_en`，34 个通用词）翻不动
-证据/溯源/可追溯/引用/幻觉 这类专业词，**翻译这件事由 Lead 做**。
-
-派单前把每个引擎该收的词写清楚，未点名的引擎仍收主题查询：
-
-```bash
-python "${SKILL_DIR}/scripts/research.py" "AI 编码 Agent 的证据溯源做法" \
-  --sources arxiv-fulltext,openalex,baidu-xueshu \
-  --source-query "arxiv-fulltext=LLM agent hallucination source attribution" \
-  --source-query "openalex=claim source attribution agentic coding" \
-  --source-query "baidu-xueshu=AI 编码智能体 证据溯源 引用对齐"
-```
-
-英文学术库给英文词，国内平台（baidu-xueshu / sogou-weixin / baidu-serp）给中文词。
-每个引擎的相关性按**它自己收到的词**判，账本也记这条词（`evidence.jsonl` 的 `query`），
-所以按账本重跑能复现出同一批命中。`--source-query` 里写错引擎名会直接告警——
-不吭声的话那个引擎照旧收中文主题词，看起来搜过了，实际换词没生效。
-
-⚠️ 换词只保证"命中随词变"，不保证你换到的是切题的词。拿"AI 编码 Agent 的证据溯源"这个主题
-在 OpenAlex 上做了 6 种给法 × 2 种端点的对照实验，量出来的东西直接决定怎么写词：
-
-| 给法 | 全文端点带回什么 | 字段限定端点（只搜标题+摘要） |
-|------|------------------|-------------------------------|
-| 中文整句主题 | 地球科学AI、企业白皮书…切题 0/5 | **0 命中** |
-| 中文短术语对 | 智能电网、花岗岩、刀具寿命…切题 0/5 | 药品质控、放疗质控…切题 0/5 |
-| 十个英文词堆一句 | 医学AI隐私、医疗LLM投毒…切题 1/5 | **0 命中** |
-| 英文术语对 | 幻觉综述若干（非编码领域）切题 1/5 | 幻觉缓解、agentic RAG 忠实度 |
-| **英文机制短句** | **《ChatGPT 生成的参考文献造假》**、溯源记忆、可验证检索 | 同上三条 |
-| 英文领域锚 | 泛 AI Agent 分类学 切题 0/5 | 《CITAE：逐段可验证的 RAG 平台》 |
-
-三条可执行结论：
-
-1. **给一句"机制描述"，不要堆词**。真正切题的命中全部来自
-   `verifying generated code citations against sources` 这种主谓宾齐备的短英文句；
-   十个词堆成一句反而带回落回医学与泛综述。
-2. **长词串做字段限定必然 0 命中**（`title_and_abstract.search` 是 AND 语义，
-   与 D5 那条 GitHub 仓库搜索长查询恒 0 命中同一机制）。词多就退回全文端点。
-3. **中文词在英文库无解**：字段限定 0 命中，全文检索带回地质与电网论文——
-   这不是调参问题，只能换语言（所以有 `--source-query`）。
-
-派单前用 `--probe --sources <引擎> --theme-query "<候选词>"` 预演，看首条标题像不像本题的东西。
-相关度分数只当过滤器：实验里分数升高的那次（短短语 42.1）命中反而更偏，
-**不许拿 relevance 升高当证据质量达标的凭据**。
-
-🚫 **三条"让工具自动取词"的路子已实测否决，别再重做**（同一主题，逐条人工判切题）：
-
-| 路子 | 做法 | 实测结果 |
-|------|------|----------|
-| 词典翻译 | `router.py` 的 `zh_to_en` 生成变体 | 34 个通用词，专业词零覆盖；命中也是中英混排串 |
-| 引文扩引 | 锚定一篇切题论文走 OpenAlex `related_to` | 10 条全是"多学科研究团队/门诊"，precision 0/10 |
-| 取主题词 | 读锚定论文自己的 `primary_topic` / `concepts` 当查询词 | 标签是"AI in Healthcare and Education"这类宽簇名，precision 0/10 |
-
-三条输给的是同一件事：**Lead 手写的那句机制描述**（`verifying generated code citations
-against sources`）至少把种子论文与 `Citationchaser` 这类近邻工具带回来了，而机械扩出来的
-都是文献计量邻居、不是主题邻居。所以检索词的判断留给 Lead，工具只负责把词送到对的引擎、
-并按这条词打分与记账。
-
-> 缺哪个变量、去哪申请、解锁什么，`--probe` 会按引擎逐条打印（同一个动作自动合并成一行），
-> 不需要背配置表；配好后重跑直到闸门放行为止。
-
+相关性按字面词覆盖打分，所以检索词怎么写直接决定召回质量：英文库给英文机制短句、
+国内平台给中文；**别堆泛词**（`benchmark`/`dataset` 这类会把任何领域的 benchmark 论文
+捞进来，实测噪声的相关性排第 4/29、高于真正切题的那几条），也别指望相关性分数替你判断。
+完整给法对照表、三条已实测否决的"让工具自动取词"路子、以及 v6.81 的量化复盘，见
+**`references/playbooks.md` 第 1.6 节「检索词要按语料语言给」**——派单前读那一节。
 
 ### Phase 1: Plan（规划）— 先问清要什么，再拆维度
 
@@ -716,6 +667,13 @@ open_deep_research 4 个角色各配一档模型、GPT Researcher 快模型爬�
   skill 不写死厂商型号；要精确指定就用上面两个变量传模型 ID。
 - **宿主的 Agent/Task 工具没有 `model` 参数时忽略本表**——不许为了配模型改走
   "Lead 亲自串行跑"，档位选错的代价远小于丢掉并行扇出与独立上下文。
+
+**宿主没有 Agent/Task 工具时怎么降级**（v6.81，据 2026-10-12 实测补写）
+
+§〇.1 只处理过"有 Agent 工具但不 fork"，没写"压根没有 Agent 工具"。此时的降级步骤、
+成本结论怎么分层说、以及为什么分片与归并不能省，见
+**`references/subagent-lessons.md` 末节「宿主没有 Agent/Task 工具时的降级」**——
+动手前先读那一节，这里不重复。
 
 **子 Agent 提示词模板**（v6.55 重写为任务书形态：只有角色/任务/硬约束，事故
 叙事全部移入 `references/subagent-lessons.md`——改模板前先读教训档案，别拆护栏）：

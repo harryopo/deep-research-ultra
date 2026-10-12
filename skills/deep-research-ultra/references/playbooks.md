@@ -400,6 +400,114 @@ ranked = rec.rank_results(results_list, query='RAG framework', intent='novel_app
 
 ---
 
+---
+
+## 一·补、检索词写法（Phase 1 派单前必读）
+
+从 SKILL.md 搬来（v6.81，同批还并入了泛词堆的量化复盘）。
+
+### 1.6 检索词要按语料语言给（`--source-query`）
+
+相关性打分算的是**字面词覆盖**。把一句中文主题原样发给 arXiv/OpenAlex/Semantic Scholar，
+命中的英文论文必然被判成噪声——实测同一批人工确认切题的论文，中文提问下 relevance
+23.6/34.5/28.6，换英文提问 29.2/58.3/47.5；按 relevance<50 的规则，中文提问时 3/3 全成噪声，
+这就是"验证率 0%"的来路。内置词典（`router.py` 的 `zh_to_en`，34 个通用词）翻不动
+证据/溯源/可追溯/引用/幻觉 这类专业词，**翻译这件事由 Lead 做**。
+
+派单前把每个引擎该收的词写清楚，未点名的引擎仍收主题查询：
+
+```bash
+python "${SKILL_DIR}/scripts/research.py" "AI 编码 Agent 的证据溯源做法" \
+  --sources arxiv-fulltext,openalex,baidu-xueshu \
+  --source-query "arxiv-fulltext=LLM agent hallucination source attribution" \
+  --source-query "openalex=claim source attribution agentic coding" \
+  --source-query "baidu-xueshu=AI 编码智能体 证据溯源 引用对齐"
+```
+
+英文学术库给英文词，国内平台（baidu-xueshu / sogou-weixin / baidu-serp）给中文词。
+每个引擎的相关性按**它自己收到的词**判，账本也记这条词（`evidence.jsonl` 的 `query`），
+所以按账本重跑能复现出同一批命中。`--source-query` 里写错引擎名会直接告警——
+不吭声的话那个引擎照旧收中文主题词，看起来搜过了，实际换词没生效。
+
+⚠️ 换词只保证"命中随词变"，不保证你换到的是切题的词。拿"AI 编码 Agent 的证据溯源"这个主题
+在 OpenAlex 上做了 6 种给法 × 2 种端点的对照实验，量出来的东西直接决定怎么写词：
+
+| 给法 | 全文端点带回什么 | 字段限定端点（只搜标题+摘要） |
+|------|------------------|-------------------------------|
+| 中文整句主题 | 地球科学AI、企业白皮书…切题 0/5 | **0 命中** |
+| 中文短术语对 | 智能电网、花岗岩、刀具寿命…切题 0/5 | 药品质控、放疗质控…切题 0/5 |
+| 十个英文词堆一句 | 医学AI隐私、医疗LLM投毒…切题 1/5 | **0 命中** |
+| 英文术语对 | 幻觉综述若干（非编码领域）切题 1/5 | 幻觉缓解、agentic RAG 忠实度 |
+| **英文机制短句** | **《ChatGPT 生成的参考文献造假》**、溯源记忆、可验证检索 | 同上三条 |
+| 英文领域锚 | 泛 AI Agent 分类学 切题 0/5 | 《CITAE：逐段可验证的 RAG 平台》 |
+
+三条可执行结论：
+
+1. **给一句"机制描述"，不要堆词**。真正切题的命中全部来自
+   `verifying generated code citations against sources` 这种主谓宾齐备的短英文句；
+   十个词堆成一句反而带回落回医学与泛综述。
+2. **长词串做字段限定必然 0 命中**（`title_and_abstract.search` 是 AND 语义，
+   与 D5 那条 GitHub 仓库搜索长查询恒 0 命中同一机制）。词多就退回全文端点。
+3. **中文词在英文库无解**：字段限定 0 命中，全文检索带回地质与电网论文——
+   这不是调参问题，只能换语言（所以有 `--source-query`）。
+
+派单前用 `--probe --sources <引擎> --theme-query "<候选词>"` 预演，看首条标题像不像本题的东西。
+相关度分数只当过滤器：实验里分数升高的那次（短短语 42.1）命中反而更偏，
+**不许拿 relevance 升高当证据质量达标的凭据**。
+
+🚫 **三条"让工具自动取词"的路子已实测否决，别再重做**（同一主题，逐条人工判切题）：
+
+| 路子 | 做法 | 实测结果 |
+|------|------|----------|
+| 词典翻译 | `router.py` 的 `zh_to_en` 生成变体 | 34 个通用词，专业词零覆盖；命中也是中英混排串 |
+| 引文扩引 | 锚定一篇切题论文走 OpenAlex `related_to` | 10 条全是"多学科研究团队/门诊"，precision 0/10 |
+| 取主题词 | 读锚定论文自己的 `primary_topic` / `concepts` 当查询词 | 标签是"AI in Healthcare and Education"这类宽簇名，precision 0/10 |
+
+三条输给的是同一件事：**Lead 手写的那句机制描述**（`verifying generated code citations
+against sources`）至少把种子论文与 `Citationchaser` 这类近邻工具带回来了，而机械扩出来的
+都是文献计量邻居、不是主题邻居。所以检索词的判断留给 Lead，工具只负责把词送到对的引擎、
+并按这条词打分与记账。
+
+> 缺哪个变量、去哪申请、解锁什么，`--probe` 会按引擎逐条打印（同一个动作自动合并成一行），
+> 不需要背配置表；配好后重跑直到闸门放行为止。
+
+##### 泛词堆：为什么"把词写全"反而更容易捞到噪声（v6.81）
+
+上面第 1 条结论说"给一句机制描述，不要堆词"。这条有个反直觉的推论，值得单独说：
+**堆得越全，越容易被泛词带偏**——因为相关性按字面词覆盖打分，查询里每多一个
+`benchmark` / `dataset` / `evaluation`，就多一分把**任何领域的 benchmark 论文**
+捞进来的机会，而那些论文确实"覆盖了"你的词。
+
+实跑（2026-10-12，臂 1 指标维度）把这条量了出来。查询写
+`rag evaluation benchmark dataset faithfulness`，29 条落盘里混进：
+
+- `L-FAME: Longitudinal Focused Attention Meditation EEG Dataset`（EEG 冥想数据集）
+- `Bitstream-Corrupted Video Recovery: A Novel Benchmark Dataset and Method`（视频恢复）
+- `VRSBench: …Remote Sensing Image`（遥感影像）
+
+**这两条噪声的相关性分别排第 4/29 与第 10/29，高于真正切题的 MultiHop-RAG（第 5）
+与 CPRet（第 6）。** 也就是说：不是阈值定低了，是**排序本身就是错的**。
+
+三条可执行结论：
+
+1. **查询里至少留一个"领域特征词"**——`retrieval-augmented`、`RAG` 这种别人论文里
+   不容易撞上的词。别让查询全部由通用名词构成。
+2. **别指望相关性分数替你做判断**。三条修法实测下来全部无效：
+   - 「要求关键词与查询有实际交集」→ 那两条噪声**本来就有关键词交集**，一条都拦不住
+   - 「把阈值调高」→ 64 分的噪声排在第 4，降阈值也留着它
+   - 「必须命中领域特征词」→ 只能剔掉 3 条里的 2 条，`L-FAME` 的摘要里含
+     retrieval/generation，规则漏掉最严重的那个
+
+   所以**改评分公式要有样本支撑**。手上只有 29 条里 3 条标注过的噪声时，调权重就是猜——
+   这个项目有现成的前车之鉴：v6.70「宣称 34 源 vs 实出 14，是宣传口径问题……是我的修法
+   不如现状」。
+3. **`craap_score`(total) 不是 relevance 的代理**，别拿它排"哪条最切题"：实算同一批
+   29 条，两张名次只有 1/29 逐位重合（`Evaluation Methodology` 的 total 83.2 看着体面，
+   relevance 只有 30）。账本现已同时存 `relevance` 与 `relevance_capped`，按前者读；
+   `relevance_capped=True` 表示判定器没听懂这个语料，**不是"评出来不相关"**。
+   `research.py` 每次检索后也会打一行「📐 相关性分布」，明说"留下的里还有多少低于阈值"。
+
+
 ## 十四、使用示例
 
 ### 14.1 智能路由

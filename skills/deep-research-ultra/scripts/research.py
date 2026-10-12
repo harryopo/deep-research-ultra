@@ -796,7 +796,13 @@ def _write_ledger(ledger, results, verification, query, auto_claim: bool = False
             ev = ledger.add_evidence(url=url, title=title, query=hit_query or query,
                                      engine=engine,
                                      tier=craap.get('tier'),
-                                     craap_score=craap.get('total'))
+                                     craap_score=craap.get('total'),
+                                     # v6.81：只存 total 等于把 relevance 扔了，而 total
+                                     # 不是它的代理（实测两张名次 1/29 重合）。连同
+                                     # capped 一起存——capped 表示这次判定失效、
+                                     # 分数被压成 0，缺了它就分不清"评出来 0"与"没评"。
+                                     relevance=craap.get('relevance'),
+                                     relevance_capped=craap.get('relevance_capped'))
             if ev is not None:
                 written['evidence'] += 1
             elif not auto_claim:
@@ -905,6 +911,9 @@ def cmd_search(args, registry):
                                   cached.get('verification'), args.query,
                                   auto_claim=args.auto_claim)
                 print(f"📒 落盘（缓存结果）：{_ledger_summary(n)}", file=sys.stderr)
+            # v6.81：缓存命中同样要报相关性分布。这条分支直接 return，
+            # 漏了它就等于「越常用缓存越看不到这个信号」——而缓存命中恰恰是常见路径。
+            _report_relevance_spread(cached.get('results', []), args.min_relevance)
             _output_results(cached, args)
             return
 
@@ -1137,6 +1146,10 @@ def cmd_search(args, registry):
               f"因高相关结果不足而保留 —— 结论不得只靠它们，建议换查询词或补 --sources",
               file=sys.stderr)
 
+    # 5c. v6.81：把"留下来的这些到底有多切题"摊开给 Lead 看。两条路径都要调，
+    #     所以抽成函数（缓存命中那条分支会直接 return）。
+    _report_relevance_spread(all_results, args.min_relevance)
+
     # 6. 交叉验证
     verifier = CrossVerifier()
     verification = verifier.verify(all_results, query=args.query)
@@ -1231,6 +1244,63 @@ def _write_out(text: str, dest: str) -> None:
     p.write_text(text, encoding='utf-8')
 
 
+def _rel_note(craap) -> str:
+    """把 relevance 渲染成一句人话（v6.81）。
+
+    判定失效（capped）时**明说是失效而不是 0 分**——那是 v6.63「不可判定时不装懂」
+    的同一个区分，写成 "0" 会把它重新变回一个看起来可信的判断。
+    """
+    if not isinstance(craap, dict):
+        return '未知'
+    if craap.get('relevance_capped'):
+        return '未判定（判定器没听懂这个语料，不等于不相关）'
+    v = craap.get('relevance')
+    return f'{v:.0f}/100' if isinstance(v, (int, float)) else '未知'
+
+
+def _report_relevance_spread(results, threshold) -> None:
+    """报"留下来的这些到底有多切题"（v6.81）。
+
+    **为什么要有这一段**：原有过滤只在「一条都没丢」时才告警。一旦丢了若干条，
+    剩下的就被默认当成好的——但**被丢与被留不是同一件事**。实跑（2026-10-12，
+    臂 1 指标维度）29 条落盘、其中 17 条 relevance < 50，控制台只说"丢弃 19 条"，
+    对这 17 条一声不吭；Lead 读账本又只能看到 total，于是噪声就这么进了证据集。
+
+    **刻意不改成「再过滤一遍」**：实测算过 relevance 排序本身也会把噪声排到前面
+    （L-FAME 第 4/29，高于真正切题的 MultiHop-RAG 第 5），所以排序不可信时
+    少报几条不等于报得准。这里只如实报数，判断留给 Lead——与本项目
+    「提示不是门」一致。
+    """
+    def _craap_of(r):
+        """结果有两种形状：新鲜检索是带属性的对象，缓存命中是 JSON 反序列化出的 dict。
+
+        第一版只写了 `getattr`，于是**缓存命中这条最常见的路径静默拿不到分数**——
+        分布行压根不打印。判据写成"两种形状都能取到"，不留只认一种的后门。
+        """
+        c = getattr(r, 'craap_score', None)
+        if c is None and isinstance(r, dict):
+            c = r.get('craap_score')
+        return c if isinstance(c, dict) else None
+
+    rels = sorted(float(v) for v in
+                  ((_craap_of(r) or {}).get('relevance') for r in (results or []))
+                  if isinstance(v, (int, float)))
+    if rels:
+        mid = rels[len(rels) // 2]
+        print(f"📐 相关性分布（留下的 {len(rels)} 条）：{rels[0]:.0f} ~ {rels[-1]:.0f}，"
+              f"中位 {mid:.0f}", file=sys.stderr)
+        below = sum(1 for v in rels if v < threshold)
+        if below:
+            print(f"⚠️ 其中 {below} 条仍低于 {threshold} —— 过滤只保证"
+                  f"「高相关的够数」，不保证「留下的都切题」。读证据时优先看分布上半段。",
+                  file=sys.stderr)
+    capped = sum(1 for r in (results or []) if (_craap_of(r) or {}).get('relevance_capped'))
+    if capped:
+        print(f"ℹ️ {capped} 条相关性判定失效（封顶 0、grade=unrated）："
+              f"那是判定器没听懂这个语料，**不是「评出来不相关」**，别当零分读。",
+              file=sys.stderr)
+
+
 def _output_results(data, args, plan=None, results=None, verification=None, reflections=None,
                     options=None, ledger=None):
     """输出结果（v6.0：options/ledger 透传到报告生成）"""
@@ -1253,7 +1323,10 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
         import io
         buf = io.StringIO()
         writer = csv.writer(buf, lineterminator='\n')
-        writer.writerow(['title', 'url', 'source', 'craap_total', 'craap_grade', 'published_date'])
+        # v6.81：加 relevance / relevance_capped 两列。原先只有 total，而 total
+        # 不是 relevance 的代理——拿它排"哪条最切题"会排错（实测两张名次 1/29 重合）。
+        writer.writerow(['title', 'url', 'source', 'craap_total', 'craap_grade',
+                         'relevance', 'relevance_capped', 'published_date'])
         for r in (results or data.get('results', [])):
             craap = r.craap_score if hasattr(r, 'craap_score') else r.get('craap_score', {}) or {}
             writer.writerow([
@@ -1262,6 +1335,8 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
                 r.source if hasattr(r, 'source') else r.get('source', ''),
                 craap.get('total', '') if isinstance(craap, dict) else '',
                 craap.get('grade', '') if isinstance(craap, dict) else '',
+                craap.get('relevance', '') if isinstance(craap, dict) else '',
+                craap.get('relevance_capped', '') if isinstance(craap, dict) else '',
                 r.published_date if hasattr(r, 'published_date') else r.get('published_date', ''),
             ])
         emit(buf.getvalue())
@@ -1283,7 +1358,11 @@ def _output_results(data, args, plan=None, results=None, verification=None, refl
                 lines.append(f"来源: {r.get('source', '')}")
                 craap = r.get('craap_score', {}) or {}
                 if craap:
-                    lines.append(f"CRAAP: {craap.get('total', 0)}/100 ({craap.get('grade', '-')})")
+                    # v6.81：把 relevance 与 total 并列写出。只给 total 时，读的人
+                    # 无法知道这条到底切不切题（total 把权威/时效掺了进来）。
+                    lines.append(
+                        f"CRAAP: {craap.get('total', 0)}/100 ({craap.get('grade', '-')})"
+                        f"　相关性: {_rel_note(craap)}")
                 lines.append(f"\n{r.get('content', '')}\n")
             emit('\n'.join(lines))
         return

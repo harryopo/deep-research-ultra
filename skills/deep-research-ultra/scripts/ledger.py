@@ -724,12 +724,24 @@ class ResearchLedger:
 
     def add_evidence(self, url: str, title: str = '', query: str = '',
                      engine: str = '', tier: Optional[int] = None,
-                     craap_score: Optional[float] = None) -> Optional[Dict[str, Any]]:
+                     craap_score: Optional[float] = None,
+                     relevance: Optional[float] = None,
+                     relevance_capped: Optional[bool] = None) -> Optional[Dict[str, Any]]:
         """登记一条检索命中的原始证据（它不是 claim）。
 
         引擎给回的标题是别人页面的标题，不是本调研的论断；把它写成 claim 会让
         5 星空仓库和培训班广告进入覆盖率与引用统计（实测 391 条 merge 后变 602 条）。
         证据只进 evidence.jsonl，Lead 读过内容后再用 add-claim 显式立论。
+
+        v6.81：`relevance` 与 `relevance_capped` 一并落盘。
+        以前只存 `craap_score`(total)，把 relevance 丢了——而 total **不是** relevance
+        的代理。实测算过同一批 29 条结果：两张名次只有 1/29 逐位重合，`Evaluation
+        Methodology` 的 total 83.2 看着体面、relevance 只有 30。也就是说 Lead 读账本时
+        看不到"哪条真的在回答我的问题"，只能看到一条被权威性/时效性掺和过的复合分。
+
+        `relevance_capped` 必须一起存：相关性判定失效时 score.py 会把 relevance 压成 0.0
+        并把 grade 标成 `unrated`（v6.63 的"不可判定时不装懂"）。只存 0.0 而不存这个标记，
+        读的人分不清"评出来是 0"和"压根没评出来"——那正是 v6.63 修掉的那个混淆。
         """
         url = str(url).strip()
         if not _is_traceable(url):
@@ -743,6 +755,10 @@ class ResearchLedger:
             'title': str(title).strip(), 'query': str(query).strip(),
             'engine': engine, 'tier': min(max(t, 1), 4),
             'craap_score': float(craap_score) if craap_score is not None else None,
+            # v6.81：把"这条到底有多切题"和"这个判定可不可信"一起留下。
+            # 老记录没有这两个键，读方一律 .get(...) 取 None，不要按缺字段判坏。
+            'relevance': float(relevance) if relevance is not None else None,
+            'relevance_capped': bool(relevance_capped) if relevance_capped is not None else None,
             'created_at': _now(),
         }
         _atomic_append(self.evidence_path, json.dumps(entry, ensure_ascii=False))
