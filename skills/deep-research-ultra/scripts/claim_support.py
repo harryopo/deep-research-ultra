@@ -177,6 +177,22 @@ def _has_context(text: str):
     return [q for q in CONTEXT if q in text]
 
 
+# 闸 4 用的否定标记（v6.79）。覆盖"没有任何证据/未证实/查不到/并非/不能证明"这类
+# **诚实标注**的常见句式——它们天然带全称词（任何/都/所有），但语义是收窄不是扩大。
+#
+# 刻意不收单字「不」：它太泛，"这个方法不如基线"里的「不」不是否定语境，
+# 放进来会连带吃掉真阳性（极性反转/范围扩大都可能被误放过）。宁可漏放，
+# 不可放过——这跟"误报比漏报贵"是同一条权衡。
+_NEGATION = (
+    '没有', '无', '未', '并非', '否', '查不到', '无法', '未能', '不能', '不得',
+    '尚无', '暂无', '缺乏', '找不到', '零', '不成立', '不构成',
+)
+
+
+def _has_negation(text: str):
+    return [n for n in _NEGATION if n in text]
+
+
 def qualitative_risks(sentence: str, claim_pool: str) -> List[Dict[str, Any]]:
     """报告句相对它引用的 claim 池，有哪些定性高危形态。
 
@@ -232,6 +248,19 @@ def qualitative_risks(sentence: str, claim_pool: str) -> List[Dict[str, Any]]:
     # 这里只看 RESTRICTIVE，不看 CONTEXT——「所有场景下」的"场景下"是"所有"的
     # 补语，把它算限定会让闸 3 把真正的范围扩大自己消掉（第一版就是这么漏报的）。
     if u_sent and _has_qualifier(sentence):
+        risks = [r for r in risks if r['kind'] != 'scope_widened']
+
+    # 闸 4（v6.79）：否定 / 无证据语境下的全称词不是"范围扩大"。
+    #
+    # 实测来源：抗幻觉行为层实验（2026-10-12），报告里写"查不到…这一说法的**任何**来源"、
+    # "没有任何一条提到…"——三处全被闸 3 之前的逻辑判成 scope_widened。**三处都是误报**：
+    # "没有任何证据支持 X"恰恰是**收窄**主张，不是扩大。
+    #
+    # 为什么必须修：Lead 写"未证实""没有证据表明"是**诚实标注**的要求（铁律 8），
+    # 而这类句式天然带否定词 + 全称词。工具每遇一句诚实的话就报一次假警，Lead
+    # 很快就学会忽略它——那时候工具的误报就不是误报，是把唯一的语义护栏关掉了。
+    # 误报比漏报贵，在这里更贵。
+    if u_sent and _has_negation(sentence):
         risks = [r for r in risks if r['kind'] != 'scope_widened']
     return risks
 
@@ -347,4 +376,15 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 if __name__ == '__main__':
+    # v6.79：Windows GBK 终端下，本脚本的定性告警文案里的 `⚠️`/`→` 会让 print 抛
+    # UnicodeEncodeError——**在真正吐出告警的那一刻崩掉**。v6.73 加定性检查时引入的
+    # （旧版只输出数字与纯中文，GBK 扛得住）。实测场景：端到端实跑收尾阶段跑
+    # `claim_support.py`，正是它该给结论的时候崩，等于把它的存在意义抵消了。
+    # validate_report.py 早就有 force_utf8，这里对齐——文档已写明"脚本自身强制
+    # UTF-8 输出，无需设置 PYTHONIOENCODING"，claim_support 当时漏了。
+    try:
+        from console import force_utf8
+        force_utf8()
+    except Exception:
+        pass
     sys.exit(main())

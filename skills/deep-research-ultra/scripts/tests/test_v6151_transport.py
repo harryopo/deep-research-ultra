@@ -32,6 +32,14 @@ def _bare_http_calls():
         rel = path.relative_to(SCRIPTS).as_posix()
         if rel.startswith('tests/'):
             continue
+        # v6.79：跳过点开头的隐藏目录（`.research/` 等）。它们被 .gitignore 排除、
+        # 不进发布包，却会被 rglob 一并捞到——于是**一个写坏一半的草稿脚本就能让这条
+        # 测试红**，而红的原因（语法错误）跟传输层毫无关系，排查方向会被带偏。
+        # 实测踩过：写文档补丁脚本时中文字符引号提前闭合，`ast.parse` 直接抛
+        # SyntaxError，测试报的却是"有模块绕过共享传输层"。跟 `tests/` 同理，
+        # 都属于"不是被测对象"的范围。
+        if any(part.startswith('.') for part in path.relative_to(SCRIPTS).parts):
+            continue
         tree = ast.parse(path.read_text(encoding='utf-8'))
         for node in ast.walk(tree):
             if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
