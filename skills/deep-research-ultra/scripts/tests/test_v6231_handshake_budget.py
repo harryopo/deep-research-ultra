@@ -61,12 +61,23 @@ def make_client(stub_path, mode):
 
 
 def test_handshake_timeout_names_the_handshake_budget_not_the_session_one(stub_path):
+    """握手卡住时，报的必须是 1s 握手预算，不能报 20s 整场预算。
+
+    计时上界的取值：v6.87 原来是 4s，实测**在机器有负载时会飘** ——
+    一次全量跑它报了 4.9s，单独跑 4 轮全过。那不是回归（限流确实生效），
+    是 4s 离"限流生效"太近：Windows 上子进程 spawn + 收尾在负载下就能吃掉 3 秒。
+
+    判别力靠的是**离 20s 足够远**，不是离 1s 足够近 —— 上界从 4 放宽到 10：
+      限流生效 → 约 1~2s，通过（余量 8 秒，负载抖不动）
+      限流失效 → 约 20s，红（离上界还有 10 秒，判别力不减）
+    """
     client = make_client(stub_path, 'silent')
     client.INIT_TIMEOUT = 1
     started = time.time()
     assert client.open_session(budget=20) is None
     took = time.time() - started
-    assert took < 4, f'握手预算 1s 却等了 {took:.1f}s，说明限流没生效'
+    assert took < 10, (
+        f'握手预算 1s 却等了 {took:.1f}s（整场预算是 20s），说明限流没生效')
     err = client.last_error
     assert '1s' in err, f'提示该说真正卡住的 1s 握手预算：{err}'
     assert '20s' not in err, f'把整场预算 20s 写进提示会误导用户去调错的旋钮：{err}'
