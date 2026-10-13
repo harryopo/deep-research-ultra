@@ -83,6 +83,11 @@ S = Path(__file__).resolve().parent   # 本脚本直接放在 scripts/ 下，别
 REPO = S.parents[2]
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
 
+# 收窄跑实测 10~50 秒；**副本基线全量实测 260 秒**。
+# 两者必须分开给预算 —— 拿 300s 跑基线，一次 CPU 竞争就超时。
+NARROW_TIMEOUT = 300
+BASELINE_TIMEOUT = 1200
+
 
 class Mut:
     __slots__ = ("file", "find", "rep", "why", "expect")
@@ -133,55 +138,78 @@ MUTATIONS = [
 # 仓库副本
 # ---------------------------------------------------------------------------
 
+def _copy_by_walk(dest: Path):
+    """没有 git 时的退路：直接按目录树拷，忽略那几类。
+
+    **为什么必须有这条退路**：探针自己的测试会在**副本里**再调一次
+    `make_copy`（`test_probe_verifies_the_mutation_actually_took_effect` 之类），
+    而副本不是 git 仓库。没有退路时副本基线就红 —— 而基线红会让
+    「每个变异都被抓到」，检测率虚报到 100%。第一版实跑就死在这里。
+    """
+    skip = {".git", "__pycache__", ".research", ".pytest_cache",
+            "node_modules", ".mutmutation_running", ".mutation_running"}
+    shutil.copytree(REPO, dest, ignore=shutil.ignore_patterns(*skip),
+                    dirs_exist_ok=True)
+    return dest
+
+
 def make_copy(dest: Path) -> Path:
     """把**工作区**导到 dest，返回副本里的 scripts 目录。
 
-    先 `git archive HEAD` 拿基线，再把 `git diff HEAD` 打上去 ——
-    只用 HEAD 会漏掉未提交的改动，而那正是最需要被量的东西：
-    我补缺的两个测试还没提交时，探针仍然报那两个变异 SURVIVED，
+    优先走 git（快，且天然只含受控文件）：`archive HEAD` 拿基线，
+    再把 `git diff HEAD` 打上去，最后搬未跟踪且未忽略的文件。
+
+    只用 `git archive HEAD` 会漏掉未提交的改动，而那正是最需要被量的东西：
+    我补缺的两个测试还没提交时，探针仍报那两个变异 SURVIVED，
     而那**不代表工作区真的没修**，只代表还没提交。
 
-    最后把未跟踪且未 gitignore 的文件也搬过去（新增测试、文档等）。
-    `git ls-files --others --exclude-standard` 只列未跟踪且未被忽略的，
-    所以 `.research/` 这类目录天然被排除。
+    git 不可用时退到 `_copy_by_walk` —— 见那里的理由。
 
     用 Python 的 zipfile 解，不用 shell —— 二进制过 PowerShell 管道会被毁
     （`git archive --format=tar | tar -x` 实测 "Damaged tar archive"）。
     """
-    def git(*a, binary=False):
+    def git(*a, binary=False, soft=False):
         r = subprocess.run(["git", *a], cwd=str(REPO), capture_output=True,
                            env=ENV)
         if r.returncode != 0:
+            if soft:
+                return None
             raise RuntimeError(f"git {' '.join(a)} 失败："
                                f"{r.stderr.decode('utf-8', 'replace')}")
         return r.stdout if binary else r.stdout.decode("utf-8")
 
     dest.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(git("archive", "--format=zip", "HEAD",
-                                        binary=True))) as z:
-        z.extractall(str(dest))
+    if git("rev-parse", "--git-dir", soft=True) is None:
+        print("  （此处不是 git 仓库，退到目录树拷贝）")
+        _copy_by_walk(dest)
+    else:
+        with zipfile.ZipFile(io.BytesIO(git("archive", "--format=zip", "HEAD",
+                                            binary=True))) as z:
+            z.extractall(str(dest))
 
-    diff = git("diff", "HEAD")
-    if diff.strip():
-        r = subprocess.run(["git", "apply", "--directory=.",
-                            "--unsafe-paths", "-"], cwd=str(dest),
-                           input=diff.encode("utf-8"), capture_output=True,
-                           env=ENV)
-        if r.returncode != 0:
-            raise RuntimeError(
-                f"把工作区改动打到副本上失败：{r.stderr.decode('utf-8', 'replace')}\n"
-                f"  这一步不能省：只用 HEAD 会漏掉未提交的修复，"
-                f"把「还没提交」误报成「没修」。")
+        diff = git("diff", "HEAD")
+        if diff.strip():
+            r = subprocess.run(["git", "apply", "--directory=.",
+                                "--unsafe-paths", "-"], cwd=str(dest),
+                               input=diff.encode("utf-8"), capture_output=True,
+                               env=ENV)
+            if r.returncode != 0:
+                raise RuntimeError(
+                    f"把工作区改动打到副本上失败："
+                    f"{r.stderr.decode('utf-8', 'replace')}\n"
+                    f"  这一步不能省：只用 HEAD 会漏掉未提交的修复，"
+                    f"把「还没提交」误报成「没修」。")
 
-    untracked = [p for p in git("ls-files", "--others",
-                                "--exclude-standard").splitlines() if p.strip()]
-    for rel in untracked:
-        srcf = REPO / rel
-        if not srcf.is_file():
-            continue
-        out = dest / rel
-        out.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(srcf, out)
+        untracked = [p for p in (git("ls-files", "--others",
+                                     "--exclude-standard") or "").splitlines()
+                     if p.strip()]
+        for rel in untracked:
+            srcf = REPO / rel
+            if not srcf.is_file():
+                continue
+            out = dest / rel
+            out.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(srcf, out)
 
     scr = dest / "skills" / "deep-research-ultra" / "scripts"
     if not (scr / "score.py").exists():
@@ -194,14 +222,33 @@ def clear_pycache(scr: Path):
         shutil.rmtree(d, ignore_errors=True)
 
 
-def run_suite(scr: Path, paths, timeout=2400):
+def run_suite(scr: Path, paths, timeout=NARROW_TIMEOUT):
+    """返回 "red" / "green" / "hang"。
+
+    **"hang" 必须单列。** 实测：把 `verify_quotes.py:113` 的 `while i != -1`
+    改成 `while i == -1`，套件不是断言失败，而是**永远不结束**。
+
+    这种情况算不算"抓到"？算 —— 真实 CI 里挂死同样会让流水线红。但它和
+    断言失败是**两回事**：断言失败说明「测试在验证这个行为」，
+    挂死只说明「这个改动让程序停不下来」。混在一起算，报告就会把
+    「没有测试断言它会终止」这件事藏起来。
+
+    **默认超时必须按调用点给，300s 只适用于收窄跑。**
+    实测收窄跑 10~50 秒，而**副本基线全量要 260 秒** —— 拿 300s 去跑基线，
+    一次 CPU 竞争就超时，基线误判失败，整轮白跑。
+    这是我自己降超时降出来的 bug：把"别为一个挂死烧 40 分钟"修成了
+    "基线随时可能自己被判挂死"。
+    """
     args = [sys.executable, "-m", "pytest", "-q", "--no-header", "-x",
             "-p", "no:cacheprovider"] + [str(p) for p in paths]
     clear_pycache(scr)
-    r = subprocess.run(args, cwd=str(scr), capture_output=True, text=True,
-                       encoding="utf-8", errors="replace", timeout=timeout,
-                       env=ENV)
-    return r.returncode != 0
+    try:
+        r = subprocess.run(args, cwd=str(scr), capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=timeout,
+                           env=ENV)
+    except subprocess.TimeoutExpired:
+        return "hang"
+    return "red" if r.returncode != 0 else "green"
 
 
 # ---------------------------------------------------------------------------
@@ -306,9 +353,12 @@ def report():
 
         # 第 0 步：副本自洽性。跑不通的话，后面的「失败」就不能算变异造成的。
         print("步骤 0：验证副本自洽（未变异）")
-        base_red = run_suite(scr, [scr / "tests"])
-        print(f"  基线退出码 {'非 0 —— 副本跑不通，先修副本' if base_red else '0 ✓'}")
-        if base_red:
+        # 基线是**全量**，实测 260 秒 —— 不能用收窄跑的 300s 默认预算，
+        # 否则一次 CPU 竞争就超时，基线自己被判"挂死"，整轮白跑。
+        base = run_suite(scr, [scr / "tests"], timeout=BASELINE_TIMEOUT)
+        print(f"  基线：{base}"
+              + ("  —— 副本跑不通，先修副本" if base != "green" else " ✓"))
+        if base != "green":
             print("  副本自检没过，后续结果一律不作数。")
             return 1
         print()
@@ -374,13 +424,362 @@ def report():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def systematic(cap: int = 8, validate: int = 4, files=("score.py",
+                                                      "verify_quotes.py",
+                                                      "research.py",
+                                                      "ledger.py")):
+    """**机械生成**的变异，不手工挑 —— 为的是去掉选择偏差。
+
+    手工挑的那 9 个（见 MUTATIONS）专挑「已文档化的真实缺陷」，
+    而一个缺陷被文档化往往**正因为它已经被测试抓到过**。
+    所以那个 75% 系统性偏高。这一轮用同一把尺子量无偏的那批。
+
+    同一个探针、同一套收窄逻辑，只是变异来源不同 —— 两者的差就是选择偏差。
+    """
+    import mutate_gen
+
+    if anchors_ok() != 0:
+        return 1
+
+    tmp = Path(tempfile.mkdtemp(prefix="drux_mut_sys_"))
+    print()
+    print(f"副本：{tmp}")
+    print("（量的是**工作区**；只在副本上改写源码）")
+    print()
+    try:
+        scr = make_copy(tmp)
+        print("步骤 0：验证副本自洽（未变异）")
+        base = run_suite(scr, [scr / "tests"], timeout=BASELINE_TIMEOUT)
+        if base != "green":
+            print(f"  副本自检没过（{base}），后续结果一律不作数。")
+            return 1
+        print("  基线 green ✓")
+        print()
+
+        mutants, dropped = [], 0
+        for f in files:
+            p = scr / f
+            if not p.exists():
+                continue
+            ms, d = mutate_gen.generate(p, cap=cap)
+            mutants.extend(ms)
+            dropped += d
+            by = {}
+            for m in ms:
+                by[m.kind] = by.get(m.kind, 0) + 1
+            print(f"  {f:<20} 取 {len(ms):>2} 个  {by}（丢弃语法错 {d}）")
+        print(f"  合计 {len(mutants)} 个变异，丢弃 {dropped} 个"
+              f"（应用后无法编译 —— 留着会让套件 ImportError，"
+              f"那样每个文件都「被抓到」，检测率虚报到 100%）")
+        print()
+
+        results = []
+        for i, m in enumerate(mutants, 1):
+            p = m.path
+            data = p.read_bytes()
+            t0 = time.time()
+            try:
+                p.write_bytes(m.apply(data))
+                narrowed = tests_touching(scr, p.stem)
+                st = run_suite(scr, narrowed)
+                verdict = {"red": "caught", "hang": "caught(挂死)",
+                           "green": "SURVIVED"}[st]
+            finally:
+                p.write_bytes(data)
+                clear_pycache(scr)
+            dt = time.time() - t0
+            print(f"[{i:>2}/{len(mutants)}] {verdict:<9} {m.label()[:66]}  {dt:>5.1f}s",
+                  flush=True)
+            results.append({"file": m.path.name, "kind": m.kind, "line": m.line,
+                            "detail": m.detail, "verdict": verdict,
+                            "start": m.start, "end": m.end, "repl": m.repl,
+                            "seconds": round(dt, 1)})
+
+        # --- 收窄是否可信：对存活者抽样跑全量 ---
+        # 收窄按 import 传递闭包选测试，可能藏住跨路径的失败。只跑收窄的话，
+        # "SURVIVED" 有可能是假的 —— 所以抽样用全量复核。
+        #
+        # **为什么不给每个存活者都跑全量**：实测存活者占七成，而全量一趟 200s，
+        # 单这一项就是 70 分钟。而"收窄到底藏不藏得住"是个**比例**问题，
+        # 抽样估就行 —— 每个都跑既贵又没带来新信息。
+        # 第一版就是每个都跑全量，结果 32 个变异跑到第 11 个就超时了。
+        surv = [r for r in results if r["verdict"] == "SURVIVED"]
+        print()
+        print(f"存活 {len(surv)} 个，其中抽样 {min(validate, len(surv))} 个跑全量复核"
+              f"（收窄可能藏住跨路径的失败 —— 只跑收窄的话 SURVIVED 有可能是假的）")
+        recheck = []
+        for r in surv[:validate]:
+            # **按精确偏移重放**，不重新生成再按 (line, kind) 匹配：
+            # 同一行可能有两个同类变异（`a or b or c` 有两个 `or`），
+            # 那样匹配会取到**另一个**，复核结果说的就不是这个存活变异了。
+            # 复核的全部意义就是验证收窄可信，它自己配错对象就毫无意义。
+            p = scr / r["file"]
+            data = p.read_bytes()
+            repl = r["repl"].encode("utf-8")
+            mutated = data[:r["start"]] + repl + data[r["end"]:]
+            try:
+                p.write_bytes(mutated)
+                st2 = run_suite(scr, [scr / "tests"], timeout=BASELINE_TIMEOUT)
+                full = {"red": "caught", "hang": "caught(挂死)",
+                        "green": "SURVIVED"}[st2]
+            finally:
+                p.write_bytes(data)
+                clear_pycache(scr)
+            r["full_recheck"] = full
+            recheck.append(full)
+            print(f"  {r['file']}:{r['line']} [{r['kind']}] 收窄说存活 → 全量说 {full}")
+        if recheck:
+            fl = recheck.count("caught")
+            print(f"  收窄造成的假存活：{fl}/{len(recheck)}")
+            if fl:
+                print("  ⚠️ 收窄会藏住失败，上面那个检测率**偏高**，"
+                      "按比例下调后再看结论。")
+
+        caught = [r for r in results if r["verdict"] == "caught"]
+        hangs = [r for r in results if r["verdict"] == "caught(挂死)"]
+        bykind = {}
+        for r in results:
+            k = r["kind"]
+            bykind.setdefault(k, [0, 0])
+            bykind[k][1] += 1
+            if str(r["verdict"]).startswith("caught"):
+                bykind[k][0] += 1
+        n_caught = len(caught) + len(hangs)
+        print()
+        print("=" * 78)
+        print(f"机械生成变异 {len(results)} 个 · 抓到 {n_caught} "
+              f"（其中 {len(hangs)} 个是靠**挂死**而非断言抓到的）"
+              f" · 漏网 {len(results) - n_caught}")
+        print(f"**检测率 {n_caught / max(len(results), 1) * 100:.1f}%**"
+              f"；只算断言抓到的 {len(caught) / max(len(results), 1) * 100:.1f}%")
+        if hangs:
+            print()
+            print("靠挂死抓到的（单列：断言失败说明「测试在验证这个行为」，")
+            print("挂死只说明「这个改动让程序停不下来」——两回事）：")
+            for r in hangs:
+                print(f"  · {r['file']}:{r['line']} [{r['kind']}] {r['detail']}")
+        print()
+        print("按算子分（这才是「哪些形状的错抓得住」）：")
+        for k in sorted(bykind):
+            c, n = bykind[k]
+            print(f"  {k:<10} {c:>2}/{n:<3} {c / n * 100:>5.1f}%")
+        print()
+        print("对照：手工挑的 9 个变异是 75.0%（专挑已文档化的真实缺陷，")
+        print("      而一个缺陷被文档化往往正因为它已被抓到过 —— 选择偏差偏高）")
+        out = S / ".research" / "mutation_systematic.json"
+        out.write_text(json.dumps({"cap": cap, "seed": 20261013,
+                                   "dropped": dropped, "results": results},
+                                  ensure_ascii=False, indent=1), encoding="utf-8")
+        print()
+        print(f"落盘 → {out.name}")
+        return 0
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def boundary_run(cap_per_kind: int = 0, validate: int = 6):
+    """**只变异边界** —— 这样检测率能直接换算成「没被钉住的边界数」。
+
+    ## 为什么要有这个模式
+
+    `systematic()` 是全模块随机抽样，回答「这套测试整体有多可靠」。
+    但 v6.79~v6.88 我踩的坑（陈旧 `.pyc`、缓存分支、封顶被 Tier 抬上去、
+    `total=101`、单字引号、`read_text` 换行转换）**全部落在边界与异常路径**，
+    一次典型输入都没有。
+
+    `analysis/boundaries.py` 提取出 **85 个边界**（分母）。
+    如果变异只从这 85 个里取，那么：
+
+        没被钉住的边界数 ≈ 85 × (1 − 检测率)
+
+    这就不是一个抽象百分比，而是一份**带编号的待办清单**。
+
+    ## 变异怎么从边界生成
+
+    边界清单给的是 (文件, 行号, 类型)；把它喂给 `mutate_gen`，
+    只保留**行号命中该边界**的变异。类型到算子的对应：
+      `incl`  → 比较算子翻转（`<` ↔ `<=`）
+      `zero`  → 比较算子翻转（`>` ↔ `>=`）
+      `len`   → 比较算子翻转 + 数值 +1
+      `thresh`→ 数值 +1
+      `guard` → 去掉 `not`
+
+    对不上的边界（比如某行没有可翻转的算子）如实跳过并计数 ——
+    跳过的部分不能悄悄消失，否则分母又变小了。
+    """
+    import mutate_gen
+    import analysis.boundaries as BD
+
+    if anchors_ok() != 0:
+        return 1
+
+    tmp = Path(tempfile.mkdtemp(prefix="drux_mut_bnd_"))
+    print()
+    print(f"副本：{tmp}")
+    print()
+    try:
+        scr = make_copy(tmp)
+        base = run_suite(scr, [scr / "tests"], timeout=BASELINE_TIMEOUT)
+        if base != "green":
+            print(f"  副本自检没过（{base}），后续结果一律不作数。")
+            return 1
+        print("  基线 green ✓")
+        print()
+
+        # --- 清单 → 变异 ---
+        inventory = []
+        for f in BD.MODULES:
+            p = S / f
+            if not p.exists():
+                continue
+            inventory.extend(BD.extract(p))
+        byline = {}
+        for b in inventory:
+            byline.setdefault((b.file, b.line), []).append(b.kind)
+
+        KIND_OK = {"incl": ("compare",), "zero": ("compare",),
+                   "len": ("compare", "const"), "thresh": ("const",),
+                   "guard": ("not",)}
+        mutants, matched_ids, skipped = [], set(), []
+        for f in BD.MODULES:
+            p = S / f
+            if not p.exists():
+                continue
+            ms, _ = mutate_gen.generate(p, cap=0 or 10 ** 6)
+            for m in ms:
+                for kind in byline.get((f, m.line), ()):
+                    if m.kind in KIND_OK.get(kind, ()):
+                        mutants.append((m, kind))
+                        matched_ids.add(f"{f}:{m.line}:{kind}")
+                        break
+
+        # 一行多个变异时按 (行, 算子) 去重，只取第一个，避免边界被重复计权
+        seen, uniq = set(), []
+        for m, kind in mutants:
+            k = (m.file.name, m.line, m.kind)
+            if k in seen:
+                continue
+            seen.add(k)
+            uniq.append((m, kind))
+        if cap_per_kind:
+            bykind = {}
+            for m, kind in uniq:
+                bykind.setdefault(kind, []).append((m, kind))
+            uniq = [x for k in sorted(bykind) for x in bykind[k][:cap_per_kind]]
+
+        uncovered_ids = {b.bid for b in inventory} - matched_ids
+        for b in inventory:
+            if b.bid in uncovered_ids:
+                skipped.append(b)
+
+        bykind = {}
+        for m, kind in uniq:
+            bykind.setdefault(kind, []).append(m)
+        print(f"边界清单 {len(inventory)} 个（分母）")
+        for k in sorted(bykind):
+            print(f"  {k:<8} 生成变异 {len(bykind[k])}")
+        print(f"  合计 {len(uniq)} 个边界变异")
+        if skipped:
+            print(f"  ⚠️ {len(skipped)} 个边界**无法生成变异**（该行没有可翻转的算子/常量）")
+            print("     它们仍是分母的一部分，但没有变异能探测 —— 如实列出，不静默丢弃：")
+            for b in skipped[:14]:
+                print(f"     · {b.file}:{b.line} [{b.kind}] {b.code}")
+            if len(skipped) > 14:
+                print(f"     …还有 {len(skipped) - 14} 个")
+        print()
+
+        results = []
+        for i, (m, kind) in enumerate(uniq, 1):
+            p = m.path
+            data = p.read_bytes()
+            t0 = time.time()
+            try:
+                p.write_bytes(m.apply(data))
+                st = run_suite(scr, tests_touching(scr, p.stem))
+                verdict = {"red": "caught", "hang": "caught(挂死)",
+                           "green": "SURVIVED"}[st]
+            finally:
+                p.write_bytes(data)
+                clear_pycache(scr)
+            dt = time.time() - t0
+            bid = f"{m.file.name}:{m.line}:{kind}"
+            print(f"[{i:>2}/{len(uniq)}] {verdict:<11} {bid:<34} {dt:>5.1f}s",
+                  flush=True)
+            results.append({"bid": bid, "file": m.path.name, "line": m.line,
+                            "kind": kind, "op": m.kind, "detail": m.detail,
+                            "verdict": verdict, "start": m.start,
+                            "end": m.end, "repl": m.repl,
+                            "seconds": round(dt, 1)})
+
+        hangs = [r for r in results if r["verdict"] == "caught(挂死)"]
+        caught = [r for r in results if r["verdict"] == "caught"]
+        n_caught = len(caught) + len(hangs)
+        unpin = [r for r in results if r["verdict"] == "SURVIVED"]
+
+        print()
+        print("=" * 78)
+        print(f"边界 {len(inventory)} 个 · 可探测 {len(uniq)} 个 · "
+              f"钉住 {n_caught} · 未钉住 {len(unpin)} · 无变异可探测 {len(skipped)}")
+        if uniq:
+            print(f"**边界检测率 {n_caught / len(uniq) * 100:.1f}%**")
+        print()
+        print(f"⇒ 按分母折算：{len(inventory)} 个边界里，**{len(unpin)} 个改了没被发现**")
+        print()
+        bykind_all = {}
+        for b in inventory:
+            bykind_all.setdefault(b.kind, [0, 0])
+            bykind_all[b.kind][1] += 1
+        unpinned_ids = {r["bid"] for r in unpin}
+        for b in inventory:
+            if b.bid in unpinned_ids:
+                bykind_all[b.kind][0] += 1
+        print("按类型（未钉住 / 总数）：")
+        for k in sorted(bykind_all):
+            u, t = bykind_all[k]
+            print(f"  {k:<8} {u:>3} / {t:<3}")
+        print()
+        if unpin:
+            print("未钉住的边界（这就是待办清单）：")
+            for r in unpin:
+                print(f"  {r['bid']:<34} {r['detail'][:44]}")
+        if hangs:
+            print()
+            print("靠挂死抓到的（单列：断言失败说明「测试在验证这个行为」，")
+            print("挂死只说明「这个改动让程序停不下来」）：")
+            for r in hangs:
+                print(f"  {r['bid']}  {r['detail'][:44]}")
+
+        out = S / ".research" / "boundary_mutants.json"
+        out.write_text(json.dumps(
+            {"inventory_total": len(inventory), "probed": len(uniq),
+             "caught": n_caught, "unpinned": len(unpin),
+             "no_mutant": len(skipped),
+             "unpinned_ids": sorted(unpinned_ids),
+             "results": results}, ensure_ascii=False, indent=1),
+            encoding="utf-8")
+        print()
+        print(f"落盘 → {out.name}")
+        return 0
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="变异测试：把代码改坏，看测试会不会红")
-    ap.add_argument("--report", action="store_true", help="实跑全部变异（慢，约 20 分钟）")
+    ap.add_argument("--report", action="store_true", help="实跑手工挑的变异（慢）")
+    ap.add_argument("--systematic", action="store_true",
+                    help="实跑**机械生成**的变异（去选择偏差，慢）")
+    ap.add_argument("--boundaries", action="store_true",
+                    help="**只变异边界** —— 检测率可折算成「没被钉住的边界数」")
+    ap.add_argument("--cap", type=int, default=8, help="每个文件取几个变异")
     ap.add_argument("--check", action="store_true", help="只验变异锚点（秒级）")
     a = ap.parse_args(argv)
     if a.check:
         return anchors_ok()
+    if a.boundaries:
+        return boundary_run()
+    if a.systematic:
+        return systematic(cap=a.cap)
     return report()
 
 

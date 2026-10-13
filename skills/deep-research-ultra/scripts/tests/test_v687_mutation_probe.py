@@ -24,12 +24,29 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
 
 S = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(S))
 
 from score import CraapScorer as CS  # noqa: E402
 import verify_quotes as vq  # noqa: E402
+
+# 探针要 `git archive HEAD` 才能造副本，所以它的自测**需要 git 检出**。
+# 而变异副本（探针的实跑环境）不是 git 仓库 —— 在那里这三个测试既跑不动
+# （每个都要 copytree 一遍全仓，三个套起来 20 分钟）也**没有意义**：
+# 变异测的是被改坏的业务代码，探针自己不是被测对象。
+IN_GIT_CHECKOUT = (S.parents[2] / ".git").exists()
+needs_git = pytest.mark.skipif(
+    not IN_GIT_CHECKOUT,
+    reason="需要 git 检出（探针靠 git archive 造副本）；变异副本里没有 .git，"
+           "且那里探针不是被测对象")
+
+
+def _copy(tmp_path):
+    """造一份副本。抽出来是为了让三处共用同一句跳过理由。"""
+    import probe_mutation as pm
+    return pm.make_copy(tmp_path / "repo")
 
 
 class _R:
@@ -159,6 +176,7 @@ def test_probe_paths_point_at_the_right_levels():
     assert (pm.REPO / "CHANGELOG.md").exists(), f'REPO 推错层了：{pm.REPO}'
 
 
+@needs_git
 def test_probe_only_writes_inside_the_copy():
     """**真目录结构上不可能被碰** —— 这一版最重要的性质。
 
@@ -212,17 +230,24 @@ def test_probe_validates_copy_before_measuring():
     副本里有些测试读仓库相对路径的文件（README / CHANGELOG / index.html）。
     副本要是缺了什么，每个变异都会「被抓到」，而那全是假的 ——
     检测率会虚报到 100%，比没有门更坏。
+
+    判据用**语义**（要求基线是 `green`）而不是变量名：
+    第一版断言 `src.index("base_red")`，我把它改名成 `base` 测试就红了 ——
+    变量名不是要求本身，钉它只会让人为了过测试而保留一个无意义的旧名。
     """
     import inspect
 
     import probe_mutation as pm
 
     src = inspect.getsource(pm.report)
-    assert "base_red" in src, "report() 必须先跑一遍未变异的基线，确认副本自洽"
-    assert src.index("base_red") < src.index("for i, m in enumerate(MUTATIONS"), \
+    assert '!= "green"' in src, \
+        "report() 必须先跑一遍未变异的基线并要求它是 green"
+    assert "BASELINE_TIMEOUT" in src, "基线全量要显式给超时预算"
+    assert src.index('!= "green"') < src.index("for i, m in enumerate(MUTATIONS"), \
         "基线校验必须排在变异循环之前"
 
 
+@needs_git
 def test_probe_verifies_the_mutation_actually_took_effect():
     """**不信任「装上了」** —— 变异没生效时必须中止整个测量。
 
@@ -236,7 +261,7 @@ def test_probe_verifies_the_mutation_actually_took_effect():
     import probe_mutation as pm
 
     with tempfile.TemporaryDirectory() as td:
-        scr = pm.make_copy(Path(td) / "repo")
+        scr = _copy(Path(td))
         m = pm.Mut("score.py", "这段串不可能出现在 score.py 里",
                    "REPLACEMENT_NEVER_APPLIES", "故意装不上", "any")
         raised = False
@@ -278,6 +303,7 @@ def test_probe_anchors_still_match_current_code():
         "要么重跑 --report，要么把失效的变异删掉并说明为什么。")
 
 
+@needs_git
 def test_probe_narrows_tests_by_transitive_closure():
     """收窄必须用**传递**闭包，不能只看直接 import。
 
@@ -289,7 +315,7 @@ def test_probe_narrows_tests_by_transitive_closure():
     import probe_mutation as pm
 
     with tempfile.TemporaryDirectory() as td:
-        scr = pm.make_copy(Path(td) / "repo")
+        scr = _copy(Path(td))
         assert pm._rev_graph(scr), "反向依赖图是空的，说明 import 解析没工作"
 
         direct = {f for f in pm.tests_touching(scr, "verify_quotes")

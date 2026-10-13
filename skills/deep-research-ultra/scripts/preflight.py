@@ -184,6 +184,12 @@ PROVENANCE = {
     # 之前的条目视为既有事实（见 BASELINE）。
     "v6.83.0": [SCRIPTS / "analysis" / "relevance.py"],
     "v6.86.0": [SCRIPTS / "analysis" / "holdout.py"],
+    # v6.88 的**分母 85** 由 boundaries.py 复算（秒级，进过程门）。
+    # 注意同一版的 **56.2% 检测率** 不在此列：它要跑变异探针约 30 分钟，
+    # 放进过程门就没人会跑（慢到没人跑的门等于没有）。
+    # 那部分靠 `probe_mutation.py --systematic` 手动复算，
+    # 结果落在 `.research/mutation_systematic.json`，并在 CHANGELOG 写明样本量。
+    "v6.88.0": [SCRIPTS / "analysis" / "boundaries.py"],
 }
 
 # 豁免：同样是实测数字，但**不需要**分析脚本 —— 必须在代码里写清理由，
