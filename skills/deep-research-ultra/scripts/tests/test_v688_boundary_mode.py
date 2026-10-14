@@ -144,3 +144,60 @@ def test_cli_exposes_the_boundaries_mode():
     assert r.returncode == 0
     for flag in ("--boundaries", "--systematic", "--report", "--check"):
         assert flag in out, f"用法里缺 {flag}"
+
+# ---------------------------------------------------------------------------
+# 七、属性拼错这一类：静态查，别等它崩
+# ---------------------------------------------------------------------------
+# `boundary_run` 里写成 `m.file.name`（Mutant 只有 `path`），
+# 一跑就 AttributeError 崩掉 —— 而崩掉是好的，至少会说话。
+# 真正坏的是：崩在跑了 40 分钟之后。所以这类错要在**跑之前**挡住。
+
+
+def test_boundary_run_only_uses_attributes_mutant_actually_has():
+    """`boundary_run` 里访问 `Mutant` 的属性必须真的存在。
+
+    做法：AST 找出 `boundary_run` 里所有 `m.<attr>` 形式的属性访问，
+    逐个对照 `Mutant` 的 `__slots__` 与属性表。
+    """
+    import ast
+    import textwrap
+
+    import mutate_gen as mg
+
+    known = set(mg.Mutant.__slots__)
+    # 属性（含 file 那个 property）与公开方法都要算进来
+    known |= {n for n, v in vars(mg.Mutant).items()
+              if isinstance(v, property) or callable(v)}
+    known |= {"path", "file"}       # file 是后补的属性
+
+    src = textwrap.dedent(inspect.getsource(pm.boundary_run))
+    tree = ast.parse(src)
+    used = set()
+    for n in ast.walk(tree):
+        if (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
+                and n.value.id == "m" and not n.attr.startswith("_")):
+            used.add(n.attr)
+    # 用到但 Mutant 没有的
+    bad = used - known
+    assert not bad, (
+        f'boundary_run 用了 Mutant 没有的属性 {bad}；'
+        f'Mutant 实际有 {sorted(known)} —— 这类错在跑了几十分钟之后才崩')
+
+
+def test_mutant_exposes_file_as_a_string_like_the_handpicked_mut():
+    """`Mutant.file` 要与 `Mut.file` 同名同型（都是字符串）。
+
+    命名不一致是最容易省掉的一类错误：一边 `m.file` 一边 `m.path.name`，
+    写错时只有运行才炸。所以给成属性，而不是让人每次记清是哪个。
+    """
+    from pathlib import Path as _P
+
+    import mutate_gen as mg
+
+    ms, _ = mg.generate(S / "score.py", cap=3)
+    assert ms, "生成器一个变异都没产出，这条测试失去意义"
+    m = ms[0]
+    assert isinstance(m.file, str), f'Mutant.file 应是字符串，实得 {type(m.file)}'
+    assert m.file == m.path.name, "Mutant.file 应等于路径的文件名"
+    assert isinstance(pm.Mut("x.py", "a", "b", "c").file, str), \
+        "手挑那版的 .file 也是字符串 —— 两版得同名同型"

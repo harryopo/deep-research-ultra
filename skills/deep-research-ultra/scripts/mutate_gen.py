@@ -82,6 +82,16 @@ class Mutant:
         self.line = (data[:start].count(b"\n") + 1) if data is not None else line
         self.detail = detail
 
+    @property
+    def file(self):
+        """文件名（字符串）。
+
+        与手工那版的 `Mut.file` 同名同型。原先只有 `path`，`boundary_run` 里
+        写成 `m.file.name` 就 AttributeError 崩掉 —— 命名不一致是最容易
+        省掉的一类错误，所以这里给成属性而不是让人每次记清是哪个。
+        """
+        return self.path.name
+
     def label(self):
         return f"{self.path.name}:{self.line} [{self.kind}] {self.detail}"
 

@@ -656,7 +656,7 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
         # 一行多个变异时按 (行, 算子) 去重，只取第一个，避免边界被重复计权
         seen, uniq = set(), []
         for m, kind in mutants:
-            k = (m.file.name, m.line, m.kind)
+            k = (m.file, m.line, m.kind)
             if k in seen:
                 continue
             seen.add(k)
@@ -702,7 +702,7 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
                 p.write_bytes(data)
                 clear_pycache(scr)
             dt = time.time() - t0
-            bid = f"{m.file.name}:{m.line}:{kind}"
+            bid = f"{m.file}:{m.line}:{kind}"
             print(f"[{i:>2}/{len(uniq)}] {verdict:<11} {bid:<34} {dt:>5.1f}s",
                   flush=True)
             results.append({"bid": bid, "file": m.path.name, "line": m.line,
