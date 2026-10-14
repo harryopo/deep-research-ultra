@@ -421,7 +421,7 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
         │   ├── skill_engines.py  github_deep_search.py  platform_engines.py
         │   ├── cn_sources.py  builtin.py  crawl4ai_engine.py
         │   └── fallback.py           # 降级引擎 + curl_cffi TLS 指纹伪装
-        └── tests/                    # 124 个测试文件 / 1196 个用例
+        └── tests/                    # 125 个测试文件 / 1215 个用例
 ```
 
 ## 测试
@@ -437,7 +437,7 @@ cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 python -m pytest tests/ -v
 ```
 
-当前 **1246 项**（内核 1196 + 壳 50）。Windows 上有 2 项因缺 `bash` 跳过
+当前 **1265 项**（内核 1215 + 壳 50）。Windows 上有 2 项因缺 `bash` 跳过
 （跑 `setup-mcp.sh` 的那两条，是环境依赖不是回归）。
 
 ## 与竞品对比
