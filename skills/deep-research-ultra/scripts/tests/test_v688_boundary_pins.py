@@ -1382,6 +1382,174 @@ def test_low_quality_ratio_is_not_inflated_by_one_when_some_are_tier4():
 
 
 # ===========================================================================
+# 十九、tier.py 的公共后缀与 --add-tier（tier.py L133 / L135 / L250）
+# ===========================================================================
+# v6.93 全量实跑 87 个变异跑完，**5 条未钉住，其中 4 条在 tier.py**。
+# 逐条实测之后：L133 与 L250 是真缺口，L135 两条是等价变异。
+#
+# 实测（`_public_suffix`，13 个输入扫全）：
+#   L133 `>= 3` -> `> 3`   变化 3/13   真缺口（x.co.uk 会退成 co.uk）
+#   L133 `3`  -> `4`       变化 3/13   真缺口（同上）
+#   L133 `and`-> `or`      变化 2/13   真缺口（a.b.com 会变成 a.b.com）
+#   L133 `3`  -> `2`       变化 0/13   等价变异
+#   L135 `>= 2`-> `> 2`    变化 0/13   等价变异
+#   L135 `2`  -> `3`       变化 0/13   等价变异
+#
+# L135 为什么等价：`parts[-2:]` 在只有 1~2 段时就等于整个 host，
+# 而上一行 L133 新接管的 2 段情形返回 `parts[-3:]`，在 2 段时也是同一个值。
+# 两行要么一起管要么都不管，所以阈值动一动没有可观察的后果。
+
+def test_public_suffix_keeps_a_three_part_composite_suffix():
+    """**3 段且后两段都是复合后缀**时必须保留全部三段。
+
+    实测：x.co.uk -> x.co.uk｜x.org.cn -> x.org.cn｜b.me.co -> b.me.co；
+          4 段的 a.b.co.uk -> b.co.uk（只留后 3 段）。
+
+    把 `len(parts) >= 3` 改成 `> 3` 或把 `3` 改成 `4`，
+    x.co.uk 会退成 'co.uk' —— 而 'co.uk' 会被当成注册域本身，
+    于是整个 x.co.uk 域名的来源分级全错，而**不报任何错**。
+    """
+    import tier
+
+    table = [
+        ("x.co.uk", "x.co.uk"), ("x.org.cn", "x.org.cn"),
+        ("b.me.co", "b.me.co"), ("www.gov.uk", "gov.uk"),
+        ("a.b.co.uk", "b.co.uk"), ("deep.sub.x.com.cn", "x.com.cn"),
+        ("a.b.net.cn", "b.net.cn"),
+    ]
+    for host, want in table:
+        got = tier._public_suffix(host)
+        assert got == want, (
+            f"{host} 的公共后缀应为 {want!r}，实得 {got!r}。"
+            f"退成两段的话整个域名的来源分级会错，而这里不会报任何错。")
+
+
+def test_public_suffix_needs_both_labels_to_be_composite():
+    """`parts[-1] in composite and parts[-2] in composite` —— **两个都要**。
+
+    实测：a.b.com -> 'b.com'（parts[-2] 是 'b'，不在复合后缀表里）
+          sub.example.com -> 'example.com'
+    改成 `or` 之后，a.b.com 会变成 'a.b.com' —— 多留一段，
+    于是 example.com 与 a.b.com 被判成不同域名而漏合并。
+    """
+    import tier
+
+    table = [
+        ("a.b.com", "b.com"), ("sub.example.com", "example.com"),
+        ("x.co.uk", "x.co.uk"),
+    ]
+    for host, want in table:
+        got = tier._public_suffix(host)
+        assert got == want, f"{host} 应归一到 {want!r}，实得 {got!r}"
+
+
+def test_public_suffix_short_hosts_fall_through_intact():
+    """反向对照：1~2 段的主机原样返回。
+
+    这些正是 L135 那两条等价变异"看起来会变、实际不变"的那一档 ——
+    钉住当前行为，同时也就说明了为什么它们是等价的。
+    """
+    import tier
+
+    for host, want in (("example.com", "example.com"), ("co.uk", "co.uk"),
+                       ("a.io", "a.io"), ("localhost", "localhost")):
+        assert tier._public_suffix(host) == want, (
+            f"{host} 应原样返回，实得 {tier._public_suffix(host)!r}")
+
+
+def _tier_cli(tmp_path, *args):
+    """在**隔离的覆盖文件路径**上跑一次 `tier._main`。
+
+    ## 为什么不用 subprocess
+
+    `tier.py:92` 的 `_OVERRIDES_FILE = Path(__file__).parent / 'tier_overrides.json'`
+    —— 它指向**脚本所在目录**，不是 cwd。所以 `subprocess` 跑一次
+    `--add-tier` 就会把文件写进**真实的 scripts/**，而那既没被 gitignore，
+    又会真的改变之后所有来源的分级。
+
+    我第一版就是这么写的：跑完 `git status` 里多出一个
+    `?? skills/deep-research-ultra/scripts/tier_overrides.json`。
+    **污染真实状态这条，本项目已经栽在三个不同的途径上了**：
+    变异写盘、后台 job 残留、CLI 副作用。共同点是「以为自己在临时环境里」。
+
+    所以改成进程内调用并把 `_OVERRIDES_FILE` 指向 tmp_path：
+    真的改到了模块级常量、真的走同一条分支，但不碰磁盘上的真文件。
+    """
+    import io
+    import contextlib
+
+    import tier
+
+    old = tier._OVERRIDES_FILE
+    tier._OVERRIDES_FILE = Path(tmp_path) / _TIER_OVERRIDES
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            code = tier._main(list(args))
+    finally:
+        tier._OVERRIDES_FILE = old
+    return code, buf.getvalue()
+
+
+_TIER_OVERRIDES = "tier_overrides.json"
+
+
+def test_add_tier_takes_exactly_three_arguments(tmp_path):
+    """`len(args) == 3` —— **恰好三个**才走覆盖分支。
+
+    实测（覆盖文件隔离在 tmp_path）：
+      --add-tier d 2        -> 输出 JSON 覆盖表（走了覆盖分支）
+      --add-tier d 2 extra  -> 落空，当成 URL 处理
+      --add-tier d          -> 落空，当成 URL 处理
+
+    把 `3` 改成 `4`，那么**多带一个参数反而会写覆盖并静默忽略多余的那个** ——
+    `--add-tier d 2 extra` 会把 `d` 设成 tier 2 而不提示 `extra` 被忽略。
+    一个写进配置、影响之后所有分级的操作，却没有任何输出说明它发生了。
+    """
+    ok, out = _tier_cli(tmp_path, "--add-tier", "example.com", "2")
+    assert '"example.com"' in out, (
+        f"--add-tier d 2 应写出覆盖并打印 JSON，实得：{out[:120]}")
+    assert (Path(tmp_path) / _TIER_OVERRIDES).exists(), "覆盖文件没落盘"
+    assert '"example.com": 2' in out, f"覆盖值应为 2，实得：{out[:120]}"
+
+
+def test_add_tier_refuses_extra_arguments_instead_of_writing(tmp_path):
+    """多带参数必须**不写** —— 而不是写了还不说。"""
+    code, out = _tier_cli(tmp_path, "--add-tier", "other.example.com", "2", "extra")
+    assert '"other.example.com"' not in out, (
+        f"多带参数时不该写覆盖（实得）：{out[:140]}")
+    assert not (Path(tmp_path) / _TIER_OVERRIDES).exists(), (
+        "多带参数时不该落盘覆盖文件 —— 而改动之后这里会被静默写入")
+
+
+def test_add_tier_with_two_arguments_does_not_write(tmp_path):
+    """`--add-tier d`（少一个）也必须不写。"""
+    code, out = _tier_cli(tmp_path, "--add-tier", "example.com")
+    assert not (Path(tmp_path) / _TIER_OVERRIDES).exists(), (
+        f"参数不足时不该落盘覆盖；实得输出：{out[:140]}")
+
+
+def test_tier_cli_never_writes_into_the_scripts_directory(tmp_path):
+    """反向护栏：`_OVERRIDES_FILE` 必须仍指向脚本目录之外。
+
+    这条不是为了钉边界，是为了**不让上面三条测试自己变成污染源** ——
+    它们要是哪天改回 subprocess 跑，这条会先红。
+    """
+    # 真检查：跑完上面三种写法之后，真 scripts/ 下不能多出覆盖文件
+    before = set(p.name for p in S.glob(_TIER_OVERRIDES))
+    for args in (("--add-tier", "a.example.com", "2"),
+                 ("--add-tier", "a.example.com", "2", "extra"),
+                 ("--add-tier", "a.example.com")):
+        _tier_cli(tmp_path, *args)
+    after = set(p.name for p in S.glob(_TIER_OVERRIDES))
+    assert before == after, (
+        f"跑完 --add-tier 之后真 scripts/ 下多出了文件：{after - before}")
+    assert not (S / _TIER_OVERRIDES).exists(), (
+        "真 scripts/ 里出现了 tier_overrides.json —— 这几条测试在污染工作区")
+
+
+
+# ===========================================================================
 # 九、_score_relevance 的标题长度分档（L491/493/495）
 # ===========================================================================
 # `10 <= title_len <= 80` → 1.0 ｜ `< 10` → 0.5 ｜ `> 80` → 0.7

@@ -126,6 +126,12 @@ CLAIMED = [
     ("validate_report.py", 257, "compare", "!="),    # key == 'bluf'
     ("validate_report.py", 686, "const", "2"),       # sum(1 for ...)
     ("validate_report.py", 689, "compare", ">"),     # low_ratio >= 0.3
+    # tier.py：全量实跑 87 个变异跑完后剩下的 5 条未钉，其中 4 条在这里。
+    # 逐条实测之后：L133 与 L250 是真缺口，L135 两条是等价变异。
+    ("tier.py", 133, "compare", ">"),        # len(parts) >= 3
+    ("tier.py", 133, "const", "4"),          # 同上，改常量
+    ("tier.py", 133, "boolop", "or"),         # and -> or（两段都要复合后缀）
+    ("tier.py", 250, "const", "4"),          # len(args) == 3（--add-tier 恰好三参）
 ]
 
 # 等价变异：改了但行为不变，**不该**被任何测试抓到。
@@ -158,6 +164,18 @@ EQUIVALENT = [
     ("research.py", 1201, "compare", ">=",
      "`args.reflect_rounds > 0` → `>= 0`：进分支但 range(1,1) 空转，"
      "Reflector(max_rounds=0) 无副作用；rr=0/1/2 三次实跑归一化时间戳后逐字节相同。"),
+    # tier.py L135 `if len(parts) >= 2` 的两条：扫 13 个主机全部不变。
+    # 原因：`parts[-2:]` 在只有 1~2 段时就等于整个 host，而上一行 L133
+    # 新接管的 2 段情形返回 `parts[-3:]`，在 2 段时是同一个值 ——
+    # 两行要么一起管要么都不管，阈值动一动没有可观察后果。
+    ("tier.py", 135, "compare", ">",
+     "`if len(parts) >= 2` → `> 2`：扫 13 个主机（example.com / co.uk / "
+     "x.co.uk / a.b.co.uk / localhost / x.org.cn / deep.sub.x.com.cn ...）"
+     "全部不变。`parts[-2:]` 在只有 1~2 段时就等于整个 host，"
+     "而上一行 L133 新接管的 2 段情形返回 `parts[-3:]`，在 2 段时同值。"),
+    ("tier.py", 135, "const", "3",
+     "同上的另一种改法（`2` 改成 `3`）：13 个输入实测零变化，"
+     "两行要么一起管要么都不管。"),
     # ⚠️ 下面这条**曾经**被我当成等价变异放错在这里，留着当反面教材。
     #   它现在的正确归属是 CLAIMED（见上），教训写在这里免得我再犯：
     #   「扫了一批输入没变化」不等于等价 —— 那批输入必须真的能走到被测的行。
@@ -345,6 +363,9 @@ PIN_ANCHORS = {
     ('score.py', 691): 'if total >= 75:',
     ('score.py', 693): 'elif total >= 50:',
     ('score.py', 736): 'if min_score > 0:',
+    ('tier.py', 133): 'if len(parts) >= 3 and parts[-1] in composite and parts[-2] in composite:',
+    ('tier.py', 135): 'if len(parts) >= 2:',
+    ('tier.py', 250): "if args[0] == '--add-tier' and len(args) == 3:",
     ('validate_report.py', 136): "if len(text) >= 16 and c.get('id'):",
     ('validate_report.py', 231): 'if level > 2:',
     ('validate_report.py', 251): 'if chars >= MIN_OWN_SECTION_CHARS and cites == 0:',
