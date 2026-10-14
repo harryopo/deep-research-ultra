@@ -296,3 +296,66 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ---------------------------------------------------------------------
+# ANCHORS：把行号钉在**代码**上
+# ---------------------------------------------------------------------
+# 行号会随代码改动平移，而清单不会自己跟着动。v6.91 实测踩过：
+# 我以为 floor=2 在 verify_quotes.py:113，实际 113 是 `while i != -1`。
+# 那次是被「找不到变异」抓到的 —— 但**更危险的反面情形没有任何检查**：
+# 行号平移后碰巧命中了同文件的另一个同类算子，验证脚本会全绿，
+# 而它验证的根本不是我们想钉的那一条。
+#
+# 所以每条 (文件, 行号) 都配一段代码指纹，`test_v692_pin_anchors.py`
+# 会核对它**此刻仍然在那一行**。代码一改，这里就红，必须手动更新 ——
+# 也就是说「行号要跟着代码走」从纪律变成了机械门。
+PIN_ANCHORS = {
+    ('ledger.py', 113): 'while len(parts) > 2 and parts[-1].lower() in _LANDING_VIEWS:',
+    ('ledger.py', 219): "sub = host[:-len('.stackexchange.com')] if len(host) > len('stackexchange.com') else ''",
+    ('ledger.py', 366): "if seg[0] in ('blob', 'tree', 'raw', 'resolve') and len(seg) > 1:",
+    ('ledger.py', 973): 'if len(abody) < MIN_IDENTITY_BODY or len(tbody) < MIN_IDENTITY_BODY:',
+    ('ledger.py', 1422): "if len(val) > 1 and val.startswith('-'):",
+    ('research.py', 399): 'if min_relevance <= 0:',
+    ('research.py', 406): 'strong = [r for r in results if _relevance(r) >= min_relevance]',
+    ('research.py', 416): 'needed = max(1, min(target_count, 5))',
+    ('research.py', 417): 'if len(strong) >= needed:',
+    ('research.py', 831): 'elif not auto_claim:',
+    ('research.py', 1158): 'if args.min_score > 0:',
+    ('research.py', 1160): "all_results = [r for r in all_results if r.craap_score and r.craap_score.get('total', 0) >= args.min_score]",
+    ('research.py', 1201): 'if args.reflect_rounds > 0 and plan:',
+    ('research.py', 1541): "display_content = content[:500] + ('...' if len(content) > 500 else '')",
+    ('score.py', 398): 'if years_ago <= 0:',
+    ('score.py', 400): 'elif years_ago == 1:',
+    ('score.py', 402): 'elif years_ago == 2:',
+    ('score.py', 404): 'elif years_ago == 3:',
+    ('score.py', 406): 'elif years_ago <= 5:',
+    ('score.py', 426): 'if not query:',
+    ('score.py', 440): 'return (hits / len(words)) >= CraapScorer.RELEVANCE_COVERAGE_FLOOR',
+    ('score.py', 491): 'if 10 <= title_len <= 80:',
+    ('score.py', 493): 'elif title_len < 10:',
+    ('score.py', 551): 'if not content:',
+    ('score.py', 558): 'if content_len > 1000:',
+    ('score.py', 560): 'elif content_len > 500:',
+    ('score.py', 562): 'elif content_len > 200:',
+    ('score.py', 564): 'elif content_len > 50:',
+    ('score.py', 604): 'if commercial_count > 0:',
+    ('score.py', 615): 'if educational_count > 0:',
+    ('score.py', 625): 'if bias_count > 0:',
+    ('score.py', 691): 'if total >= 75:',
+    ('score.py', 693): 'elif total >= 50:',
+    ('score.py', 736): 'if min_score > 0:',
+    ('validate_report.py', 136): "if len(text) >= 16 and c.get('id'):",
+    ('validate_report.py', 231): 'if level > 2:',
+    ('validate_report.py', 251): 'if chars >= MIN_OWN_SECTION_CHARS and cites == 0:',
+    ('validate_report.py', 257): "if key == 'bluf' and chars >= MIN_OWN_SECTION_CHARS:",
+    ('validate_report.py', 686): "low = sum(1 for s in sources if s.get('tier') == 4)",
+    ('validate_report.py', 689): 'if low_ratio >= 0.3:',
+    ('verify_quotes.py', 60): 'def quoted_spans(text, floor=2):',
+    ('verify_quotes.py', 68): 'if frag and frag not in out:',
+    ('verify_quotes.py', 74): 'return [f for f in quoted_spans(text) if len(f) >= min_len]',
+    ('verify_quotes.py', 130): 'parts = [p for p in _ELLIPSIS_RE.split(frag) if len(_fold(p)) >= 6]',
+    ('verify_quotes.py', 209): 'if len(frag) < min_len and frag not in unchecked:',
+    ('verify_quotes.py', 213): 'if len(frag) < min_len:',
+    ('verify_quotes.py', 218): 'if len(frag) > max_len and frag not in overlong:',
+}
