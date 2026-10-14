@@ -292,3 +292,128 @@ def test_print_separator_mutant_survives_and_that_is_fine():
             if r["verdict"] == "SURVIVED" and r["file"] == "research.py"
             and r["line"] == 144]
     assert surv, "research.py:144 应当在存活清单里（打印分隔线改宽度无人察觉）"
+
+# ===========================================================================
+# 七、_score_purpose 的信号分档（L604 / L615 / L625）
+# ===========================================================================
+# 实测（干净状态，注意签名是 (url, content) —— 我第一版传反了，
+# 得到"全是 70.0"的假象，差点据此下一个错结论）：
+#
+#   空白 70 ｜ 商业内容 40 ｜ 商业域名 50 ｜ 教育内容 85
+#   教育域名 80 ｜ 偏见内容 50 ｜ 商业+偏见+域名 10
+#
+# 三个 `count > 0` 的变异（改成 `>= 0`）**是等价变异**：
+# count 为 0 时 `min(30, 0*10) = 0`，`score -= 0` 等于没动。
+# 所以**不该**有测试因为它们而红 —— 但整个函数的分档逻辑必须有人钉住，
+# 下面这组用例就是干这个的。
+
+def test_purpose_scoring_distinguishes_all_signal_kinds():
+    """`_score_purpose` 每一类信号都要能真的改变分数。
+
+    七个输入覆盖：空、商业内容、商业域名、教育内容、教育域名、偏见、
+    以及三者叠加。叠加那个是最狠的（70−30−20−10 = 10），
+    任何一处符号写反都会立刻露出来。
+    """
+    sc = CraapScorer()
+    table = [
+        ("空白",           "https://e.com/a", "", 70.0),
+        ("商业内容",       "https://e.com/a",
+         "buy discount sponsored 购买 广告", 40.0),
+        ("商业域名",       "https://amazon.com/p", "普通内容", 50.0),
+        ("教育内容",       "https://e.com/a",
+         "tutorial guide 教程 如何", 85.0),
+        ("教育域名",       "https://x.edu/p", "普通内容", 80.0),
+        ("偏见内容",       "https://e.com/a", "best ever 绝对 保证", 50.0),
+        ("商业+偏见+域名", "https://amazon.com/p",
+         "buy discount 绝对 100%", 10.0),
+    ]
+    for label, url, content, want in table:
+        got = sc._score_purpose(url, content)
+        assert got == want, (
+            f'{label}（url={url!r} content={content!r}）应得 {want}，实得 {got}')
+
+
+def test_purpose_score_stays_in_range_even_with_many_signals():
+    """加减多次之后仍要夹在 0~100 —— 叠加惩罚可能算出负数。"""
+    sc = CraapScorer()
+    heavy = "buy discount sponsored 广告 购买 推广 赞助 best ever 绝对 保证 100%"
+    v = sc._score_purpose("https://amazon.com/p", heavy)
+    assert 0.0 <= v <= 100.0, f'叠加后越界了：{v}'
+
+
+# ===========================================================================
+# 八、_score_accuracy 的长度分档（L558/560/562/564）
+# ===========================================================================
+# 实测（内容全用 x —— 不含数字/链接/引用词，只让长度这一项起作用）：
+#
+#   len   0→30（早退线）｜50→40｜51→55｜200→55｜201→60
+#   len 500→60｜501→65｜1000→65｜1001→70
+#
+# 四个 `> N` 的变异（把 1000 改成 1001 之类）只差在**恰好等于那个数**时。
+# 只喂一个长文本的话，四档全都抓不到 —— 必须逐档喂边界值。
+
+_LENGTH_TIERS = [
+    (0, 30.0), (50, 40.0), (51, 55.0), (200, 55.0),
+    (201, 60.0), (500, 60.0), (501, 65.0), (1000, 65.0), (1001, 70.0),
+]
+
+
+def test_accuracy_length_tiers_hit_every_boundary_value():
+    """逐个长度边界喂一遍 —— `> N` 的错改只在恰好等于 N 时才显形。"""
+    sc = CraapScorer()
+    for n, want in _LENGTH_TIERS:
+        got = sc._score_accuracy("x" * n, "https://e.com/a")
+        assert got == want, (
+            f'长度 {n} 应得 {want}，实得 {got}。'
+            f'内容全用 x 是不含数字/链接/引用词，只让长度这一项起作用。')
+
+
+def test_accuracy_tiers_are_monotonic_in_length():
+    """分数必须随长度单调不减（到 1001 封顶为止）。"""
+    sc = CraapScorer()
+    vals = [sc._score_accuracy("x" * n, "https://e.com/a")
+            for n, _ in _LENGTH_TIERS]
+    for a, b, (na, _), (nb, _) in zip(vals, vals[1:], _LENGTH_TIERS,
+                                        _LENGTH_TIERS[1:]):
+        assert a <= b, f'长度 {na} 得 {a}，{nb} 却得 {b} —— 反而降了'
+
+
+# ===========================================================================
+# 九、_score_relevance 的标题长度分档（L491/493/495）
+# ===========================================================================
+# `10 <= title_len <= 80` → 1.0 ｜ `< 10` → 0.5 ｜ `> 80` → 0.7
+#
+# ⚠️ 隔离技巧：query = "aa"、标题与内容同长且都是同一串字符 ——
+# 于是两个 coverage 恒为 1.0（除了 len<2 那种 "aa" 装不进 "a" 的情况），
+# **分数里唯一在动的就是 length_score**，分档值因此是干净可读的。
+#
+# 我第一版喂的是真实英文标题（30/19/9/3 字），一个都没落在 10 上，
+# 所以装上变异后全绿 —— 这正是「只喂正常值」的那种漏法。
+
+_TITLE_LEN_TIERS = [(9, 90.0), (10, 100.0), (11, 100.0),
+                    (80, 100.0), (81, 94.0)]
+
+
+def test_relevance_title_length_tiers_hit_their_edges():
+    """标题长度的两个边界值（10 和 80）都要逐个喂。"""
+    sc = CraapScorer()
+    q = "aa"
+    for n, want in _TITLE_LEN_TIERS:
+        t = "a" * n
+        got = sc._score_relevance(q, t, t)
+        assert got == want, (
+            f'标题 {n} 字应得 {want}，实得 {got}。'
+            f'两端边界值（10 与 80）是最容易被漏掉的：'
+            f'把 `elif title_len < 10` 改成 `< 11`，只有恰好 10 字时才显形。')
+
+
+def test_relevance_very_short_title_scores_worst_of_the_three_tiers():
+    """过短标题（0.5）必须比过长标题（0.7）更差 —— 别把两档写反。"""
+    sc = CraapScorer()
+    q = "aa"
+    short = sc._score_relevance(q, "a" * 9, "a" * 9)     # 90.0
+    ideal = sc._score_relevance(q, "a" * 20, "a" * 20)   # 100
+    long_ = sc._score_relevance(q, "a" * 90, "a" * 90)   # 94.0
+    assert short < long_ < ideal, (
+        f'过短 {short} / 过长 {long_} / 适中 {ideal} —— '
+        f'正确顺序是 0.5 < 0.7 < 1.0，反了就说明分档写颠倒了')
