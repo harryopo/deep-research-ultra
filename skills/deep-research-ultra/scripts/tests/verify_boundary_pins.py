@@ -100,6 +100,22 @@ CLAIMED = [
     ("ledger.py", 113, "compare", "not in"),     # parts[-1] in _LANDING_VIEWS
     ("ledger.py", 366, "compare", ">="),         # len(seg) > 1
     ("ledger.py", 366, "compare", "not in"),     # seg[0] in (...)
+    # research.py filter_by_relevance 的四道门（嵌套门槛：外层不够数就整体放回）
+    ("research.py", 399, "compare", "<"),        # min_relevance <= 0
+    ("research.py", 406, "compare", ">"),        # _relevance(r) >= min_relevance
+    ("research.py", 416, "const", "6"),          # min(target_count, 5)
+    ("research.py", 417, "compare", ">"),        # len(strong) >= needed
+    ("research.py", 831, "not", ""),             # elif not auto_claim
+    # cmd_search 里的两道门：要真跑一遍检索流程才观察得到（夹具见测试文件）
+    ("research.py", 1158, "compare", ">="),       # args.min_score > 0
+    ("research.py", 1160, "compare", ">"),       # craap_score['total'] >= min_score
+    ("research.py", 1541, "compare", ">="),      # len(content) > 500
+    ("research.py", 1541, "const", "501"),       # content[:500]
+    ("ledger.py", 973, "compare", "<="),         # len(abody) < MIN_IDENTITY_BODY
+    ("ledger.py", 973, "boolop", "and"),         # ... or ... -> and
+    ("ledger.py", 1422, "compare", ">="),        # len(val) > 1 -> >= 1
+    ("ledger.py", 1422, "const", "2"),           # len(val) > 1 -> > 2
+    ("ledger.py", 1422, "boolop", "or"),         # and -> or
 ]
 
 # 等价变异：改了但行为不变，**不该**被任何测试抓到。
@@ -125,6 +141,13 @@ EQUIVALENT = [
     ("score.py", 493, "const", "11",
      "`elif title_len < 10` 的 10 被 L491 的 `10 <= title_len <= 80` 遮蔽 —— "
      "改成 11 后 401 个输入全部不变，**没有任何测试能钉它**。"),
+    # `args.reflect_rounds > 0` → `>= 0`：会进分支，但 `range(1, 0+1)` 是空循环，
+    # 而 `Reflector(max_rounds=0)` 构造本身没有副作用（实测可构造）。
+    # 跑三次 cmd_search（rr=0/1/2）归一化时间戳后逐字节比对：**全部相同**。
+    # 那一圈唯一的输出差异是报告里的「生成时间」，那是墙钟不是行为。
+    ("research.py", 1201, "compare", ">=",
+     "`args.reflect_rounds > 0` → `>= 0`：进分支但 range(1,1) 空转，"
+     "Reflector(max_rounds=0) 无副作用；rr=0/1/2 三次实跑归一化时间戳后逐字节相同。"),
     # ⚠️ 下面这条**曾经**被我当成等价变异放错在这里，留着当反面教材。
     #   它现在的正确归属是 CLAIMED（见上），教训写在这里免得我再犯：
     #   「扫了一批输入没变化」不等于等价 —— 那批输入必须真的能走到被测的行。

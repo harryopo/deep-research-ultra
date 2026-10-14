@@ -56,6 +56,9 @@ from score import CraapScorer               # noqa: E402
 import verify_quotes as vq                  # noqa: E402
 import ledger as lg                          # noqa: E402
 
+from research import filter_by_relevance as rs_fbr   # noqa: E402
+from research import cmd_search as rs_cmd_search          # noqa: E402
+
 YEAR = datetime.now().year
 
 
@@ -643,6 +646,513 @@ def test_reliability_distinguishes_chinese_low_coverage_from_english():
         "空查询没有相关性可言，不算失效（L426 的早退）"
     assert sc._relevance_is_reliable("plain english query", "unrelated", "") is True, \
         "纯英文查询不在判据范围内（同语种词法匹配有效，L428）"
+
+
+
+# ===========================================================================
+# 十二、filter_by_relevance 的四道门（research.py L399/406/416/417）
+# ===========================================================================
+# 这个函数的门槛是嵌套的：**外层不够数就整体放回内层的过滤结果**。
+# 所以"某条结果相关度恰好等于 min_relevance"这类边界，
+# 只有在"够数"那个分支上才观察得到 —— 只测单个分支会全绿。
+#
+# 实测（min_relevance=0.5, [0.9, 0.5, 0.3], target_count=2）：
+#   保留 2 条 [0.90, 0.50]  丢弃 1  低相关 1
+#   min_relevance 改 0.51 -> 保留 3 条（0.50 掉出 strong，且不够数，全放回）
+
+_ANCHOR_TITLE = ("Vector Database Retrieval Augmented Generation Benchmark Study")
+
+
+class _Rel:
+    """`filter_by_relevance` 只读 `craap_score['relevance']` 与 `title`。"""
+
+    def __init__(self, rel, title=_ANCHOR_TITLE):
+        self.title = title
+        self.craap_score = {"relevance": rel}
+
+    def __repr__(self):
+        return "%.2f" % self.craap_score["relevance"]
+
+
+def _rels(*vals):
+    return [_Rel(v) for v in vals]
+
+
+def test_filter_keeps_result_exactly_at_min_relevance():
+    """`_relevance(r) >= min_relevance` —— **恰好等于门槛的要留下**（闭区间）。
+
+    实测：min_relevance=0.5 时 0.50 那条进 strong；改 0.51 它就掉出去。
+    改成 `>` 会把"刚好压线"的合格结果判成低相关 —— 而这恰恰是最该保留的一档。
+    """
+    rs = _rels(0.9, 0.5, 0.3)
+    keep, dropped, low = rs_fbr(rs, 0.5, 2)
+    assert len(keep) == 2, f"0.50 恰好等于 min_relevance，应保留（实得 {len(keep)} 条）"
+    assert repr(keep[1]) == "0.50", f"第二条应是 0.50 那条，实得 {keep[1]!r}"
+    assert (dropped, low) == (1, 1), f"丢弃/低相关应为 (1,1)，实得 ({dropped},{low})"
+
+    # 门槛抬高一分，压线那条就掉出去，且因为不够数而整体放回
+    keep2, dropped2, low2 = rs_fbr(rs, 0.51, 2)
+    assert len(keep2) == 3, f"min_relevance=0.51 时 0.50 掉出 strong，应整体放回 3 条"
+    assert dropped2 == 0 and low2 == 2, (
+        f"放回时 dropped 应为 0（没真丢）、low 应为 2，实得 ({dropped2},{low2})")
+
+
+def test_filter_threshold_at_exactly_needed_still_filters():
+    """`len(strong) >= needed` —— **恰好够数就要过滤**，不够才放回。
+
+    实测（strong 本来 3 条）：target_count=3 -> 保留 3 条；
+    target_count=4 -> 保留 4 条（3 < 4，不够数，全放回）。
+
+    改成 `>` 后，target_count=3 这个"刚好够"的常见情形会退化成放回 ——
+    过滤静默失效，而返回的元组里 dropped=0，看不出任何异常。
+    """
+    rs = _rels(0.9, 0.8, 0.7, 0.3)
+    keep3, dropped3, _ = rs_fbr(rs, 0.5, 3)
+    assert len(keep3) == 3, f"target_count=3 恰好够数，应过滤成 3 条，实得 {len(keep3)}"
+    assert dropped3 == 1, f"应丢掉那条 0.30，实得 dropped={dropped3}"
+
+    keep4, dropped4, _ = rs_fbr(rs, 0.5, 4)
+    assert len(keep4) == 4, f"target_count=4 时 strong 只有 3 条，不够数应放回 4 条"
+    assert dropped4 == 0, f"放回时 dropped 应为 0，实得 {dropped4}"
+
+
+def test_filter_needed_saturates_at_five():
+    """`needed = max(1, min(target_count, 5))` 的两端实测（推导会算错）。"""
+    for tc, want in ((0, 1), (1, 1), (2, 2), (3, 3), (5, 5), (6, 5), (99, 5)):
+        got = max(1, min(tc, 5))
+        assert got == want, f"target_count={tc} 时 needed 应为 {want}，实得 {got}"
+    # 饱和行为要在真函数上可见：target_count 从 5 加到 99 结果条数不再变
+    rs = _rels(0.9, 0.8, 0.7, 0.6, 0.5, 0.4)
+    assert len(rs_fbr(rs, 0.5, 5)[0]) == len(rs_fbr(rs, 0.5, 99)[0]), (
+        "needed 到 5 就饱和，target_count 从 5 加到 99 结果不应再变")
+
+
+def test_filter_short_circuits_when_min_relevance_is_not_positive():
+    """`min_relevance <= 0` 的短路 —— 关键在 **low 计数为 0**，不只是条数。
+
+    实测：min_relevance=0 时返回全量且 low=0；min_relevance=0.001 时
+    全量里三条都低相关（low=3）且同样不过滤。
+
+    只断言"条数不变"抓不住它 —— 两条路径返回的条数完全一样，
+    区别只在 low 那个数上。而 low 是要报给用户的。
+    """
+    rs = _rels(0.0, 0.0, 0.0)
+    _, _, low0 = rs_fbr(rs, 0, 3)
+    _, _, low_neg = rs_fbr(rs, -1, 3)
+    _, _, low_pos = rs_fbr(rs, 0.001, 3)
+    assert low0 == 0, f"min_relevance=0 走短路，low 应为 0，实得 {low0}"
+    assert low_neg == 0, f"min_relevance=-1 走短路，low 应为 0，实得 {low_neg}"
+    assert low_pos == 3, f"min_relevance=0.001 不短路，三条都低相关，实得 {low_pos}"
+
+
+
+# ===========================================================================
+# 十三、_write_ledger 的 dropped 计数（research.py L831）
+# ===========================================================================
+# `elif not auto_claim:` -> `elif auto_claim:` 会把 dropped 的语义整个反过来：
+# 显式要了 --auto-claim 的运行反而开始统计"丢弃"，而它本来一条都不该丢。
+#
+# `add_evidence` 返回 None 有两个成因，**都是这一条的可观察点**：
+#   ① URL 不可溯源（ledger.py L747-748）
+#   ② URL 已在 evidence.jsonl 里（L750-751）
+# 只测一个成因的话，另一个成因下变异仍然全绿。
+
+class _LRes:
+    def __init__(self, title, url):
+        self.title, self.url = title, url
+        self.content = ""
+        self.craap_score = {"total": 70.0, "relevance": 60.0, "tier": 2}
+        self.engine = "e"
+        self.query = "q"
+
+
+def _wl(tmp_path, results, **kw):
+    """跑一次 _write_ledger，返回 (账本, written 三个计数)。"""
+    from ledger import ResearchLedger
+    import research
+
+    led = ResearchLedger(str(tmp_path / "led")).init()
+    w = research._write_ledger(led, results, None, "topic", **kw)
+    return led, w
+
+
+def test_dropped_is_only_counted_when_not_auto_claiming(tmp_path):
+    """实测：不可溯源 URL 在 auto_claim 两侧的 written 完全不同。
+
+      auto_claim=False -> {'claims': 0, 'evidence': 0, 'dropped': 1}
+      auto_claim=True  -> {'claims': 1, 'evidence': 0, 'dropped': 0}
+
+    改成 `elif auto_claim:` 后，auto_claim=True 那行会变成 dropped=1。
+    """
+    _, w_off = _wl(tmp_path / "a", [_LRes("untraceable", "")], auto_claim=False)
+    assert w_off == {"claims": 0, "evidence": 0, "dropped": 1}, f"实得 {w_off}"
+
+    led, w_on = _wl(tmp_path / "b", [_LRes("untraceable", "")], auto_claim=True)
+    assert w_on == {"claims": 1, "evidence": 0, "dropped": 0}, (
+        f"显式 auto_claim 时一条都不该被丢（dropped 必须为 0），实得 {w_on}")
+    assert len(led.claims()) == 1, f"auto_claim 显式要了就该立论，实得 {len(led.claims())}"
+
+
+def test_dropped_counts_the_second_of_a_duplicate_url(tmp_path):
+    """重复 URL 是 `add_evidence` 返回 None 的第二个成因。
+
+    实测（两条同 URL）：auto_claim=False -> evidence=1 dropped=1。
+    只测"不可溯源"这一个成因的话，这个成因下变异仍然全绿。
+    """
+    _, w = _wl(tmp_path / "c", [_LRes("dup", "https://x.dev/a"),
+                               _LRes("dup", "https://x.dev/a")], auto_claim=False)
+    assert w == {"claims": 0, "evidence": 1, "dropped": 1}, f"实得 {w}"
+
+
+def test_dropped_stays_zero_when_everything_is_traceable(tmp_path):
+    """反向对照：可溯源时 dropped 恒为 0（两个成因都不触发）。"""
+    for ac in (False, True):
+        _, w = _wl(tmp_path / ("d%s" % ac), [_LRes("good", "https://x.dev/a")],
+                   auto_claim=ac)
+        assert w["dropped"] == 0, f"auto_claim={ac} 时可溯源 URL 不该被丢，实得 {w}"
+        assert w["evidence"] == 1, f"auto_claim={ac} 时应记 1 条证据，实得 {w}"
+
+
+
+# ===========================================================================
+# 十四、cmd_search 的两道门（research.py L1160 / L1201）
+# ===========================================================================
+# 这两条在 367 行的 cmd_search 里，要真的跑一遍检索流程才观察得到。
+# 夹具形状照抄 test_v6170_source_language_queries.py（现成的、可跑通的那套），
+# 唯一的坑：引擎必须同时有 `is_available()` 与 `is_configured()`，
+# 少一个会在 L984 的 get_configured_chain() 上 AttributeError。
+#
+# 实测（一条结果 total=68.4 / relevance=92.5）：
+#   min_score 68.35 -> 保留 1/1     68.4 -> 保留 1/1     68.45 -> 保留 0/1
+#   reflect_rounds 0（plan 非空）-> 不反思              1 -> 反思轮出现
+
+_CS_TOPIC = "retrieval augmented generation evaluation"
+_CS_TITLE = "Retrieval Augmented Generation Evaluation Benchmark"
+_CS_CONTENT = "retrieval augmented generation " * 20
+_CS_TOTAL = 68.4          # 实测值，见本节上方的说明
+
+
+def _cs_engine():
+    from engines.base import EngineMetadata
+
+    class _E:
+        def __init__(self):
+            self.metadata = EngineMetadata(
+                name="alpha", layer=1, description="d", requires_config=False,
+                config_keys=[], capabilities=["search"], priority=1)
+
+        def get_name(self):
+            return self.metadata.name
+
+        def get_layer(self):
+            return self.metadata.layer
+
+        def has_capability(self, cap):
+            return cap in self.metadata.capabilities
+
+        def is_available(self):
+            return True
+
+        def is_configured(self):
+            """v6.62 起 registry.get_configured_chain() 会问这个；
+            漏掉它会在 L984 直接 AttributeError。"""
+
+            return True
+
+        def search(self, query, max_results=10, **kw):
+            from engines.base import SearchResult
+
+            return [SearchResult(title=_CS_TITLE, url="https://a.example/p1",
+                                 content=_CS_CONTENT, source="alpha", score=0.9)]
+
+    return _E()
+
+
+def _cs_run(tmp_path, **over):
+    """跑一次 cmd_search，返回它的 stderr+stdout。"""
+    import argparse
+    import contextlib
+    import io
+
+    import cache as cache_mod
+
+    from engines.base import EngineRegistry
+
+    cache_mod.CACHE_DIR = tmp_path / "cache"     # 别让缓存跨轮次串味
+    base = dict(query=_CS_TOPIC, sources="alpha", source_query=None, all=False,
+                limit=10, depth="standard", effort="quick", breadth=1,
+                dimensions=None, perspectives=None, reflect_rounds=0,
+                language="en", region="us", ledger=None, auto_claim=False,
+                no_cache=True, no_plan=False, min_score=0, min_relevance=0,
+                llm_score=False, format="markdown", output=None)
+    base.update(over)
+    reg = EngineRegistry()
+    reg.register(_cs_engine())
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf), contextlib.redirect_stdout(buf):
+        rs_cmd_search(argparse.Namespace(**base), reg)
+    return buf.getvalue()
+
+
+def test_min_score_keeps_result_scoring_exactly_at_the_threshold(tmp_path):
+    """`craap_score['total'] >= args.min_score` —— **恰好等于阈值要留下**。
+
+    实测（total=68.4）：min_score 68.35 / 68.40 -> 保留 1/1；68.45 -> 保留 0/1。
+    改成 `>` 后，恰好压线的那条会被静默丢掉，而用户给的门槛就是它本身。
+    """
+    import re
+    kept = {}
+    for ms, want in ((_CS_TOTAL - 0.05, "1"), (_CS_TOTAL, "1"), (_CS_TOTAL + 0.05, "0")):
+        out = _cs_run(tmp_path / ("m%s" % ms), min_score=ms)
+        m = re.search(r"过滤后: (\d+)/(\d+)", out)
+        assert m, f"min_score={ms} 没触发过滤段，输出：{out[-200:]}"
+        kept[ms] = m.group(1)
+        assert m.group(1) == want, (
+            f"min_score={ms} 时应保留 {want} 条（total=68.4），实得 {m.group(1)}")
+    assert kept[_CS_TOTAL] == "1", "恰好等于阈值的这条必须留下"
+
+
+def test_min_score_zero_does_not_enter_the_filter_branch(tmp_path):
+    """`if args.min_score > 0` —— 0 不进过滤段（整段被跳过）。"""
+    out = _cs_run(tmp_path / "zero", min_score=0)
+    assert "过滤后:" not in out, (
+        "min_score=0 时不该进入过滤段（没有门槛可过滤），输出里却出现了「过滤后:」")
+
+
+def test_reflect_rounds_zero_means_no_reflection_even_with_a_plan(tmp_path):
+    """`args.reflect_rounds > 0 and plan` —— **0 轮就是不反思**。
+
+    实测（no_plan=False，plan 非空）：rounds=0 -> 无「反思轮」；
+    rounds=1 -> 出现「反思轮」。改成 `>= 0` 后，0 轮会走进去，
+    `range(1, 0+1)` 空转不报错 —— 于是"没开反思"和"开了但一轮都没跑"
+    在输出上完全一样，配置失效静默无声。
+    """
+    off = _cs_run(tmp_path / "r0", reflect_rounds=0)
+    on = _cs_run(tmp_path / "r1", reflect_rounds=1)
+    assert "反思轮" not in off, "reflect_rounds=0 却跑了反思"
+    assert "反思轮" in on, "reflect_rounds=1 却没跑反思"
+
+
+def test_no_plan_short_circuits_reflection_regardless_of_rounds(tmp_path):
+    """反向对照：`and plan` 那半边 —— no_plan=True 时几轮都不反思。"""
+    for rr in (0, 1):
+        out = _cs_run(tmp_path / ("np%s" % rr), reflect_rounds=rr, no_plan=True)
+        assert "反思轮" not in out, f"no_plan=True 且 rounds={rr} 却跑了反思"
+
+
+
+# ===========================================================================
+# 十五、ledger._value 的「像选项」守卫（ledger.py L1422）
+# ===========================================================================
+# `if len(val) > 1 and val.startswith('-')` —— 长度门槛把**单个连字符**排除在外。
+#
+# ⚠️ **可观察量是报错文案，不是退出码。** 实测三种值都 exit 2：
+#   '-'         守卫不触发，被下游拒（"来源 - 点不回原文"）
+#   'sub-dir/a' 守卫不触发，被下游拒
+#   '--text'    守卫触发（"那看起来是下一个选项"）
+# 用退出码断言的话，这三种一模一样，测试恒绿。
+#
+# 两侧都要钉：
+#   长度 1 的 '-'  ->  守卫**不该**触发（改成 >= 1 会被抓）
+#   长度 2 的 '-a' ->  守卫**该**触发（改成 > 2 会被抓）
+
+_LEDGER_PY = S / "ledger.py"
+_VALUE_GUARD_TEXT = chr(0x770B) + "起" + chr(0x6765) + chr(0x662F) + chr(0x4E0B) + chr(0x4E00) + chr(0x4E2A) + chr(0x9009) + chr(0x9879)
+# ↑ 「看起来是下一个选项」—— 用码点拼，绕开 shell heredoc 的中文损坏
+
+
+def _run_ledger(*args):
+    import subprocess
+
+    r = subprocess.run([sys.executable, str(_LEDGER_PY), *args],
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace")
+    return r.returncode, r.stdout + r.stderr
+
+
+def _guarded(tmp_path, value):
+    """用 `--url <value>` 试一次，返回 (退出码, _value 守卫是否触发)。"""
+    led = tmp_path / "led"
+    _run_ledger("add-claim", "--session", str(led), "--text", "x", "--id", "c1")
+    code, out = _run_ledger("add-source", "--session", str(led), "--claim-id", "c1",
+                            "--url", value, "--title", "T", "--craap", "70")
+    return code, _VALUE_GUARD_TEXT in out
+
+
+def test_value_guard_does_not_fire_on_a_lone_hyphen(tmp_path):
+    """单个 `-` 是合法取值（stdin 约定），**不该**被当成"下一个选项"。
+
+    实测：`--url -` 时守卫不触发，错误来自下游（"来源 - 点不回原文"）。
+    改成 `len(val) >= 1` 之后，守卫会抢先触发并给出误导性的提示。
+    """
+    code, fired = _guarded(tmp_path / "hy", "-")
+    assert not fired, (
+        f"单个连字符不该触发「像选项」守卫（实测未触发），却触发了；exit={code}")
+
+
+def test_value_guard_fires_from_length_two_upwards(tmp_path):
+    """长度 >= 2 且以 `-` 开头 -> 必须触发守卫。
+
+    实测：`-a` / `-abc` / `--text` 都触发。改成 `> 2` 之后 `-a` 会被漏掉 ——
+    而 `-a` 恰恰是最容易由 shell 变量落空顶上来的一种。
+    """
+    for val in ("-a", "-abc", "--text", "--session"):
+        code, fired = _guarded(tmp_path / ("g" + val.strip("-")), val)
+        assert fired, (
+            f"{val!r}（长度 {len(val)}）应触发「像选项」守卫，实得未触发；exit={code}")
+
+
+def test_value_guard_ignores_values_that_merely_contain_a_hyphen(tmp_path):
+    """反向对照：不以 `-` 开头就不触发（哪怕中间含连字符）。"""
+    code, fired = _guarded(tmp_path / "mid", "sub-dir/a")
+    assert not fired, f"'sub-dir/a' 不以 - 开头，不该触发守卫（exit={code}）"
+
+
+def test_value_guard_lets_a_real_url_through(tmp_path):
+    """守门不能变成门本身：正常 URL 必须照旧通过。"""
+    code, fired = _guarded(tmp_path / "ok", "https://example.org/a")
+    assert not fired and code == 0, (
+        f"正常 URL 被挡住了（exit={code}）：这是门本身，不是守门")
+
+
+
+# ===========================================================================
+# 十六、HTML 报告的正文截断（research.py L1541）
+# ===========================================================================
+# `content[:500] + ('...' if len(content) > 500 else '')`
+#
+# 实测：499 -> 499 字无省略号；**500 -> 500 字无省略号**；
+#       501 -> 503 字（500 + '...'）；900 -> 503 字。
+#
+# 两个变异分别要两侧都钉：
+#   `> 500` -> `>= 500`   只有"恰好 500"才显形
+#   `[:500]` -> `[:501]`   只有"恰好 501"才显形（501 时截断长度变了）
+
+def _html_content(out):
+    import re
+
+    m = re.search(r"<div class='content'>(.*?)</div>", out, re.S)
+    assert m, f"报告里没有 content 段：{out[-200:]}"
+    return m.group(1)
+
+
+class _HtmlRes:
+    def __init__(self, content):
+        self.title, self.url, self.source = "T", "https://x.dev/a", "s"
+        self.content = content
+        self.craap_score = {"total": 70.0, "grade": "medium"}
+
+
+def test_html_report_keeps_exactly_500_chars_without_ellipsis(tmp_path):
+    """**恰好 500 字不加省略号** —— `len(content) > 500` 是严格大于。
+
+    改成 `>= 500` 之后，正文刚好 500 字的结果会凭空多出三个点，
+    而"内容被截断了"是个会误导读者的信号（他以为还有下文）。
+    """
+    import research as rs
+
+    for n, want_len, want_dots in ((499, 499, False), (500, 500, False),
+                                   (501, 503, True), (900, 503, True)):
+        out = rs._generate_simple_html({}, [_HtmlRes("y" * n)], None)
+        got = _html_content(out)
+        assert len(got) == want_len, (
+            f"content 长度 {n} 时输出应为 {want_len} 字，实得 {len(got)}")
+        assert got.endswith("...") is want_dots, (
+            f"content 长度 {n} 时省略号应为 {want_dots}，实得 {got[-5:]!r}")
+
+
+def test_html_report_truncates_to_exactly_500(tmp_path):
+    """`[:500]` 的截断长度也要单独钉 —— `[:501]` 只在 501 字时露出来。"""
+    import research as rs
+
+    out = rs._generate_simple_html({}, [_HtmlRes("y" * 501)], None)
+    body = _html_content(out)
+    assert body == "y" * 500 + "...", (
+        f"501 字应截成 500 字加三点，实得长度 {len(body)}：{body[-6:]!r}")
+
+
+
+
+# ===========================================================================
+# 十七、content_identity 的正文长度门槛（ledger.py L973）
+# ===========================================================================
+# `len(abody) < MIN_IDENTITY_BODY or len(tbody) < MIN_IDENTITY_BODY`
+# MIN_IDENTITY_BODY = 400（任一侧正文不足 400 字按空壳拒：404 / 风控页 / JS 壳）
+#
+# ⚠️ **门槛量的是 `_norm_body()` 之后的长度，不是原始长度。**
+# `_norm_body` 会把连续空白压成一个空格并 strip —— 我第一版用
+# `("nav " * 20) + FRAG + ...` 构造，原始 256 字、归一化只有 236，
+# 于是「400 字」那个用例其实只有 236 字，被拒得莫名其妙。
+# 夹具改成用 'x' 填充（'x' 不产生空白），才能把归一化后长度精确控住。
+#
+# 实测（归一化后长度）：
+#   400/400 -> 绑成同一制品    399/400 -> 拒    400/399 -> 拒    399/399 -> 拒
+
+_CI_DOCS = "https://docs.example.com/en/gpu/index.html"
+_CI_REPO = "https://raw.githubusercontent.com/v/x/main/docs/gpu.md"
+_CI_FRAG = ("vLLM does not support Windows natively. Use WSL instead.")
+_CI_MIN_BODY = 400          # 实测值 = ledger.MIN_IDENTITY_BODY
+
+
+def _ci_body(n):
+    """归一化后长度恰好 n 的正文，且含那条逐字片段。"""
+    return (_CI_FRAG + " " + "x" * (n - len(_CI_FRAG) - 1))[:n]
+
+
+def _ci_probe(tmp_path, n_doc, n_repo):
+    """跑一次 content_identity，返回 (绑成几条, stderr)。"""
+    import contextlib
+    import io
+
+    from ledger import ResearchLedger
+
+    led = ResearchLedger(str(tmp_path / ("l%s_%s" % (n_doc, n_repo)))).init()
+    led.add_claim("doc says " + chr(0x300C) + _CI_FRAG + chr(0x300D), topic="t")
+    cid = led.claims()[0]["id"]
+    led.add_source(cid, _CI_DOCS, title="doc", tier=1)
+    bodies = {_CI_DOCS: _ci_body(n_doc), _CI_REPO: _ci_body(n_repo)}
+    # 断言夹具本身准确 —— 长度量错的话，下面所有断言都失去意义
+    import ledger as lg
+    assert len(lg._norm_body(bodies[_CI_DOCS])) == n_doc, "doc 夹具长度不对"
+    assert len(lg._norm_body(bodies[_CI_REPO])) == n_repo, "repo 夹具长度不对"
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf), contextlib.redirect_stdout(buf):
+        n = led.content_identity([cid], _CI_DOCS, _CI_REPO,
+                                 body_of=lambda u: bodies.get(u, ""))
+    return n, buf.getvalue()
+
+
+def test_identity_accepts_bodies_exactly_at_the_minimum(tmp_path):
+    """两侧都**恰好 400 字**时必须绑成同一制品（`len < 400` 是严格小于）。
+
+    改成 `<= 400` 之后，正文刚好 400 字的这一档会被当成空壳拒掉 ——
+    而 400 字远够不短，拒它的理由（"404 / 风控页 / JS 壳"）在这里不成立。
+    """
+    n, out = _ci_probe(tmp_path, _CI_MIN_BODY, _CI_MIN_BODY)
+    assert n == 1, f"两侧各 {_CI_MIN_BODY} 字应绑成同一制品，实得 n={n}；stderr={out[:160]}"
+
+
+def test_identity_rejects_when_either_side_is_one_char_short(tmp_path):
+    """两侧独立：任一侧 399 字就拒（anchor 侧与 target 侧都要验）。"""
+    short = _CI_MIN_BODY - 1
+    for n_doc, n_repo, label in ((short, _CI_MIN_BODY, "锚点侧不足"),
+                                 (_CI_MIN_BODY, short, "反查侧不足"),
+                                 (short, short, "两侧都不足")):
+        n, out = _ci_probe(tmp_path, n_doc, n_repo)
+        assert n == 0, (
+            f"{label}（{n_doc}/{n_repo}）应被拒，实得 n={n}")
+        assert chr(0x6B63) + chr(0x6587) + chr(0x4E0D) + chr(0x8DB3) in out, (
+            f"{label} 的拒绝理由应说明正文不足，stderr={out[:160]}")
+
+
+def test_identity_minimum_matches_the_module_constant(tmp_path):
+    """夹具里的 400 不是抄来的 —— 断言它等于 ledger.MIN_IDENTITY_BODY。"""
+    import ledger as lg
+
+    assert lg.MIN_IDENTITY_BODY == _CI_MIN_BODY, (
+        f"夹具写的是 {_CI_MIN_BODY}，模块常量是 {lg.MIN_IDENTITY_BODY} —— "
+        f"常量改了而夹具没改，这条测试会在错误的长度上通过")
+
 
 
 
