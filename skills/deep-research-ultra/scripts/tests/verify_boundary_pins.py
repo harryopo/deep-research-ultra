@@ -91,7 +91,7 @@ EQUIVALENT = [
      "`if not query: return True` 去掉 not —— 空查询走原逻辑也返回 True"
      "（没有中文字符），非空查询两种写法都返回 True。那个早退是冗余的。"),
     # 三个 `count > 0`：改成 `>= 0` 时，count 为 0 → min(30, 0*10) = 0
-    # → `score -= 0`，**行为不变**。这三���是边界实跑里 `zero` 那一类
+    # → `score -= 0`，**行为不变**。这三个是边界实跑里 `zero` 那一类
     # （33.3%）的全部存活者 —— 它们不是缺口，是等价变异。
     ("score.py", 604, "compare", "", "`if commercial_count > 0:` → `>= 0`：`min(30, 0*10)`=0，加减 0 无效果。"),
     ("score.py", 615, "compare", "", "`if educational_count > 0:` → `>= 0`：`min(15, 0*5)`=0，加减 0 无效果。"),

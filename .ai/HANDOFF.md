@@ -7,7 +7,7 @@
 - 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
 - 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1271 项（本机 Windows 1269 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1277 项（本机 Windows 1275 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
 - 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（v6.62.0）＋ **体检更正两条并修复**（v6.63.0）＋ **SKILL.md 信息架构重构**（手册搬走＋约束前置，v6.64.0）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
@@ -114,7 +114,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1271 项**＝内核 1221＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1277 项**＝内核 1227＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
 - **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它
