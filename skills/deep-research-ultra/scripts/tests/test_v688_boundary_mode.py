@@ -201,3 +201,89 @@ def test_mutant_exposes_file_as_a_string_like_the_handpicked_mut():
     assert m.file == m.path.name, "Mutant.file 应等于路径的文件名"
     assert isinstance(pm.Mut("x.py", "a", "b", "c").file, str), \
         "手挑那版的 .file 也是字符串 —— 两版得同名同型"
+
+
+# ---------------------------------------------------------------------------
+# 八、⚠️ 本项目最贵的一个 bug：变异写进了真实工作区
+# ---------------------------------------------------------------------------
+# `boundary_run` 里 `mutate_gen.generate(p)` 原本传的是 `S / f`（真路径），
+# 于是 `Mutant.path` 指向真文件，后面的 `p.write_bytes(m.apply(data))`
+# 把变异直接写进真实工作区 —— **副本隔离被完全绕开**。
+#
+# 实测后果：一次前台实跑被我用 `Select-Object -First 30` 掐断管道，进程被杀、
+# `finally` 的还原没执行，`score.py` 两行
+#   `if not query:`    → `if query:`
+#   `if not content:`  → `if content:`
+# 留在工作区没还原。而那两处不是我提交的改动，下一次 `git status` 之前
+# 我一直以为工作区是干净的 —— **更糟的是它没有让任何测试变红**，
+# 因为 `if content: return 30.0` 在语法上完全合法，行为差异要靠读才知道。
+#
+# 三道防线一起加，少一道都可能再犯。
+
+
+def test_boundary_run_generates_mutants_from_the_copy_not_the_real_tree():
+    """变异对象必须来自副本路径 —— `Mutant.path` 决定了写到哪儿。"""
+    src = _fn("boundary_run")
+    assert "mutate_gen.generate(cp, cap=10 ** 6)" in src, \
+        "必须用副本路径 cp 生成变异"
+    assert "mutate_gen.generate(p, cap=0 or 10 ** 6)" not in src, \
+        "generate(p, ...) 里那个 p 是 S / f（真路径）—— 变异会写进真实工作区"
+
+
+def test_boundary_run_asserts_every_mutation_target_lives_under_the_copy():
+    """每次写盘前都要断言目标在副本目录下。"""
+    src = _fn("boundary_run")
+    assert "_is_under(p, tmp)" in src, \
+        "写盘前必须校验目标路径在临时副本下，别靠自觉"
+
+
+def test_boundary_run_fingerprints_the_real_tree_before_and_after():
+    """跑前留指纹、跑后核对 —— 证明「一个字节都没动」，而不是假定没动。
+
+    这是唯一能在**进程被杀之外**兜住的检查：
+    `finally` 挡得住异常和正常退出，挡不住 SIGKILL。
+    指纹核对至少让下一次运行立刻发现上一次留下了残局。
+    """
+    import inspect as _i
+
+    src = _fn("boundary_run")
+    assert "_fingerprint(S)" in src, "跑之前必须给真实树留指纹"
+    assert "真实工作区被改动了" in src, "指纹不一致时要报错而不是继续"
+    assert _i.signature(pm._fingerprint).parameters["root"], \
+        "_fingerprint 要能对任意目录取指纹"
+    assert hasattr(pm, "_is_under"), "缺 _is_under"
+
+
+def test_is_under_rejects_paths_outside_the_root():
+    """`_is_under` 必须真的能拒 —— 用 `..` 与相似前缀两种绕过手法试。"""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td) / "copy"
+        root.mkdir()
+        inside = root / "sub" / "a.py"
+        inside.parent.mkdir()
+        inside.write_text("x", encoding="utf-8")
+        assert pm._is_under(inside, root), "副本内的文件应判为在下面"
+        for bad in (root.parent / "real.py",
+                    Path(td) / "copy_evil" / "a.py",     # 前缀相同但不在下面
+                    Path(td) / "a.py"):
+            assert not pm._is_under(bad, root), \
+                f'{bad} 不该被判为在 {root} 下'
+
+
+def test_real_tree_is_untouched_after_a_fingerprint_roundtrip():
+    """指纹机制本身要能区分「变了」与「没变」。"""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "a.py").write_text("x = 1\n", encoding="utf-8")
+        before = pm._fingerprint(d)
+        assert pm._fingerprint(d) == before, "没动就该一致"
+        (d / "a.py").write_text("x = 2\n", encoding="utf-8")
+        after = pm._fingerprint(d)
+        assert after != before, "改了一个字节就该被认出来"
+        (d / "b.py").write_text("y = 1\n", encoding="utf-8")
+        assert set(pm._fingerprint(d)) - set(before) == {"b.py"}, \
+            "新增文件也要被认出来"

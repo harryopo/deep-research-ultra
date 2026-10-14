@@ -577,6 +577,28 @@ def systematic(cap: int = 8, validate: int = 4, files=("score.py",
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _fingerprint(root: Path, exts=(".py",)):
+    """目录下关键文件的 sha256 指纹 —— 用来证明「一个字节都没动」。"""
+    import hashlib
+
+    out = {}
+    for f in sorted(root.rglob("*")):
+        if f.is_file() and f.suffix in exts and "__pycache__" not in f.parts:
+            out[f.relative_to(root).as_posix()] = hashlib.sha256(
+                f.read_bytes()).hexdigest()
+    return out
+
+
+def _is_under(path: Path, root: Path) -> bool:
+    """path 是否在 root 之下（realpath 比较，防 .. 与软链绕过）。"""
+    try:
+        Path(os.path.realpath(str(path))).relative_to(
+            Path(os.path.realpath(str(root))))
+        return True
+    except ValueError:
+        return False
+
+
 def boundary_run(cap_per_kind: int = 0, validate: int = 6):
     """**只变异边界** —— 这样检测率能直接换算成「没被钉住的边界数」。
 
@@ -627,6 +649,20 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
         print()
 
         # --- 清单 → 变异 ---
+        #
+        # ⚠️⚠️ **变异必须从副本取**（`scr / f`，不是 `S / f`）。
+        #
+        # 第一版这里写的是 `S / f`，于是 `Mutant.path` 指向**真文件**，
+        # 后面 `p.write_bytes(m.apply(data))` 把变异直接写进了真实工作区 ——
+        # 副本隔离被完全绕开。
+        #
+        # 实测后果：一次前台实跑被我用 `Select-Object -First 30` 掐断管道，
+        # 进程被杀、`finally` 的还原没执行，`score.py` 两行
+        # （`if not query:` → `if query:`、`if not content:` → `if content:`）
+        # **留在工作区没还原**。而那两处不是我提交的改动，
+        # 下一次 `git status` 之前我一直以为工作区是干净的。
+        #
+        # 两条铁律：① 变异对象必须来自副本路径 ② 跑完校验真实树没变。
         inventory = []
         for f in BD.MODULES:
             p = S / f
@@ -645,7 +681,12 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
             p = S / f
             if not p.exists():
                 continue
-            ms, _ = mutate_gen.generate(p, cap=0 or 10 ** 6)
+            # ★ 从**副本**取变异。`Mutant.path` 会跟着走，所以这一行
+            #   决定了后面写到哪儿 —— 写 `S / f` 就是往真工作区写。
+            cp = scr / f
+            if not cp.exists():
+                continue
+            ms, _ = mutate_gen.generate(cp, cap=10 ** 6)
             for m in ms:
                 for kind in byline.get((f, m.line), ()):
                     if m.kind in KIND_OK.get(kind, ()):
@@ -688,9 +729,14 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
                 print(f"     …还有 {len(skipped) - 14} 个")
         print()
 
+        real_fingerprint = _fingerprint(S)     # 跑之前留底
+
         results = []
         for i, (m, kind) in enumerate(uniq, 1):
             p = m.path
+            assert _is_under(p, tmp), (
+                f'变异目标 {p} 不在副本目录 {tmp} 下 —— '
+                f'第一版就是这么把变异写进真实工作区的')
             data = p.read_bytes()
             t0 = time.time()
             try:
@@ -710,6 +756,16 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
                             "verdict": verdict, "start": m.start,
                             "end": m.end, "repl": m.repl,
                             "seconds": round(dt, 1)})
+
+        # 跑完核对：真实工作区一个字节都不能变
+        now = _fingerprint(S)
+        touched = ([k for k in real_fingerprint if real_fingerprint[k] != now.get(k)]
+                   + [k for k in now if k not in real_fingerprint])
+        if touched:
+            raise RuntimeError(
+                f'真实工作区被改动了：{touched[:6]}。\n'
+                f'  这就是「改坏工作区而不自知」——比没测更糟。\n'
+                f'  变异必须只在副本上跑；Mutant.path 要来自 scr / f。')
 
         hangs = [r for r in results if r["verdict"] == "caught(挂死)"]
         caught = [r for r in results if r["verdict"] == "caught"]
