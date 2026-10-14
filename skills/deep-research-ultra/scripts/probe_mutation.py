@@ -599,7 +599,50 @@ def _is_under(path: Path, root: Path) -> bool:
         return False
 
 
-def boundary_run(cap_per_kind: int = 0, validate: int = 6):
+def _pick_modules(mods, only=(), skip=()):
+    """按 --only / --skip 收窄模块集合（mods 由调用方传进来）。
+
+    为什么不自己 import：`import analysis.boundaries as BD` 是在
+    boundary_run 内部做的（为了 --check 走快路径时不拖慢启动），
+    模块级拿不到它。
+    Semantics are an INTERSECTION: pick by `only` first, then remove `skip`
+    from what is left.  Neither given = everything (denominator stays 85).
+
+    `--only X --skip X` therefore yields an empty set and the caller exits 1
+    instead of falling back to the full run.  That is deliberate: a typo that
+    silently runs everything *looks* fine while the denominator is wrong,
+    which is the hardest kind of error to notice.
+    """
+    mods = list(mods)
+    if only:
+        want = {n if n.endswith(".py") else n + ".py" for n in only}
+        unknown = want - set(mods)
+        if unknown:
+            print(f"  --only 里的模块不在清单内：{sorted(unknown)}")
+        mods = [m for m in mods if m in want]
+    if skip:
+        drop = {n if n.endswith(".py") else n + ".py" for n in skip}
+        mods = [m for m in mods if m not in drop]
+    return mods
+
+
+def boundary_run(cap_per_kind: int = 0, validate: int = 6,
+                 only: tuple = (), skip: tuple = ()):
+    """`only` / `skip` 把要跑的模块收窄到 BD.MODULES 的子集。
+
+    ## 为什么需要它
+
+    全量 `--boundaries` 一次约 90 分钟，而 v6.91 那次实跑**在 67/87 处被
+    服务器重启掐断** —— 掐掉的正是 `validate_report.py` 的 20 条，
+    于是那 20 条至今一次没跑过。
+
+    没有收窄开关的话，想补一次就得从第 1 条重跑 90 分钟，
+    而时间越多被掐断的概率越大。**收窄让「补跑剩下的」变成一次 20 分钟的活。**
+
+    ⚠️ 收窄会改变**分母**：报出来的检测率只对 `only`/`skip` 之后的集合成立。
+    所以输出里必须把实际参与的模块与边界数一起打出来，
+    不能让人拿一个 20 条的检测率当 87 条的去用。
+    """
     """**只变异边界** —— 这样检测率能直接换算成「没被钉住的边界数」。
 
     ## 为什么要有这个模式
@@ -635,6 +678,19 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
     if anchors_ok() != 0:
         return 1
 
+    # The module selection and the empty-set guard must sit BEFORE
+    # make_copy / run_suite.  Written after them, it burns a full copy plus a
+    # ~4 min baseline run before admitting the module name was wrong.
+    # Caught by test_boundary_run_refuses_to_continue_with_an_empty_module_set.
+    modules = _pick_modules(list(BD.MODULES), only, skip)
+    print(f"Modules in this run ({len(modules)}): {', '.join(modules)}")
+    if not modules:
+        print("  No modules to run -- --only/--skip named something outside the "
+              "inventory.  An empty set must NOT fall back to the full run: it "
+              "would look like a clean run while the reported denominator is the "
+              "wrong one.")
+        return 1
+
     tmp = Path(tempfile.mkdtemp(prefix="drux_mut_bnd_"))
     print()
     print(f"副本：{tmp}")
@@ -664,7 +720,7 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
         #
         # 两条铁律：① 变异对象必须来自副本路径 ② 跑完校验真实树没变。
         inventory = []
-        for f in BD.MODULES:
+        for f in modules:
             p = S / f
             if not p.exists():
                 continue
@@ -676,8 +732,9 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6):
         KIND_OK = {"incl": ("compare",), "zero": ("compare",),
                    "len": ("compare", "const"), "thresh": ("const",),
                    "guard": ("not",)}
+        print(f"边界清单：{len(inventory)} 个 —— **这是这批的分母，不是全量的 85**")
         mutants, matched_ids, skipped = [], set(), []
-        for f in BD.MODULES:
+        for f in modules:
             p = S / f
             if not p.exists():
                 continue
@@ -829,11 +886,16 @@ def main(argv=None):
                     help="**只变异边界** —— 检测率可折算成「没被钉住的边界数」")
     ap.add_argument("--cap", type=int, default=8, help="每个文件取几个变异")
     ap.add_argument("--check", action="store_true", help="只验变异锚点（秒级）")
+    ap.add_argument("--only", action="append", default=[], metavar="FILE",
+                    help="--boundaries 只跑这些模块（可重复）。"
+                         "**会改变分母**，报出的检测率只对这批成立")
+    ap.add_argument("--skip", action="append", default=[], metavar="FILE",
+                    help="--boundaries 跳过这些模块（可重复）")
     a = ap.parse_args(argv)
     if a.check:
         return anchors_ok()
     if a.boundaries:
-        return boundary_run()
+        return boundary_run(only=tuple(a.only), skip=tuple(a.skip))
     if a.systematic:
         return systematic(cap=a.cap)
     return report()

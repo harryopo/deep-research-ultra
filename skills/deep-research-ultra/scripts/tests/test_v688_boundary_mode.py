@@ -287,3 +287,116 @@ def test_real_tree_is_untouched_after_a_fingerprint_roundtrip():
         (d / "b.py").write_text("y = 1\n", encoding="utf-8")
         assert set(pm._fingerprint(d)) - set(before) == {"b.py"}, \
             "新增文件也要被认出来"
+
+
+# ===========================================================================
+# --only / --skip：收窄模块集合（v6.92）
+# ===========================================================================
+# 为什么需要它：全量 --boundaries 约 90 分钟，而 v6.91 那次实跑**在 67/87 处
+# 被服务器重启掐断**，掐掉的正是 validate_report.py 的全部边界 ——
+# 于是那 13 个边界至今一次没跑过。没有收窄开关，补一次就得重跑 90 分钟，
+# 而时间越多被掐断的概率越大。
+#
+# ⚠️ **收窄会改变分母。** 检测率只对 `only`/`skip` 之后的集合成立，
+# 拿 13 条的检测率当 87 条的去用，比值直接错。所以下面把三件事都钉住：
+# 选得对、报出来的分母是收窄后的、以及静默收窄（什么都没跑却显示通过）不可能发生。
+
+ALL_MODULES = ['score.py', 'verify_quotes.py', 'research.py',
+               'ledger.py', 'tier.py', 'validate_report.py']
+
+
+def _pick(only=(), skip=()):
+    import probe_mutation as pm
+
+    return pm._pick_modules(list(ALL_MODULES), only, skip)
+
+
+def test_pick_modules_default_is_everything():
+    """不给开关就是全量 —— 收窄必须是显式的。"""
+    assert _pick() == ALL_MODULES
+
+
+def test_pick_modules_accepts_names_with_or_without_suffix():
+    """`--only validate_report` 与 `--only validate_report.py` 等价。
+
+    少写 .py 是最自然的写法，不该静默得到 0 个模块。
+    """
+    assert _pick(only=('validate_report.py',)) == ['validate_report.py']
+    assert _pick(only=('validate_report',)) == ['validate_report.py']
+    assert _pick(skip=('tier',)) == [m for m in ALL_MODULES if m != 'tier.py']
+
+
+def test_pick_modules_only_and_skip_are_an_intersection():
+    """`--only X --skip X` -> 空集合，**不是**退回全量、也不是 only 赢。
+
+    语义是先按 only 选、再从选中的里去掉 skip（交集）。
+    空集合由 boundary_run 的守卫挡下并退出 1。
+
+    为什么值得单独钉：`--only` 与 `--skip` 同时给同一个名字，
+    无论实现成哪种，看起来都"合理"—— 而我第一版的注释写的是
+    「--only 优先」，**实现却是交集**。注释与实现不符，
+    下一个人照着注释理解就会错。"""
+    got = _pick(only=('validate_report.py',), skip=('validate_report.py',))
+    assert got == [], f'交集语义下应是空集合，实得 {got}'
+    assert _pick(only=('validate_report.py', 'tier.py'),
+                 skip=('tier.py',)) == ['validate_report.py'], '交集语义不符'
+
+
+def test_pick_modules_docstring_matches_its_implementation():
+    """注释里的语义必须与代码一致 —— 我第一版就是两者不符。"""
+    import probe_mutation as pm
+
+    doc = pm._pick_modules.__doc__ or ""
+    assert 'INTERSECTION' in doc, "语义说明里没写清 only 与 skip 的关系"
+    assert '--only 优先' not in doc and 'only takes precedence' not in doc, \
+        "注释里还留着「only 优先」的说法，而实现是交集"
+
+
+def test_pick_modules_preserves_declared_order():
+    """结果按 BD.MODULES 的原顺序，不按 --only 的书写顺序。
+
+    顺序变了会让两次实跑的结果无法逐条对照。"""
+    got = _pick(only=('validate_report.py', 'tier.py'))
+    assert got == ['tier.py', 'validate_report.py'], f'顺序被改动了：{got}'
+
+
+def test_pick_modules_unknown_name_yields_empty_not_a_silent_full_run():
+    """写了不存在的模块名 -> 空集合（调用方据此退出 1），**不是**退回全量。
+
+    这是最危险的一种错：名字打错却跑完了全部 87 条，
+    跑完之后分母还是「这批的分母」，看起来一切正常。
+    """
+    assert _pick(only=('nope.py',)) == []
+    assert _pick(skip=ALL_MODULES) == []
+
+
+def test_boundary_run_refuses_to_continue_with_an_empty_module_set():
+    """空集合必须**退出 1**，且守卫要排在建副本与跑基线**之前**。
+
+    ⚠️ 第一版我把守卫写在 make_copy 之后，于是「模块名打错」这条路会先
+    白建一份副本、白跑一遍 4 分钟的基线，才告诉你名字错了。
+    这条测试就是为抓这个而写的。"""
+    import inspect
+
+    import probe_mutation as pm
+
+    src = inspect.getsource(pm.boundary_run)
+    assert 'if not modules:' in src, 'boundary_run 里没有空集合守卫'
+    # 只在 boundary_run 体内比位置 —— 文件里 systematic() 更早，
+    # 拿全文 index() 比会得出完全错误的结论（我第一版就是这么错的）
+    i_guard = src.index('if not modules:')
+    i_copy = src.index('make_copy(')
+    i_suite = src.index('run_suite(')
+    assert i_guard < i_copy, '守卫排在建副本之后 —— 等于白建一份副本'
+    assert i_guard < i_suite, '守卫排在跑基线之后 —— 等于白跑一遍基线'
+
+
+def test_boundary_run_prints_the_reduced_denominator():
+    """收窄后必须把**这批的分母**打出来，否则有人会拿它当全量的数用。"""
+    import inspect
+
+    import probe_mutation as pm
+
+    src = inspect.getsource(pm.boundary_run)
+    assert '**这是这批的分母，不是全量的 85**' in src, \
+        '没有把「分母已收窄」这句话打在输出里'
