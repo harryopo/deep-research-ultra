@@ -116,6 +116,16 @@ CLAIMED = [
     ("ledger.py", 1422, "compare", ">="),        # len(val) > 1 -> >= 1
     ("ledger.py", 1422, "const", "2"),           # len(val) > 1 -> > 2
     ("ledger.py", 1422, "boolop", "or"),         # and -> or
+    # validate_report.py：13 个边界一次没被跑过（v6.91 掐断在 67/87，
+    # 掐掉的正是这个文件）。v6.92 加 --only 才第一次跑出 50.0%。
+    # 未钉住的 7 条按类型：incl 4/5、thresh 2/3、len 1/2；guard 0/3。
+    ("validate_report.py", 136, "compare", ">"),     # len(text) >= 16
+    ("validate_report.py", 136, "const", "17"),      # text[:16]
+    ("validate_report.py", 231, "const", "3"),       # level > 2
+    ("validate_report.py", 251, "compare", ">"),     # chars >= MIN_OWN_SECTION_CHARS
+    ("validate_report.py", 257, "compare", "!="),    # key == 'bluf'
+    ("validate_report.py", 686, "const", "2"),       # sum(1 for ...)
+    ("validate_report.py", 689, "compare", ">"),     # low_ratio >= 0.3
 ]
 
 # 等价变异：改了但行为不变，**不该**被任何测试抓到。

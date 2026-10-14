@@ -58,6 +58,15 @@ import ledger as lg                          # noqa: E402
 
 from research import filter_by_relevance as rs_fbr   # noqa: E402
 from research import cmd_search as rs_cmd_search          # noqa: E402
+from validate_report import (cited_claim_ids as vr_cci_md,   # noqa: E402
+                            audit_conclusion_citations as vr_acc,
+                            _HEDGE_PHRASES)
+
+
+def vr_hedge():
+    """两头下注词表（由测试自己取，避免把词硬编码进断言）。"""
+    return _HEDGE_PHRASES
+
 
 YEAR = datetime.now().year
 
@@ -1153,6 +1162,222 @@ def test_identity_minimum_matches_the_module_constant(tmp_path):
         f"夹具写的是 {_CI_MIN_BODY}，模块常量是 {lg.MIN_IDENTITY_BODY} —— "
         f"常量改了而夹具没改，这条测试会在错误的长度上通过")
 
+
+
+
+# ===========================================================================
+# 十八、validate_report.py 的 7 条未钉边界
+# ===========================================================================
+# 这 13 个边界一次都没被跑过（v6.91 的实跑在 67/87 处被服务器重启掐断，
+# 掐掉的正是这个文件）。v6.92 加了 `--only` 才第一次跑出结果：
+#   13 个边界 / 14 个变异 / 钉住 7 / 未钉住 7 -> 50.0%
+#   按类型：incl 4/5 未钉（最差）、thresh 2/3、len 1/2、guard 0/3
+# `guard` 3/3 全钉住，与 v6.91 那批的 guard 92.3% 一致。
+#
+# 全部期望值都是实测值，下面每条都注明了量出来的数字。
+
+# --- L136: len(text) >= 16 -----------------------------------------------
+# `prefixes` 只在**能改变归因结果**时才 observable：
+# 两条 claim 写在同一行、靠前缀把归因收窄到其中一条。
+_CI_A = "ALPHA-CLAIM-TEXT-0123"
+
+
+def _vr_cci_run(text_c2, line_body):
+    """两条 claim 写在同一行、只有 c2 的前缀可能命中，用来看归因收不收窄。"""
+    srcs = [{"primary_index": 1, "claim_id": "c1"},
+            {"primary_index": 2, "claim_id": "c2"}]
+    claims = [{"id": "c1", "text": _CI_A}, {"id": "c2", "text": text_c2}]
+    md = "\u6b63\u6587 " + line_body + " \u4ee5\u53ca [1] [2]"
+    un, _ = vr_cci_md(md, srcs, claims)
+    return un
+
+
+def test_claim_prefix_registered_at_exactly_16_chars():
+    """**恰好 16 字要登记**（`len(text) >= 16` 是闭区间）。
+
+    ⚠️ **我第一版这条又是空转的**：我用了 21 字和 15 字当样本 ——
+    21 > 16 照样登记、15 < 16 照样不登记，**两个样本都不在边界上**，
+    于是装上 `>= 16` → `> 16` 与 `[:16]` → `[:17]` 全都照样绿。
+    是验证脚本抓出来的。**又一次「只喂正常值」。**
+
+    正确做法：样本长度必须**恰好等于**阈值，且测试自己断言那个长度。
+    """
+    c2 = "ABCDEFGHIJKLMNOP"          # 恰好 16 字
+    assert len(c2) == 16, "夹具长度不对，这条测试会在错误的边界上通过"
+    un = _vr_cci_run(c2, c2)
+    assert un == {"c2"}, (
+        f"16 字前缀应登记并把归因收窄到 c2，实得 {sorted(un)}"
+        f"（`>= 16` 被改成 `> 16` 了？）")
+
+    c2b = "b" * 15
+    assert len(c2b) == 15, "夹具长度不对"
+    un15 = _vr_cci_run(c2b, c2b)
+    assert un15 == {"c1", "c2"}, (
+        f"15 字不该登记，应走全局归因（两条都算），实得 {sorted(un15)}")
+
+
+def test_claim_prefix_is_cut_at_16_not_17_chars():
+    """`prefixes.setdefault(text[:16], ...)` —— 前缀长度是 **16**。
+
+    构造：claim 文本 17 字，但行里只出现它的**前 16 字**。
+      text[:16] = "ABCDEFGHIJKLMNOP" -> 在行里 -> 命中 -> 收窄到 c2
+      text[:17] = "ABCDEFGHIJKLMNOPQ" -> 不在行里 -> 不命中 -> 全局归因
+
+    改成 `[:17]`（以及配套的 `>= 17`）之后这条线会露出来。
+    """
+    c2 = "ABCDEFGHIJKLMNOPQ"         # 17 字
+    assert len(c2) == 17, "夹具长度不对"
+    un = _vr_cci_run(c2, c2[:16])          # 行里只放前 16 字
+    assert un == {"c2"}, (
+        f"前缀应截到 16 字并命中，实得 {sorted(un)}（[:16] 被改长了？）")
+
+
+# --- L231: level > 2 ----------------------------------------------------
+def test_subheadings_do_not_reset_the_own_section():
+    """`if level > 2: continue` —— `###` 子标题**不**清空当前节。
+
+    实测：'# / ## 一页拍板' -> bluf_chars=200；
+          '### / #### 一页拍板' -> bluf_chars=0（整节没被量到）。
+
+    这条有实测代价：docstring 里记着「把 1791 字的结论段量成 136 字」
+    —— 子标题一旦清空 current，量到的就只有它之前那几行。
+    改成 `>= 2` 后二级标题也会被跳过，一页拍板整节消失。
+    """
+    for head, want in (("# ", 200), ("## ", 200), ("### ", 0), ("#### ", 0)):
+        md = head + "\u4e00\u9875\u62cd\u677f\n" + "y" * 200 + "\n"
+        _, stats = vr_acc(md)
+        got = stats.get("bluf_chars", 0)
+        assert got == want, (
+            f"标题 {head.strip()!r} 下 bluf_chars 应为 {want}，实得 {got}")
+
+
+# --- L251 / L257: chars >= MIN_OWN_SECTION_CHARS -------------------------
+_VR_MIN_CHARS = 120          # 实测值 = validate_report.MIN_OWN_SECTION_CHARS
+
+
+def _vr_bluf(n):
+    return "## \u4e00\u9875\u62cd\u677f\n" + "y" * n + "\n"
+
+
+def test_own_section_threshold_is_inclusive_at_120():
+    """`chars >= MIN_OWN_SECTION_CHARS` —— **恰好 120 字就要管**。
+
+    实测：119 字 -> issues=0；120 字 -> issues=1；121 字 -> issues=1。
+    改成 `> 120` 之后，整整 120 字那一档会被放过。
+    """
+    for n, want in ((119, 0), (120, 1), (121, 1)):
+        issues, stats = vr_acc(_vr_bluf(n))
+        assert stats.get("bluf_chars") == n, (
+            f"{n} 字时 bluf_chars 应为 {n}，实得 {stats.get('bluf_chars')}")
+        assert len(issues) == want, (
+            f"{n} 字时应有 {want} 条问题，实得 {len(issues)}：{issues[:1]}")
+
+
+def test_section_with_citations_is_not_flagged_as_pure_judgement():
+    """L251 的另一半 `and cites == 0` —— 挂了引用就不该说「纯判断」。
+
+    实测（conclusion 段 200 字）：不带 [N] -> 1 条；带 [1] -> 0 条。
+    """
+    base = "## \u7ed3\u8bba\u4e0e\u5efa\u8bae\n"
+    body = "w" * 200
+    no_cite, _ = vr_acc(base + body + "\n")
+    with_cite, _ = vr_acc(base + body + " [1]\n")
+    assert len(no_cite) == 1, f"无引用应报 1 条，实得 {len(no_cite)}"
+    assert len(with_cite) == 0, (
+        f"挂了 [1] 就不该报「纯判断」，实得 {len(with_cite)}：{with_cite[:1]}")
+
+
+def test_the_hedge_check_applies_to_bluf_only():
+    """L257 `key == 'bluf'` —— 「两头下注」只在一页拍板那一节查。
+
+    实测（各段 200 字 + 同一个两头下注词）：
+      bluf 段 -> issues=2（多出来那条就是两头下注）
+      summary 段 -> issues=1（只有「纯判断」那条）
+    去掉 `key == 'bluf'` 后，执行摘要里的话也会被当成两头下注。
+    """
+    hedge = vr_hedge()[0]
+    for key, head, want in (("bluf", "## \u4e00\u9875\u62cd\u677f\n", 2),
+                            ("summary", "## \u6267\u884c\u6458\u8981\n", 1),
+                            ("conclusion", "## \u7ed3\u8bba\u4e0e\u5efa\u8bae\n", 1)):
+        issues, _ = vr_acc(head + ("y" * 200) + " " + hedge + "\n")
+        assert len(issues) == want, (
+            f"{key} 段含两头下注词应报 {want} 条，实得 {len(issues)}：{issues}")
+
+
+def test_own_section_minimum_matches_the_module_constant():
+    """夹具里的 120 不是抄来的 —— 断言它等于模块常量。"""
+    import validate_report as vr
+
+    assert vr.MIN_OWN_SECTION_CHARS == _VR_MIN_CHARS, (
+        f"夹具写的是 {_VR_MIN_CHARS}，模块常量是 {vr.MIN_OWN_SECTION_CHARS}")
+
+
+# --- L686 / L689: 低质源占比 --------------------------------------------
+def _vr_report(n_tier4, n_tier1):
+    """造一份 n_tier4 条 Tier4 + n_tier1 条 Tier1 来源的报告，跑一次校验。"""
+    from ledger import ResearchLedger
+    from validate_report import validate_report
+
+    import tempfile
+
+    td = Path(tempfile.mkdtemp(prefix="vr_lowq_"))
+    led = ResearchLedger(str(td / "led")).init()
+    cid = led.add_claim(
+        "\u4e00\u6761\u957f\u5ea6\u5f88\u591f\u7684 claim \u6587\u672c\u7528\u4f5c\u5f15\u7528\u524d\u7f00",
+        "t", "verified", "p", 0.9)["id"]
+    for i in range(n_tier1):
+        led.add_source(cid, f"https://arxiv.org/abs/2401.0000{i}", title="A", tier=1)
+    for i in range(n_tier4):
+        led.add_source(cid, f"https://blog{i}.example.com/p", title="B", tier=4)
+    md = ("# \u62a5\u544a\n## \u6267\u884c\u6458\u8981\n" + "y" * 300 + " [1]\n"
+          "## \u65b9\u6cd5\n" + "z" * 300 + " [1]\n"
+          "## \u7ed3\u8bba\u4e0e\u5efa\u8bae\n" + "w" * 300 + " [1]\n"
+          "## \u6765\u6e90\n")
+    return validate_report(md, ledger_dir=str(led.root))
+
+
+def test_low_quality_ratio_threshold_is_inclusive_at_30_percent():
+    """`low_ratio >= 0.3` —— **恰好 30% 就要告警**。
+
+    实测：tier4=0/10 -> 0.0 不告警；2/10 -> 0.2 不告警；
+          3/10 -> 0.3 **告警**；4/10 -> 0.4 告警。
+    改成 `> 0.3` 之后，「低质源已达三成」这个最该提醒的档会被放过。
+    """
+    for n4, n1, want_warn in ((0, 10, False), (2, 8, False),
+                              (3, 7, True), (4, 6, True)):
+        r = _vr_report(n4, n1)
+        ratio = r.stats.get("low_quality_ratio")
+        assert abs(ratio - n4 / (n4 + n1)) < 1e-9, (
+            f"tier4={n4} tier1={n1} 时比例应为 {n4 / (n4 + n1):.1f}，实得 {ratio}")
+        warned = any("Tier4" in w for w in r.warnings)
+        assert warned is want_warn, (
+            f"tier4={n4}/{n4 + n1} 时告警应为 {want_warn}，实得 {warned}；"
+            f"warnings={r.warnings}")
+
+
+def test_low_quality_count_starts_from_zero():
+    """L686 `sum(1 for s in sources if s.get('tier') == 4)` —— **start 必须是 1**。
+
+    改成 `sum(2 for ...)` 之后，Tier4 一条都没有时 `low` 也会是 2，
+    于是「零条低质源」被算成 20% —— 一个凭空多出来的低质源，
+    而它对应的是一条 `sum(1 for ...)` 看起来毫无破绽的写法。
+
+    观测点是 stats['low_quality_ratio']：Tier4 一条时必须是 0.0。
+    """
+    r = _vr_report(0, 6)
+    assert r.stats.get("low_quality_ratio") == 0.0, (
+        f"零条 Tier4 时比例应为 0.0，实得 {r.stats.get('low_quality_ratio')}"
+        f"（sum 的起始值被改成了 2？）")
+
+
+def test_low_quality_ratio_is_not_inflated_by_one_when_some_are_tier4():
+    """正向对照：有 Tier4 时比例必须按真实条数算（不多算 1）。"""
+    for n4, n1 in ((1, 9), (2, 8), (3, 7)):
+        r = _vr_report(n4, n1)
+        want = round(n4 / (n4 + n1), 3)
+        assert r.stats.get("low_quality_ratio") == want, (
+            f"tier4={n4} tier1={n1} 时应为 {want}，实得 "
+            f"{r.stats.get('low_quality_ratio')}")
 
 
 
