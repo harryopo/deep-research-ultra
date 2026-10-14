@@ -82,6 +82,18 @@ CLAIMED = [
     ("score.py", 560, "const", "501"),   # content_len > 500
     ("score.py", 562, "const", "201"),   # content_len > 200
     ("score.py", 564, "const", "51"),    # content_len > 50
+    # len 簇（v6.88 存活清单里的 8 条 len）—— 阈值两侧各退一格作对照
+    ("verify_quotes.py", 74, "compare", ">"),    # len(f) >= min_len
+    ("verify_quotes.py", 130, "compare", ">"),   # len(_fold(p)) >= 6
+    ("verify_quotes.py", 209, "compare", "<="),  # len(frag) < min_len
+    ("verify_quotes.py", 209, "compare", "in"),  # frag not in unchecked
+    ("verify_quotes.py", 213, "compare", "<="),  # len(frag) < min_len
+    ("verify_quotes.py", 218, "compare", ">="),  # len(frag) > max_len
+    ("verify_quotes.py", 218, "compare", "in"),  # frag not in overlong
+    ("ledger.py", 113, "compare", ">="),         # len(parts) > 2
+    ("ledger.py", 113, "compare", "not in"),     # parts[-1] in _LANDING_VIEWS
+    ("ledger.py", 366, "compare", ">="),         # len(seg) > 1
+    ("ledger.py", 366, "compare", "not in"),     # seg[0] in (...)
 ]
 
 # 等价变异：改了但行为不变，**不该**被任何测试抓到。
@@ -100,6 +112,13 @@ EQUIVALENT = [
     # L491 `if 10 <= title_len <= 80` 已经把 title_len >= 10 全接走；
     # L493 `elif title_len < 10` 只在 title_len < 10 或 > 80 时被求值，
     # 而这两个区间与阈值 10 无关。扫长度 0..200 × 2 种查询 = 401 个输入，实测零变化。
+    # `len(host) > len('stackexchange.com')` → `>=`：唯一能触发 `>=` 的 host
+    # 就是 'stackexchange.com' 本身，而它 `[:-16]` 仍是 ''，与 else 分支同值；
+    # `sub` 之后只喂 `if site in ('', 'api', 'www'): return ''`，殊途同归。
+    # 扫 27 个 host×path 组合实测零变化 —— 没有测试能钉它，也不该有。
+    ("ledger.py", 219, "compare", ">=",
+     "`len(host) > len('stackexchange.com')` → `>=`：唯一能触发的是裸域名，"
+     "而 `'stackexchange.com'[:-16] == ''` 与 else 分支同值，27 个输入实测零变化。"),
     ("score.py", 493, "const", "11",
      "`elif title_len < 10` 的 10 被 L491 的 `10 <= title_len <= 80` 遮蔽 —— "
      "改成 11 后 401 个输入全部不变，**没有任何测试能钉它**。"),

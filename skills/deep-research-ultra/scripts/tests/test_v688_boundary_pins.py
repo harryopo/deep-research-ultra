@@ -42,6 +42,8 @@
 """
 from __future__ import annotations
 
+import io
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -52,6 +54,7 @@ sys.path.insert(0, str(S))
 import score as sc_mod                      # noqa: E402
 from score import CraapScorer               # noqa: E402
 import verify_quotes as vq                  # noqa: E402
+import ledger as lg                          # noqa: E402
 
 YEAR = datetime.now().year
 
@@ -376,6 +379,208 @@ def test_accuracy_tiers_are_monotonic_in_length():
     for a, b, (na, _), (nb, _) in zip(vals, vals[1:], _LENGTH_TIERS,
                                         _LENGTH_TIERS[1:]):
         assert a <= b, f'长度 {na} 得 {a}，{nb} 却得 {b} —— 反而降了'
+
+
+# ===========================================================================
+# 十、len 簇：长度阈值的边界（来自 v6.88 边界实跑的存活清单）
+# ===========================================================================
+# 这一簇的共同形状：**`<` / `<=` / `>` / `>=` 在恰好等于阈值时行为不同**，
+# 而"正常"长度的片段/URL/路径全都在阈值另一侧，于是所有测试都绿。
+#
+# 钉法统一为：**把输入做成恰好等于阈值的那个**，再各退一格作对照。
+
+
+def test_quoted_fragments_min_len_is_inclusive_at_15():
+    """`len(f) >= min_len`（默认 15）—— 15 字要进，14 字不进。
+
+    改成 `> 15` 的话，所有"明显够长"的测试照样绿，只有 15 字这个
+    临界长度的片段会被悄悄丢掉 —— 而引文抽不出来意味着
+    "这条声明的原文引用没被验证"，是个静默的漏检。
+    """
+    at14 = vq.quoted_fragments("「" + "x" * 14 + "」")
+    at15 = vq.quoted_fragments("「" + "x" * 15 + "」")
+    at16 = vq.quoted_fragments("「" + "x" * 16 + "」")
+    assert len(at14) == 0, f"14 字不该抽出（低于 min_len=15），实得 {len(at14)}"
+    assert len(at15) == 1, f"15 字必须抽出（闭区间），实得 {len(at15)}"
+    assert len(at16) == 1, "16 字照常抽出"
+
+
+def test_ellipsis_segments_needs_six_chars_on_each_side():
+    """`_ellipsis_segments` 里 `len(_fold(p)) >= 6` —— 5 字被丢、6 字保留。
+
+    短于 6 字的片段对"省略号切分"没有意义（定位不到），
+    所以这一行是硬门槛；改成 `> 6` 会让 6 字的短片段整段消失。
+    """
+    short = vq._ellipsis_segments("前段内容甲乙丙…" + "x" * 5, [])
+    exact = vq._ellipsis_segments("前段内容甲乙丙…" + "x" * 6, [])
+    longer = vq._ellipsis_segments("前段内容甲乙丙…" + "x" * 7, [])
+    assert short is None, f"后段 5 字应被门槛挡掉（parts 不足 2），实得 {short}"
+    assert exact is not None and len(exact) == 2, \
+        f"后段 6 字必须切出 2 段，实得 {exact}"
+    assert len(longer) == 2, "后段 7 字同样切出 2 段"
+
+
+_STRIP_TABLE = [
+    ("10.1234/abcd", "10.1234/abcd"),                    # 2 段，不动
+    ("10.1234/full", "10.1234/full"),                    # 2 段，full 是 DOI 本体
+    ("10.1234/abcd/full", "10.1234/abcd"),               # 3 段，剥掉
+    ("10.1234/abcd/fulltext", "10.1234/abcd"),           # 3 段，剥掉
+    ("10.1234/a/b/full", "10.1234/a/b"),                 # 多段，剥到 2 段以上为止
+]
+
+
+def test_strip_landing_views_never_eats_a_two_segment_doi():
+    """`len(parts) > 2` —— 两段 DOI 是分界线。
+
+    改成 `>= 2` 后 `10.1234/full` 会变成 `10.1234` —— DOI 直接残废，
+    而同一个 DOI 再也匹配不到原文，整条溯源链静默断掉。
+    """
+    for doi, want in _STRIP_TABLE:
+        got = lg._strip_landing_views(doi)
+        assert got == want, f"{doi!r} 应归一化为 {want!r}，实得 {got!r}"
+
+
+def test_strip_landing_views_strips_repeatedly():
+    """落地页后缀可能叠着，必须一路剥到底。"""
+    assert lg._strip_landing_views("10.1234/abcd/full/fulltext/") == "10.1234/abcd", \
+        "连剥两个落地页后缀（实测行为，钉住它别被改成只剥一个）"
+
+
+def test_github_key_does_not_treat_a_dangling_blob_as_a_ref():
+    """`len(seg) > 1` —— `.../repo/blob` 没有 ref，不能按 ref 解析。
+
+    ⚠️ **我第一版的这条测试是空转的**：喂的是 `github.com:owner/repo/blob`，
+    而 `_github_key` 的正则要求 `https?://` 开头 —— 匹配不上就直接走
+    兜底 `return f'github:{u.lower()}'`，断言恒真、装上变异照样全绿。
+    是验证脚本抓出来的。改用真 https URL。
+
+    实测：`/blob`（rest 段数为 1）→ path 保留 'blob'；
+    `/blob/main`（段数为 2）→ main 被当 ref 吃掉，path 变空。
+    改成 `>= 1` 后前者会取 `seg[1]` —— **IndexError**。
+    """
+    dangling = lg._github_key("https://github.com/owner/repo/blob")
+    assert dangling == "github.com:owner/repo@HEAD:blob", (
+        f"`/repo/blob` 没有 ref，path 应原样保留 blob（实测），实得 {dangling!r}")
+
+    withref = lg._github_key("https://github.com/owner/repo/blob/main")
+    assert withref == "github.com:owner/repo@HEAD:", (
+        f"`/repo/blob/main` 的 main 是 ref，应被吃掉、path 留空，实得 {withref!r}")
+
+    filed = lg._github_key("https://github.com/owner/repo/blob/main/f.py")
+    assert filed == "github.com:owner/repo@HEAD:f.py", (
+        f"三段时 main 是 ref、f.py 是 path，实得 {filed!r}")
+
+    tree = lg._github_key("https://github.com/owner/repo/tree/main/docs")
+    assert tree == "github.com:owner/repo@HEAD:docs", (
+        f"tree 分支同样要求 len(seg) > 1，实得 {tree!r}")
+
+
+def test_github_key_keeps_repo_root_distinct_from_readme():
+    """兜底分支与主分支的对照：仓库根页与 README 是同一份内容。"""
+    root = lg._github_key("https://github.com/owner/repo")
+    readme = lg._github_key("https://github.com/owner/repo/blob/main/README.md")
+    assert root == "github.com:owner/repo@HEAD:", f"仓库根页实得 {root!r}"
+    assert readme == "github.com:owner/repo@HEAD:", (
+        f"默认分支的 README 应折叠成仓库根（实测同值），实得 {readme!r}")
+
+
+def test_se_key_returns_empty_for_bare_stackexchange_domain():
+    """`len(host) > len('stackexchange.com')` 的等价性见证（见下方注释）。
+
+    扫过 27 个输入，`>=` 改法零变化 —— 唯一能触发 `>=` 的 host
+    就是 'stackexchange.com' 本身，而它 `[:-16]` 仍是 ''，与 else 同值。
+    这条测试钉的是**行为**（裸域名无子站 → 返回空），
+    那个 `>` 本身没有任何测试能钉，也不该有。
+    """
+    for u in ("https://stackoverflow.com/q/1",
+              "https://stackexchange.com/q/1",
+              "https://ai.stackexchange.com/q/1"):
+        assert lg._se_key(u) == "", f"{u} 应解析不出站点键，实得 {lg._se_key(u)!r}"
+
+
+# --- check_quotes 内部的三条：需要账本 + 语料才观察得到 ---
+
+_CORPUS_TEXT = ("The retrieval augmented generation pipeline was evaluated on "
+                "three benchmarks. ") * 30
+
+
+def _cq_corpus(tmp_path, text=_CORPUS_TEXT):
+    raw = tmp_path / "raw"
+    raw.mkdir(exist_ok=True)
+    io.open(raw / "c.txt", "w", encoding="utf-8").write(text)
+    return raw
+
+
+def _cq_ledger(tmp_path, claims):
+    led = tmp_path / "led"
+    led.mkdir(exist_ok=True)
+    with io.open(led / "ledger.jsonl", "w", encoding="utf-8") as f:
+        for cid, text in claims:
+            f.write(json.dumps({"type": "claim", "id": cid, "text": text,
+                                "topic": "t", "status": "pending"},
+                               ensure_ascii=False) + "\n")
+    return led
+
+
+def test_check_quotes_min_len_boundary_goes_to_unchecked_not_checked(tmp_path):
+    """`len(frag) < min_len` —— 15 字必须**进对账**，14 字才进 unchecked。
+
+    改成 `<=` 后 15 字的引文会被跳过对账：既不进 `checked` 也不报 MISS。
+    那是静默漏检 —— 一条恰好 15 字的逐字引用从此不再被验证。
+    实测（min_len=15）：unchecked 只有 14 字那条，checked = 2。
+    """
+    raw = _cq_corpus(tmp_path)
+    led = _cq_ledger(tmp_path, [
+        ("c1", "『" + "x" * 14 + "』太短"),
+        ("c2", "『" + "x" * 15 + "』刚好"),
+        ("c3", "『" + "x" * 16 + "』够长"),
+    ])
+    res = vq.check_quotes(str(led), str(raw), min_len=15)
+    assert len(res["unchecked"]) == 1, (
+        f"只有 14 字那条该进 unchecked，实得 {len(res['unchecked'])} 条")
+    assert len(res["unchecked"][0]) == 14, (
+        f"进 unchecked 的应是 14 字那条，实得长度 {len(res['unchecked'][0])}")
+    assert res["checked"] == 2, (
+        f"15 与 16 字两条都要参与对账（checked=2），实得 {res['checked']}")
+
+
+def test_check_quotes_dedupes_unchecked_spans(tmp_path):
+    """`frag not in unchecked` —— 同一段短引文重复出现只记一次。"""
+    raw = _cq_corpus(tmp_path)
+    short = "x" * 14
+    led = _cq_ledger(tmp_path, [("c1", "『" + short + "』第一次『" + short + "』第二次")])
+    res = vq.check_quotes(str(led), str(raw), min_len=15)
+    assert len(res["unchecked"]) == 1, (
+        f"重复的 14 字片段只应记一次，实得 {len(res['unchecked'])} 条")
+
+
+def test_check_quotes_max_len_boundary_is_exclusive(tmp_path):
+    """`len(frag) > max_len` —— 恰好等于上限**不算**超长。
+
+    实测（max_len=30）：30 字那条不进 overlong，31 字那条进。
+    改成 `>=` 后整篇超过建议上限的告警会提前一格，且对账的语义变了
+    （L2 只告警不阻断，所以这格的差别不影响阻断，但会让告警数虚高）。
+    """
+    raw = _cq_corpus(tmp_path)
+    led = _cq_ledger(tmp_path, [
+        ("c1", "『" + "y" * 30 + "』正好 30"),
+        ("c2", "『" + "y" * 31 + "』超了"),
+    ])
+    res = vq.check_quotes(str(led), str(raw), max_len=30)
+    assert len(res["overlong"]) == 1, (
+        f"只有 31 字那条算超长，实得 {len(res['overlong'])} 条")
+    assert len(res["overlong"][0]) == 31, (
+        f"超长的应是 31 字那条，实得 {len(res['overlong'][0])}")
+
+
+def test_check_quotes_dedupes_overlong_spans(tmp_path):
+    """`frag not in overlong` —— 同一段超长引文重复出现只记一次。"""
+    raw = _cq_corpus(tmp_path)
+    long_ = "z" * 40
+    led = _cq_ledger(tmp_path, [("c1", "『" + long_ + "』甲『" + long_ + "』乙")])
+    res = vq.check_quotes(str(led), str(raw), max_len=30)
+    assert len(res["overlong"]) == 1, (
+        f"重复的 40 字片段只应记一次，实得 {len(res['overlong'])} 条")
 
 
 # ===========================================================================
