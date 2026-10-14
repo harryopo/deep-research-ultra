@@ -78,6 +78,12 @@ CLAIMED = [
     # v6.88 边界实跑后补的簇
     ("score.py", 491, "const", "11"),   # 标题长度下界 10
     ("score.py", 491, "const", "81"),   # 标题长度上界 80
+    # ⚠️ 426 曾被我错放进 EQUIVALENT，用「纯英文查询扫一遍没变化」下的结论。
+    # 错的：英文查询在 L428 `if not re.search(CJK, query)` 就 return 了，
+    # 压根到不了 L426。换成中文查询后，命中 1 个 2-gram 的输入
+    # 原 False、变异后 True —— 它是真边界，改列 CLAIMED。
+    ("score.py", 426, "not", ""),       # if not query（_relevance_is_reliable）
+    ("score.py", 440, "compare", ""),   # coverage >= RELEVANCE_COVERAGE_FLOOR
     ("score.py", 558, "const", "1001"),  # content_len > 1000
     ("score.py", 560, "const", "501"),   # content_len > 500
     ("score.py", 562, "const", "201"),   # content_len > 200
@@ -99,9 +105,6 @@ CLAIMED = [
 # 等价变异：改了但行为不变，**不该**被任何测试抓到。
 # 列在这里是为了让"它存活"有解释，否则会被当成缺口。
 EQUIVALENT = [
-    ("score.py", 426, "not", "",
-     "`if not query: return True` 去掉 not —— 空查询走原逻辑也返回 True"
-     "（没有中文字符），非空查询两种写法都返回 True。那个早退是冗余的。"),
     # 三个 `count > 0`：改成 `>= 0` 时，count 为 0 → min(30, 0*10) = 0
     # → `score -= 0`，**行为不变**。这三个是边界实跑里 `zero` 那一类
     # （33.3%）的全部存活者 —— 它们不是缺口，是等价变异。
@@ -122,6 +125,11 @@ EQUIVALENT = [
     ("score.py", 493, "const", "11",
      "`elif title_len < 10` 的 10 被 L491 的 `10 <= title_len <= 80` 遮蔽 —— "
      "改成 11 后 401 个输入全部不变，**没有任何测试能钉它**。"),
+    # ⚠️ 下面这条**曾经**被我当成等价变异放错在这里，留着当反面教材。
+    #   它现在的正确归属是 CLAIMED（见上），教训写在这里免得我再犯：
+    #   「扫了一批输入没变化」不等于等价 —— 那批输入必须真的能走到被测的行。
+    #   我当时喂的是纯英文查询，而 L428 `if not re.search(CJK, query)` 会直接
+    #   return，测的是 L428 不是 L426。
 ]
 
 

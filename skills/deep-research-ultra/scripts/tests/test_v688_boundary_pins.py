@@ -584,6 +584,69 @@ def test_check_quotes_dedupes_overlong_spans(tmp_path):
 
 
 # ===========================================================================
+# 十一、_relevance_is_reliable 的两道门（L426 / L440）
+# ===========================================================================
+# ⚠️ **L426 我判错过一次。** 我先用纯英文查询扫了一遍，看不出任何变化，
+# 就写进 EQUIVALENT 断言「空查询走原逻辑也返回 True，那个早退是冗余的」。
+# 错的：纯英文查询在 **L428** 就 return 了 —— `if not re.search(CJK, query): return True`
+# 压根到不了 L426 的效果。那组输入测的是 L428，不是 L426。
+#
+# 用中文查询重扫，结论反过来：
+#   hay=命中 1 个 2-gram -> 原 False，变异后 True
+#   hay=零命中        -> 原 False，变异后 True
+#
+# **「扫了一批输入没变化」不等于等价，除非那批输入真的能走到被测的行。**
+# 这是本项目「先解释后验证」的第三个变体：前两次是量错和期望错，这次是量到了别的分支。
+
+# 19 个互不相同的汉字 -> 18 个互不相同的 2-gram；再配 2 个英文词凑成 20 个词。
+# ⚠️ 不能用同一个字重复 —— 那 18 个 2-gram 会全部退化成同一个词，命中数虚高。
+_CJK = [chr(c) for c in (0x4E00, 0x4E8C, 0x4E09, 0x56DB, 0x4E94, 0x516D,
+                        0x4E03, 0x516B, 0x4E5D, 0x5341, 0x7532, 0x4E59,
+                        0x4E19, 0x4E01, 0x620A, 0x5DF1, 0x5E9A, 0x8F9B, 0x58EC)]
+_BIGRAM = [_CJK[i] + _CJK[i + 1] for i in range(18)]
+_Q20 = "aa bb " + "".join(_CJK)          # 词数 = 2 英文 + 18 个 2-gram = 20
+_NOWHERE = chr(0x65E0) + chr(0x5173) + chr(0x5185) + chr(0x5BB9)
+
+
+def test_reliability_coverage_floor_is_inclusive_at_015():
+    """`coverage >= RELEVANCE_COVERAGE_FLOOR(0.15)` —— 恰好 0.15 算可信。
+
+    实测（20 词）：命中 3 → cov 0.15 → True；命中 2 → 0.10 → False；
+    命中 4 → 0.20 → True。
+
+    改成 `> 0.15` 后，恰好卡在地板上的那批结果会被判成"不可信"，
+    而它们其实是可用的 —— 相关性分被无理由地打上失效标记。
+    """
+    sc = CraapScorer()
+    assert sc._relevance_is_reliable(_Q20, "aa " + _BIGRAM[0] + " " + _BIGRAM[2], "") is True, \
+        "cov 恰好 0.15（3/20）必须算可信（闭区间），实得 False"
+    assert sc._relevance_is_reliable(_Q20, "aa " + _BIGRAM[0], "") is False, \
+        "cov 0.10（2/20）低于地板，应判不可信"
+    assert sc._relevance_is_reliable(_Q20, "aa bb " + _BIGRAM[0] + " " + _BIGRAM[2], "") is True, \
+        "cov 0.20（4/20）高于地板，应判可信"
+
+
+def test_reliability_distinguishes_chinese_low_coverage_from_english():
+    """**中文查询**且覆盖率低 -> 不可信；纯英文查询不在判据范围内。
+
+    这条是 L426/L428/L440 三道门的判别力见证，也是我第一次量错的地方：
+    只喂英文查询的话，L428 直接 return，三道门里两道都测不到。
+    """
+    sc = CraapScorer()
+    q_cn = "".join(_CJK[:8])                       # 8 字 -> 7 个 2-gram
+    assert sc._relevance_is_reliable(q_cn, q_cn, "") is True, "全覆盖应可信"
+    assert sc._relevance_is_reliable(q_cn, _NOWHERE, "") is False, \
+        "中文查询零命中应判不可信（判定器没听懂语料，不是判定为不相关）"
+    assert sc._relevance_is_reliable(q_cn, _BIGRAM[0] + _BIGRAM[1], "") is True, \
+        "命中 2/7（cov 0.29）高于地板，应可信"
+    assert sc._relevance_is_reliable("", "", "") is True, \
+        "空查询没有相关性可言，不算失效（L426 的早退）"
+    assert sc._relevance_is_reliable("plain english query", "unrelated", "") is True, \
+        "纯英文查询不在判据范围内（同语种词法匹配有效，L428）"
+
+
+
+# ===========================================================================
 # 九、_score_relevance 的标题长度分档（L491/493/495）
 # ===========================================================================
 # `10 <= title_len <= 80` → 1.0 ｜ `< 10` → 0.5 ｜ `> 80` → 0.7
