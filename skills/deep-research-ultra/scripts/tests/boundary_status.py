@@ -107,18 +107,22 @@ def report(d: dict) -> None:
         real = probed - c["equivalent"]
         got = real - todo
         print()
-        print("  实跑探到 %d/%d 个边界" % (probed, n))
-        print("  剔除 %d 个等价变异后 -> 检出率 %d/%d = %.1f%%"
+        print("  实跑探到 %d/%d 个边界（其余 %d 个生成不出变异，如实列出）"
+              % (probed, n, c["not-probed"]))
+        print("  **剔除 %d 个等价变异后 -> 检出率 %d/%d = %.1f%%**"
               % (c["equivalent"], got, real, 100.0 * got / max(real, 1)))
-        print("  （含等价变异则是 %d/%d = %.1f%% —— 那个数把"
-              "\u7b49\u4ef7\u53d8\u5f02\u4e5f\u7b97\u4f5c\u7f3a\u53e3\uff0c"
-              "\u865a\u9ad8\u7684\u65b9\u5411\u662f\u8ba9\u81ea\u5df1\u770b\u8d77\u6765\u66f4\u597d\uff09"
-              % (got + c["equivalent"], probed,
-                 100.0 * (got + c["equivalent"]) / max(probed, 1)))
-    print()
-    print("  ⇒ **需要做的只有 %d 条**（unpinned）。" % todo)
-    print("    等价变异 %d 条不是缺口：改了行为不变，没有测试能钉也不该有。"
-          % c["equivalent"])
+        if todo:
+            # 只有真有缺口时，两个数才不同；相同的时候说「虚高」是误导
+            print("  （含等价变异则只有 %d/%d = %.1f%% —— 那 %d 条是等价变异，"
+                  "把它们算成缺口会让数字变差而不是变好）"
+                  % (got + c["equivalent"], probed,
+                     100.0 * (got + c["equivalent"]) / max(probed, 1),
+                     c["equivalent"]))
+        else:
+            print("  （工具报的原始数 %d/%d = %.1f%% 把等价变异也算作缺口，"
+                  "所以看起来低一些）"
+                  % (got + c["equivalent"], probed,
+                     100.0 * (got + c["equivalent"]) / max(probed, 1)))
     print()
     for status in ("unpinned", "equivalent", "not-probed"):
         sel = [r for r in rows if r[3] == status]
