@@ -445,6 +445,9 @@ def systematic(cap: int = 8, validate: int = 4, files=("score.py",
     print()
     print(f"副本：{tmp}")
     print("（量的是**工作区**；只在副本上改写源码）")
+    # 被测模块：硬门（与 boundary_run 同一套，分级理由见 _module_fingerprint）
+    real_modules = _module_fingerprint(S, files)
+    real_fingerprint = _fingerprint(S)   # 全树：跑完只用于打印变化
     print()
     try:
         scr = make_copy(tmp)
@@ -479,6 +482,11 @@ def systematic(cap: int = 8, validate: int = 4, files=("score.py",
             data = p.read_bytes()
             t0 = time.time()
             try:
+                # 变异对象必须来自副本路径 —— Mutant.path 跟着走，
+                # 这一行决定写到哪儿。v6.89 就是写成了 S / f。
+                assert _is_under(p, tmp), (
+                    f'变异目标 {p} 不在副本目录 {tmp} 下 —— '
+                    f'第一版 boundary_run 就是这么把变异写进真实工作区的')
                 p.write_bytes(m.apply(data))
                 narrowed = tests_touching(scr, p.stem)
                 st = run_suite(scr, narrowed)
@@ -494,6 +502,23 @@ def systematic(cap: int = 8, validate: int = 4, files=("score.py",
                             "detail": m.detail, "verdict": verdict,
                             "start": m.start, "end": m.end, "repl": m.repl,
                             "seconds": round(dt, 1)})
+
+        # 跑完核对：分级（与 boundary_run 同一套，见 _module_fingerprint）
+        now_modules = _module_fingerprint(S, files)
+        broken = [k for k in real_modules if real_modules[k] != now_modules.get(k)]
+        if broken:
+            raise RuntimeError(
+                f'被测模块被改动了：{broken}。\n'
+                f'  这就是「改坏工作区而不自知」——比没测更糟。\n'
+                f'  变异必须只在副本上跑；Mutant.path 要来自 scr / f。')
+
+        now_all = _fingerprint(S)
+        touched = ([k for k in real_fingerprint if real_fingerprint[k] != now_all.get(k)]
+                   + [k for k in now_all if k not in real_fingerprint])
+        if touched:
+            print()
+            print(f'ℹ️ 跑的过程中真实树有 {len(touched)} 处变化（不影响本次测量）：'
+                  f'{touched[:6]}')
 
         # --- 收窄是否可信：对存活者抽样跑全量 ---
         # 收窄按 import 传递闭包选测试，可能藏住跨路径的失败。只跑收窄的话，
