@@ -243,15 +243,36 @@ def test_boundary_run_fingerprints_the_real_tree_before_and_after():
     这是唯一能在**进程被杀之外**兜住的检查：
     `finally` 挡得住异常和正常退出，挡不住 SIGKILL。
     指纹核对至少让下一次运行立刻发现上一次留下了残局。
+
+    ## v6.93：这道门从「全树」改成「只查被测模块」（分级）
+
+    第一版比全树，代价是 v6.93 那次实跑：我在它跑到一半时新建了一个
+    无关文件，探针**拒绝出结果、退出 1**，87 个变异全跑完了、数字在日志里。
+
+    那次报警是**对的** —— 探针默默接受「跑的过程中工作区变了」就是 v6.89 事故。
+    但那个版本让我在跑之前不敢碰任何文件，**保守到不敢动的门是废门**。
+
+    精确的威胁模型：`mutate_gen` 只会变异 `BD.MODULES` 里那几个文件，
+    所以硬门只该比它们；其余变化打印出来即可。
+    分类细节见 `test_v693_fingerprint_grading.py`（9 项）。
     """
     import inspect as _i
 
     src = _fn("boundary_run")
-    assert "_fingerprint(S)" in src, "跑之前必须给真实树留指纹"
-    assert "真实工作区被改动了" in src, "指纹不一致时要报错而不是继续"
+    assert "_fingerprint(S)" in src, "跑之前必须给真实树留全树指纹（用于打印变化）"
+    # 硬门用模块级指纹
+    assert "_module_fingerprint(S, modules)" in src, \
+        "硬门必须用模块级指纹（只查被测模块）"
+    assert "real_modules" in src and "now_modules" in src, \
+        "跑前跑后各取一次模块指纹并比对"
+    assert "broken = [" in src, "必须算出「被测模块里哪些变了」"
+    assert "被测模块被改动了" in src, \
+        "被测模块变了要报错而不是继续 —— 且要说清是「被测模块」"
     assert _i.signature(pm._fingerprint).parameters["root"], \
         "_fingerprint 要能对任意目录取指纹"
+    assert hasattr(pm, "_module_fingerprint"), "缺 _module_fingerprint"
     assert hasattr(pm, "_is_under"), "缺 _is_under"
+
 
 
 def test_is_under_rejects_paths_outside_the_root():

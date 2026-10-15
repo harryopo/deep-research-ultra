@@ -589,6 +589,43 @@ def _fingerprint(root: Path, exts=(".py",)):
     return out
 
 
+def _module_fingerprint(root: Path, modules) -> dict:
+    """**只**指纹被测模块 —— 精确的威胁模型。
+
+    ## 为什么不用全树指纹
+
+    v6.89 的教训是「变异写进了真实工作区」，所以我第一版比全树。
+    结果 v6.93 那次实跑：我在它跑到一半时新建了
+    `tests/boundary_status.py`，探针在结束核对时发现工作区变了，
+    **拒绝出结果、退出 1** —— 87 个变异全跑完了、数字在日志里。
+
+    那次报警是**对的**：一个变异探针如果默默接受"跑的过程中工作区变了"，
+    它就是 v6.89 事故本身。
+
+    但那个版本有个副作用：它让我在跑之前不敢碰任何文件 ——
+    而那恰恰是当初要加这道门想避免的状态。**保守到不敢动的门是废门。**
+
+    ## 精确的威胁模型是什么
+
+    `mutate_gen` **只会**变异 `BD.MODULES` 里那几个文件。
+    所以真正必须「一个字节都不变」的就是它们。
+    其余文件（测试、文档、我自己写的分析脚本）在跑的过程中变化，
+    对这次测量**没有任何影响**：测试跑在副本上，副本在 T0 就定好了。
+
+    于是分两级：
+      · BD.MODULES 变了 -> 硬失败
+      · 其余变了       -> 打印出来，不失败
+    """
+    import hashlib
+
+    out = {}
+    for name in sorted(modules):
+        f = root / name
+        out[name] = (hashlib.sha256(f.read_bytes()).hexdigest()
+                     if f.is_file() else None)
+    return out
+
+
 def _is_under(path: Path, root: Path) -> bool:
     """path 是否在 root 之下（realpath 比较，防 .. 与软链绕过）。"""
     try:
@@ -786,7 +823,10 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6,
                 print(f"     …还有 {len(skipped) - 14} 个")
         print()
 
-        real_fingerprint = _fingerprint(S)     # 跑之前留底
+        # 被测模块：硬失败（见 _module_fingerprint 的说明）
+        real_modules = _module_fingerprint(S, modules)
+        # 全树：只用于跑完之后把变化打印出来，不作为失败条件
+        real_fingerprint = _fingerprint(S)
 
         results = []
         for i, (m, kind) in enumerate(uniq, 1):
@@ -815,14 +855,24 @@ def boundary_run(cap_per_kind: int = 0, validate: int = 6,
                             "seconds": round(dt, 1)})
 
         # 跑完核对：真实工作区一个字节都不能变
+        now_modules = _module_fingerprint(S, modules)
+        broken = [k for k in real_modules if real_modules[k] != now_modules.get(k)]
+        if broken:
+            raise RuntimeError(
+                f'被测模块被改动了：{broken}。\n'
+                f'  这就是「改坏工作区而不自知」——比没测更糟。\n'
+                f'  变异必须只在副本上跑；Mutant.path 要来自 scr / f。\n'
+                f'  （其余文件在跑的过程中变化不影响这次测量，只打印不报错。）')
+
+        # 其余文件的变化：报出来，但不失败
         now = _fingerprint(S)
         touched = ([k for k in real_fingerprint if real_fingerprint[k] != now.get(k)]
                    + [k for k in now if k not in real_fingerprint])
         if touched:
-            raise RuntimeError(
-                f'真实工作区被改动了：{touched[:6]}。\n'
-                f'  这就是「改坏工作区而不自知」——比没测更糟。\n'
-                f'  变异必须只在副本上跑；Mutant.path 要来自 scr / f。')
+            print()
+            print(f'ℹ️ 跑的过程中真实树有 {len(touched)} 处变化（不影响本次测量）：'
+                  f'{touched[:6]}')
+            print('   被测模块（BD.MODULES）逐字节未变 —— 那一项才是硬门。')
 
         hangs = [r for r in results if r["verdict"] == "caught(挂死)"]
         caught = [r for r in results if r["verdict"] == "caught"]
