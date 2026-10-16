@@ -1588,3 +1588,359 @@ def test_relevance_very_short_title_scores_worst_of_the_three_tiers():
     assert short < long_ < ideal, (
         f'过短 {short} / 过长 {long_} / 适中 {ideal} —— '
         f'正确顺序是 0.5 < 0.7 < 1.0，反了就说明分档写颠倒了')
+# ===========================================================================
+# 十七、--systematic 抽样撞出来的 6 个缺口（v6.94）
+# ===========================================================================
+# 前十六节的边界全部来自 `analysis/boundaries.py`（按 AST 类型提取），
+# **全量实跑、有分母、可复算**。而 `--systematic` 按算子随机抽样、
+# 不看边界在哪 —— 它撞出来的这 6 条，**边界清单里一条都没有**：
+#
+#   research.py:600   `goal=args.goal or ''`      运算符默认值
+#   research.py:1072  `... and name not in ...`   （args.all 分支那份拷贝）
+#   research.py:1102  `... and name not in ...`   （降级链那份）
+#   research.py:1214  `if ledger is not None:`    存在性判断
+#   ledger.py:587     `max_retries=2`             IO 重试次数
+#   ledger.py:1017    `type == 'source' and ...`  条目过滤
+#
+# 形态上它们是「CLI 参数处理与 IO 路径」，提取器眼里不是边界 ——
+# **边界清单有分母，随机抽样没有；两者互补，不是替代。**
+#
+# 8 个存活者逐条量完的完整结论（量在副本上，真实工作区全程未动）：
+#   真缺口 6 条        -> 本节钉死
+#   等价变异 2 条      -> verify_boundary_pins.EQUIVALENT
+#   刻意不钉 1 条      -> research.py:144 的打印分隔线
+#                         （见 test_print_separator_mutant_survives_and_that_is_fine）
+
+_VP_CHECK_URL = "https://github.com/o/r/blob/main/README.md"
+
+
+def _vp_claim_with_only_identity(tmp_path):
+    """一条只有 identity 记录、**零 source** 的归属型 claim。"""
+    L = lg.ResearchLedger(str(tmp_path / "led")).init()
+    cid = L.add_claim("归属型结论：X 仓库 README 现状是 Y",
+                      "repo", "pending", "ownership", 0.5)["id"]
+    lg._atomic_append(L.entries_path, json.dumps({
+        "type": "identity", "claim_id": cid,
+        "anchor": _VP_CHECK_URL, "target": lg._clean_url(_VP_CHECK_URL),
+        "matched": "url:https://github.com/o/r", "created_at": lg._now(),
+    }, ensure_ascii=False))
+    return L, cid
+
+
+def _vp_status(L, cid):
+    for line in open(L.entries_path, encoding="utf-8"):
+        if line.strip():
+            e = json.loads(line)
+            if e.get("id") == cid:
+                return e.get("status")
+    return None
+
+
+def test_verify_primary_refuses_a_claim_whose_only_record_is_an_identity(tmp_path):
+    """`e.get('type') == 'source' and e.get('claim_id')` —— **只有 source 行才算来源**。
+
+    实测（副本上装 `and`→`or`）：这条 claim 一条 source 都没有，
+    原版被拒（理由是「无任何来源」），变异版**把它标成了 verified**。
+
+    原因是 identity 条目也带 `claim_id`，`or` 把它们一起收进了来源清单，
+    而 identity 没有 `url`，于是 `_artifact_key('')` 变成一个非空的假来源，
+    `if not hosts` 那道守卫就再也拦不住它了；再往下 L1045 认的是
+    「反查 URL 是不是这条 claim 某条 identity 的 target」—— 而它正好是。
+
+    一条**没有任何出处**的归属型断言被当成已验证，比被拒绝严重得多。
+    """
+    import contextlib
+
+    L, cid = _vp_claim_with_only_identity(tmp_path)
+    assert _vp_status(L, cid) == "pending", "夹具前提错了：这条 claim 应当是 pending"
+
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        rc = L.verify_primary([cid], _VP_CHECK_URL)
+    err = buf.getvalue()
+
+    assert rc == 0, f"零 source 的 claim 不该被 verify-primary 接受，实得 rc={rc}"
+    assert _vp_status(L, cid) == "pending", (
+        "状态被改成了 %r —— 归属型断言在零来源制品时绝不能变 verified"
+        % _vp_status(L, cid))
+    assert "无任何来源" in err, (
+        "拒绝理由应当说明缺来源（这样人才知道去补哪一条），实得：%s" % err.strip()[-140:])
+
+
+def test_fetch_body_asks_for_exactly_two_retries(monkeypatch):
+    """`_http_get(url, timeout=45, max_retries=2)` —— 重试次数钉死为 2。
+
+    实测（副本上装 `2`→`3`）：捕获到的 max_retries 从 2 变成 3。
+    这条只能靠「一次网络失败」观察到，所以此前 1200 项测试一条都测不到它 ——
+    没有测试会故意让网络失败。取不到正文回空串这条契约由 `if raw else ''`
+    负责，这里只钉「我们只重试两次、每次 45 秒」。
+    """
+    import engines.fallback as fb
+
+    seen = []
+    monkeypatch.setattr(fb, "_http_get",
+                        lambda url, timeout=None, max_retries=None, **kw:
+                        seen.append((timeout, max_retries)) or "")
+    body = lg._fetch_body("https://example.com/x")
+    assert body == "", "取不到正文应回空串（空壳不许当凭据），实得 %r" % (body[:40],)
+    assert seen == [(45, 2)], (
+        "_fetch_body 应当按 timeout=45 / max_retries=2 取正文，实得 %r" % (seen,))
+
+
+def _plan_only_run(tmp_path, **over):
+    """跑一次 cmd_plan_only，返回它的 stdout+stderr。"""
+    import argparse
+    import contextlib
+
+    from engines.base import EngineRegistry
+    from research import cmd_plan_only
+
+    base = dict(query="retrieval augmented generation", goal="", breadth=1,
+                depth="standard", effort="quick", dimensions=None, language="en",
+                region="us", time_range="", perspectives=None, output=None)
+    base.update(over)
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf), contextlib.redirect_stdout(buf):
+        cmd_plan_only(argparse.Namespace(**base), EngineRegistry())
+    return buf.getvalue()
+
+
+def test_plan_only_keeps_the_goal_the_user_typed(tmp_path):
+    """`goal=args.goal or ''` —— **用户传的 --goal 必须进到计划里**。
+
+    实测（副本上装 `or`→`and`）：`目标: MY EXPLICIT GOAL` 变成 `目标: (未指定)`。
+    `args.goal and ''` 在 goal 非空时求值出的是**空串** —— 运算符方向反了，
+    用户明确给出的调研目标被静默丢弃，而命令照常返回成功，什么都不报错。
+
+    这类「配置失效但静默无声」比崩溃难查得多：计划照样生成，
+    只是没人知道它丢了自己的目标。
+    """
+    out = _plan_only_run(tmp_path, goal="MY EXPLICIT GOAL")
+    shown = [l.strip() for l in out.splitlines() if "目标" in l]
+    assert shown, "计划输出里没有「目标」这一行，夹具失效了：%s" % out[-160:]
+    assert "MY EXPLICIT GOAL" in shown[0], (
+        "--goal 没进到计划里（plan.goal 丢了）。实得：%s" % shown[0])
+
+
+def _cs_engines_run(tmp_path, all_=False, **over):
+    """注册两个引擎（其中一个**不声明** search 能力），跑一次 cmd_search。
+
+    返回 (被真正调用过 search 的引擎名列表, 完整输出)。
+    """
+    import argparse
+    import contextlib
+
+    import cache as cache_mod
+    from engines.base import EngineMetadata, EngineRegistry, SearchResult
+
+    called = []
+
+    def mk(name, caps):
+        class _E:
+            def __init__(self):
+                self.metadata = EngineMetadata(
+                    name=name, layer=1, description="d", requires_config=False,
+                    config_keys=[], capabilities=caps, priority=1)
+
+            def get_name(self):
+                return self.metadata.name
+
+            def get_layer(self):
+                return self.metadata.layer
+
+            def has_capability(self, cap):
+                return cap in self.metadata.capabilities
+
+            def is_available(self):
+                return True
+
+            def is_configured(self):
+                return True
+
+            def search(self, query, max_results=10, **kw):
+                called.append(name)
+                return [SearchResult(title="T " + name,
+                                     url="https://x.example/" + name,
+                                     content=_CS_CONTENT, source=name, score=0.8)]
+
+        return _E()
+
+    reg = EngineRegistry()
+    reg.register(mk("alpha", ["search"]))
+    reg.register(mk("beta", []))            # 声明里**没有** search 能力
+    cache_mod.CACHE_DIR = tmp_path / "cache"     # 别让缓存跨轮次串味
+
+    base = dict(query=_CS_TOPIC, sources=None, source_query=None, all=all_,
+                limit=10, depth="standard", effort="quick", breadth=1,
+                dimensions=None, perspectives=None, reflect_rounds=0,
+                language="en", region="us", ledger=None, auto_claim=False,
+                no_cache=True, no_plan=False, min_score=0, min_relevance=0,
+                llm_score=False, format="markdown", output=None)
+    base.update(over)
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf), contextlib.redirect_stdout(buf):
+        rs_cmd_search(argparse.Namespace(**base), reg)
+    return called, buf.getvalue()
+
+
+def test_engine_without_search_capability_is_skipped_unless_named_explicitly(tmp_path):
+    """`... and name not in explicit_sources` —— L1072 与 L1102 **两份拷贝都要钉**。
+
+    实测（副本上装 `not in`→`in`）：被真正调用 search 的引擎从 `alpha`
+    变成 `alpha,beta`。方向反了之后，**没声明 search 能力的引擎反而被搜** ——
+    而这种引擎多半根本没有 search() 这条路（modelscope 只有详情查询），
+    调下去是抛异常，然后被 L1094 的 `except` 吞掉记成「unavailable」。
+
+    `--all` 分支（L1072）与降级链（L1102）是同一行代码的两份拷贝，
+    改一处忘另一处是常事 —— 所以两个分支在同一个测试里一起验。
+
+    前提：`--sources` 一旦非空，L1000 会把链裁成只剩点名的引擎，
+    `explicit_sources` 就恒等于链上那一批，第二半条件永远不会为真。
+    所以这里必须传 `sources=None`，让引擎留在完整的降级链里。
+    """
+    for all_ in (False, True):
+        called, _out = _cs_engines_run(tmp_path / ("all%s" % all_), all_=all_)
+        assert "beta" not in called, (
+            "all=%s 时，没声明 search 能力的 beta 被搜了（被调用的：%s）"
+            % (all_, called))
+        assert "alpha" in called, (
+            "对照组失效：alpha 声明了 search 能力，本该被搜（被调用的：%s）"
+            % (called,))
+
+
+def _reflect_stub_run(tmp_path, ledger_dir=False, rounds=2):
+    """跑一次开了反思的 cmd_search，用桩把 `should_drill_down` 固定成 True。
+
+    `ledger_dir=True` 时给一个真实的空账本目录（`args.ledger` 收路径）。
+    返回每一轮 (round_num, previous_claim_count) —— 即 Reflector 实际看到的
+    「上一轮已经攒了多少条 claim」，以及完整输出。
+
+    ## 为什么必须打桩
+
+    `research.py:1202` 是**函数内局部导入** `from reflect import Reflector`，
+    所以 `monkeypatch.setattr(research, "Reflector", ...)` **完全无效** ——
+    我第一次就是这么写的，打了个空，跑出来 `seen=[]` 却以为桩生效了。
+    要改的是 `reflect` 模块上的那个属性。
+
+    ## 为什么必须打桩（第二层，也是更要紧的一层）
+
+    真 Reflector 的 `should_drill_down` 取决于覆盖率，**而 L1214 排在
+    `if not reflection.should_drill_down: break` 的下一行**。
+    于是 `reflect_rounds=1` 时它必然是 False（没有下一轮可钻），L1214 压根不执行。
+
+    这就是**第一次写这个钉死测试没钉住的原因**：装上 `is not None`→`is`
+    的变异照样全绿。verify_boundary_pins.py 把它抓了出来，报「装上 compare
+    变异后测试仍 green —— 没钉住」。它与 `score.py:426`（英文查询在 L428
+    就 return，压根到不了 L426）是**同一类错误**：样本没走到被测的那行。
+
+    教训并进本节开头：**写完先问「这个输入真的能走到那一行吗」**，
+    再问「离阈值几格」。
+    """
+    import argparse
+    import contextlib
+
+    import cache as cache_mod
+    import reflect as reflect_mod
+    from engines.base import EngineMetadata, EngineRegistry, SearchResult
+
+    seen = []
+
+    class _StubReflector:
+        def __init__(self, max_rounds=1):
+            self.max_rounds = max_rounds
+
+        def reflect(self, plan, results, round_num, verification, ledger=None,
+                    previous_claim_count=None):
+            seen.append((round_num, previous_claim_count))
+            if ledger is not None:
+                # 让账本每轮多一条 —— 这样「计数有没有刷新」才有得比
+                ledger.add_claim("反思轮 %d 新增的结论" % round_num,
+                                 "t", "pending", "p", 0.5)
+
+            class _R:
+                coverage_score = 0.10
+                should_drill_down = True      # ← 固定住，逼它走到 L1214
+                reason = "stub"
+
+            return _R()
+
+    orig_reflector = reflect_mod.Reflector
+    reflect_mod.Reflector = _StubReflector
+    try:
+        def mk(name):
+            class _E:
+                def __init__(self):
+                    self.metadata = EngineMetadata(
+                        name=name, layer=1, description="d", requires_config=False,
+                        config_keys=[], capabilities=["search"], priority=1)
+
+                def get_name(self):
+                    return self.metadata.name
+
+                def get_layer(self):
+                    return self.metadata.layer
+
+                def has_capability(self, cap):
+                    return cap in self.metadata.capabilities
+
+                def is_available(self):
+                    return True
+
+                def is_configured(self):
+                    return True
+
+                def search(self, query, max_results=10, **kw):
+                    return [SearchResult(title="T", url="https://x.example/1",
+                                         content=_CS_CONTENT, source=name, score=0.8)]
+
+            return _E()
+
+        reg = EngineRegistry()
+        reg.register(mk("alpha"))
+        cache_mod.CACHE_DIR = tmp_path / "cache"
+        led = str(tmp_path / "led") if ledger_dir else None
+        base = dict(query=_CS_TOPIC, sources="alpha", source_query=None, all=False,
+                    limit=10, depth="standard", effort="quick", breadth=1,
+                    dimensions=None, perspectives=None, reflect_rounds=rounds,
+                    language="en", region="us", ledger=led, auto_claim=False,
+                    no_cache=True, no_plan=False, min_score=0, min_relevance=0,
+                    llm_score=False, format="markdown", output=None)
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf), contextlib.redirect_stdout(buf):
+            rs_cmd_search(argparse.Namespace(**base), reg)
+    finally:
+        reflect_mod.Reflector = orig_reflector     # 还原，别把桩漏给别的测试
+    return seen, buf.getvalue()
+
+
+def test_reflection_without_a_ledger_never_reaches_into_it(tmp_path):
+    """`if ledger is not None:` —— **没有账本时不能去数 claim**。
+
+    实测（副本上装 `is not None`→`is`）：第 1 轮就
+    `AttributeError: 'NoneType' object has no attribute 'claims'`，
+    整轮检索在最后一步崩掉，而配置里明明没要求落账本。
+    """
+    seen, _out = _reflect_stub_run(tmp_path / "noledger", ledger_dir=False, rounds=2)
+    assert len(seen) == 2, f"两轮反思没跑完，实得 {seen}（中途抛异常了？）"
+    for rnd, prev in seen:
+        assert prev is None, (
+            "没有账本时 previous_claim_count 应当保持 None（没有东西可数），"
+            "第 %d 轮却拿到 %r" % (rnd, prev))
+
+
+def test_reflection_refreshes_the_claim_count_from_the_ledger_each_round(tmp_path):
+    """反向：`ledger` **存在**时，每一轮都要重新数一遍。
+
+    实测（副本上装 `is not None`→`is`）：
+      原版   seen = [(1, None), (2, 1)]   ← 第 2 轮看到第 1 轮新增的那条
+      变异版 seen = [(1, None), (2, None)] ← 计数永不刷新，反思器一直以为账本是空的
+
+    这半边比「不崩」更要紧：不崩只是难看，而**反思器拿到一个陈旧的计数**，
+    会据此判断「还缺多少 claim」，于是一直拿 0 当起点去算覆盖率。
+    """
+    seen, _out = _reflect_stub_run(tmp_path / "withledger", ledger_dir=True, rounds=2)
+    assert [r for r, _ in seen] == [1, 2], f"反思轮次不对：{seen}"
+    assert seen[0][1] is None, "第 1 轮之前还没数过，应为 None，实得 %r" % (seen[0][1],)
+    assert seen[1][1] == 1, (
+        "第 2 轮应当看到第 1 轮新增的那条 claim（计数=1），实得 %r —— "
+        "previous_claim_count 没有从账本刷新" % (seen[1][1],))

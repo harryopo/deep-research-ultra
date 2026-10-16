@@ -132,6 +132,18 @@ CLAIMED = [
     ("tier.py", 133, "const", "4"),          # 同上，改常量
     ("tier.py", 133, "boolop", "or"),         # and -> or（两段都要复合后缀）
     ("tier.py", 250, "const", "4"),          # len(args) == 3（--add-tier 恰好三参）
+    # ── v6.94：--systematic 抽样撞出来的 6 条 ──────────────────────────────
+    # 下面这几条**不在** `analysis/boundaries.py` 的 85 个边界里（那条分母是
+    # 按 AST 类型提取的，「CLI 参数默认值」「条目过滤」「IO 重试」不是边界形态）。
+    # 它们是 `probe_mutation.py --systematic` 按算子随机抽样撞出来的 ——
+    # 也就是说：**边界清单有分母，随机抽样没有；两者互补，不是替代。**
+    # 逐条实测过的可观察差异见 test_v688_boundary_pins.py 第十七节。
+    ("research.py", 600, "boolop", "and"),    # goal=args.goal or ''  -> and
+    ("research.py", 1072, "compare", "in"),   # name not in explicit_sources -> in
+    ("research.py", 1102, "compare", "in"),   # 同上（降级链那份拷贝）
+    ("research.py", 1214, "compare", "is"),   # ledger is not None -> is None
+    ("ledger.py", 587, "const", "3"),         # max_retries=2 -> 3
+    ("ledger.py", 1017, "boolop", "or"),      # type=='source' and claim_id -> or
 ]
 
 # 等价变异：改了但行为不变，**不该**被任何测试抓到。
@@ -176,6 +188,30 @@ EQUIVALENT = [
     ("tier.py", 135, "const", "3",
      "同上的另一种改法（`2` 改成 `3`）：13 个输入实测零变化，"
      "两行要么一起管要么都不管。"),
+    # ── v6.94：--systematic 抽样跑出来的 8 个存活者，逐条量完之后 2 条落在这里
+    # `and` -> `or`：`bool(Path(...))` 恒为 True（Path 没有 __bool__/__len__），
+    # 所以 `p.parent or not p.parent.exists()` 永远短路在第一个操作数上，
+    # **两版都会 mkdir**。副本上实测：PARENT_EXISTS/FILE_EXISTS 两边都是 True。
+    # 这一条长得极像缺口 —— 它就是为了补目录才写的那半句 —— 但补目录这半个意图
+    # 在两版里都实现了。
+    ("research.py", 729, "boolop", "or",
+     "`p.parent and not p.parent.exists()` → `or`：Path 没有 __bool__/__len__，"
+     "`bool(p.parent)` 恒为 True，`or` 短路在第一个操作数，"
+     "`p.parent.exists()` 根本不求值 —— 两版都会 mkdir。副本实测输出目录与文件两侧都建成。"),
+    # `min(30, len(want))` → `min(31, ...)`：**63 个用例零差异**。
+    # 原因是 `head` 只是预筛 —— L115 的
+    # `_fold(seg)...[:len(want)] == want` 全等校验才是真门。
+    # 而「want[:31] 的全部出现位置」必然是「want[:30] 的出现位置」的子集，
+    # 所以 L115 判过的位置两版都会判过，判不过的位置两版都过不了。
+    # 扫的长度 10/29/30/31/32/36/60 × 9 种语料形态（全文命中 / 只命中前 29、30、31 /
+    # 早一个前缀+后一个全文 / 空语料 / 无关语料），逐个比对返回值：**差异 0**。
+    # 与 `score.py:493`（被前序分支遮蔽）、`score.py:604/615/625`（min(N,0)=0）
+    # 同族：常量看起来像阈值，实际被下游更严的检查吞掉了。
+    ("verify_quotes.py", 109, "const", "31",
+     "`head = want[:min(30, len(want))]` → `min(31, ...)`：head 只是预筛，"
+     "L115 的 `... [:len(want)] == want` 全等校验才是真门；"
+     "而 want[:31] 的出现位置是 want[:30] 的子集，故 L115 的判定两版一致。"
+     "长度 10/29/30/31/32/36/60 × 9 种语料形态 = 63 个用例，差异 0。"),
     # ⚠️ 下面这条**曾经**被我当成等价变异放错在这里，留着当反面教材。
     #   它现在的正确归属是 CLAIMED（见上），教训写在这里免得我再犯：
     #   「扫了一批输入没变化」不等于等价 —— 那批输入必须真的能走到被测的行。
@@ -332,16 +368,27 @@ PIN_ANCHORS = {
     ('ledger.py', 113): 'while len(parts) > 2 and parts[-1].lower() in _LANDING_VIEWS:',
     ('ledger.py', 219): "sub = host[:-len('.stackexchange.com')] if len(host) > len('stackexchange.com') else ''",
     ('ledger.py', 366): "if seg[0] in ('blob', 'tree', 'raw', 'resolve') and len(seg) > 1:",
+    ('ledger.py', 587): 'raw = _http_get(url, timeout=45, max_retries=2)',
     ('ledger.py', 973): 'if len(abody) < MIN_IDENTITY_BODY or len(tbody) < MIN_IDENTITY_BODY:',
+    ('ledger.py', 1017): "if e.get('type') == 'source' and e.get('claim_id'):",
     ('ledger.py', 1422): "if len(val) > 1 and val.startswith('-'):",
     ('research.py', 399): 'if min_relevance <= 0:',
     ('research.py', 406): 'strong = [r for r in results if _relevance(r) >= min_relevance]',
     ('research.py', 416): 'needed = max(1, min(target_count, 5))',
     ('research.py', 417): 'if len(strong) >= needed:',
+    ('research.py', 600): "goal=args.goal or '',",
+    ('research.py', 729): 'if p.parent and not p.parent.exists():',
     ('research.py', 831): 'elif not auto_claim:',
+    # ⚠️ 1072 与 1102 是**同一行代码的两份拷贝**，指纹必然相同。
+    #   `test_anchors_are_actually_distinctive_enough` 判的是
+    #   「命中多行且不含自己」才报错，两行都在 hits 里所以放过 —— 这是对的：
+    #   锚点在这里的作用是「别漂到别的算子上」，而这两行本来就该一起动。
+    ('research.py', 1072): "if not engine.has_capability('search') and name not in explicit_sources:",
+    ('research.py', 1102): "if not engine.has_capability('search') and name not in explicit_sources:",
     ('research.py', 1158): 'if args.min_score > 0:',
     ('research.py', 1160): "all_results = [r for r in all_results if r.craap_score and r.craap_score.get('total', 0) >= args.min_score]",
     ('research.py', 1201): 'if args.reflect_rounds > 0 and plan:',
+    ('research.py', 1214): 'if ledger is not None:',
     ('research.py', 1541): "display_content = content[:500] + ('...' if len(content) > 500 else '')",
     ('score.py', 398): 'if years_ago <= 0:',
     ('score.py', 400): 'elif years_ago == 1:',
@@ -375,6 +422,7 @@ PIN_ANCHORS = {
     ('verify_quotes.py', 60): 'def quoted_spans(text, floor=2):',
     ('verify_quotes.py', 68): 'if frag and frag not in out:',
     ('verify_quotes.py', 74): 'return [f for f in quoted_spans(text) if len(f) >= min_len]',
+    ('verify_quotes.py', 109): 'head = want[:min(30, len(want))]',
     ('verify_quotes.py', 130): 'parts = [p for p in _ELLIPSIS_RE.split(frag) if len(_fold(p)) >= 6]',
     ('verify_quotes.py', 209): 'if len(frag) < min_len and frag not in unchecked:',
     ('verify_quotes.py', 213): 'if len(frag) < min_len:',

@@ -424,6 +424,25 @@ def report():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _recheck_correction(n_caught, n_res, fl, sampled, n_surv):
+    """复核把 `fl/sampled` 个存活翻成「全量抓到」之后，检测率该是多少。
+
+    返回 (全量口径的估计抓到数, 是不是精确值)。
+
+    ## 方向为什么是**上调**
+
+    「假存活」= 收窄说 SURVIVED、**全量说抓到** —— 收窄**漏掉**了跨路径的失败。
+    报出来的检测率用的是**收窄**结果，所以它**偏低**。
+
+    v6.94 第一版在这里写的是「检测率偏高，按比例**下调**」，与它统计的那个量
+    方向相反。照做的人会把一个被低估的数字再往下调。
+    """
+    if not fl or not sampled:
+        return n_caught, True
+    est = n_caught + fl * n_surv / sampled
+    return est, sampled >= n_surv
+
+
 def systematic(cap: int = 8, validate: int = 4, files=("score.py",
                                                       "verify_quotes.py",
                                                       "research.py",
@@ -554,11 +573,8 @@ def systematic(cap: int = 8, validate: int = 4, files=("score.py",
             recheck.append(full)
             print(f"  {r['file']}:{r['line']} [{r['kind']}] 收窄说存活 → 全量说 {full}")
         if recheck:
-            fl = recheck.count("caught")
+            fl = sum(1 for x in recheck if str(x).startswith("caught"))
             print(f"  收窄造成的假存活：{fl}/{len(recheck)}")
-            if fl:
-                print("  ⚠️ 收窄会藏住失败，上面那个检测率**偏高**，"
-                      "按比例下调后再看结论。")
 
         caught = [r for r in results if r["verdict"] == "caught"]
         hangs = [r for r in results if r["verdict"] == "caught(挂死)"]
@@ -570,13 +586,41 @@ def systematic(cap: int = 8, validate: int = 4, files=("score.py",
             if str(r["verdict"]).startswith("caught"):
                 bykind[k][0] += 1
         n_caught = len(caught) + len(hangs)
+        n_res = len(results)
+        rate = n_caught / max(n_res, 1) * 100
         print()
         print("=" * 78)
-        print(f"机械生成变异 {len(results)} 个 · 抓到 {n_caught} "
+        print(f"机械生成变异 {n_res} 个 · 抓到 {n_caught} "
               f"（其中 {len(hangs)} 个是靠**挂死**而非断言抓到的）"
-              f" · 漏网 {len(results) - n_caught}")
-        print(f"**检测率 {n_caught / max(len(results), 1) * 100:.1f}%**"
-              f"；只算断言抓到的 {len(caught) / max(len(results), 1) * 100:.1f}%")
+              f" · 漏网 {n_res - n_caught}")
+        print(f"**检测率 {rate:.1f}%**"
+              f"；只算断言抓到的 {len(caught) / max(n_res, 1) * 100:.1f}%")
+
+        # ⚠️ 复核结果必须**同向**修正，不是反向 —— v6.94 修的就是这个方向错误。
+        #
+        # 「假存活」的定义是：收窄说 SURVIVED、而**全量说抓到**。
+        # 也就是说收窄**漏掉**了跨路径的失败。而上面那个检测率用的是**收窄**结果，
+        # 所以它**偏低**，真实值**偏高** —— 修正方向是**上调**。
+        #
+        # 第一版这里写的是「收窄会藏住失败，检测率**偏高**，按比例**下调**」，
+        # 与它自己统计的那个量方向相反。后果不是数字难看了，而是**照着做的人
+        # 会把一个被低估的检测率再往下调** —— 数字朝「显得更差」的方向偏，
+        # 照样是错。这一条和「只报好看的那个数」是同一个问题的两面。
+        if recheck:
+            fl = sum(1 for x in recheck if str(x).startswith("caught"))
+            if fl:
+                sampled = min(validate, len(surv))
+                est, exact = _recheck_correction(n_caught, n_res, fl, sampled, len(surv))
+                print()
+                print(f"⚠️ 收窄**漏掉**了 {fl}/{sampled} 个跨路径失败，"
+                      f"所以上面 {rate:.1f}% 是**偏低**的"
+                      f"（{'存活者全跑了，修正值是准的' if exact else '抽样估的，比例外推'}）："
+                      f"全量口径 ≈ {est / max(n_res, 1) * 100:.1f}%。")
+                print("  ⚠️ 但「全量抓到」不等于「有行为断言钉住」："
+                      "只要被改的那一行在 `PIN_ANCHORS` 里，"
+                      "`test_v692_pin_anchors.py` 就会报红 —— 那是**行号漂移守卫**，"
+                      "抓的是「这行被改了」，不是「行为变了」。"
+                      "判它是不是真缺口，要看有没有行为断言真的为它变红。")
         if hangs:
             print()
             print("靠挂死抓到的（单列：断言失败说明「测试在验证这个行为」，")
