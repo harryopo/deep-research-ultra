@@ -190,6 +190,12 @@ PROVENANCE = {
     # 那部分靠 `probe_mutation.py --systematic` 手动复算，
     # 结果落在 `.research/mutation_systematic.json`，并在 CHANGELOG 写明样本量。
     "v6.88.0": [SCRIPTS / "analysis" / "boundaries.py"],
+    # v6.95 与上面三条不同：它量的是**一阶**问题 ——「产出的东西对不对」，
+    # 而前三条量的是「记在案的数字能不能被别人重跑」。它也更快（~4 秒），
+    # 所以进 PROVENANCE 而不是 EXEMPT。
+    # 第一次跑就红：dr-024 期望 evicted_lru 按条目数淘汰时 +1，实得 0。
+    # 修好后 2/2 条评测 8/8 项期望通过，**未纳入 38/40（需人判，不计通过）**。
+    "v6.95.0": [SCRIPTS / "evals" / "run_evals.py"],
 }
 
 # 豁免：同样是实测数字，但**不需要**分析脚本 —— 必须在代码里写清理由，
@@ -325,9 +331,64 @@ def check_provenance() -> bool:
 
 # ---------------------------------------------------------------------------
 
+def check_evals() -> bool:
+    """一阶：跑 `evals.json` 的机械判定子集。
+
+    ## 为什么这道检查与另外三道不同
+
+    smoke / single_source / provenance 都在问「**过程**对不对」，
+    而这道在问「**产出的东西**对不对」。
+
+    在它出现之前，本项目所有量化都在二阶：变异检出率 90.6%、
+    边界覆盖 72/72、测试 1372 项。它们回答的是「这套测试能不能抓出代码里的 bug」，
+    **没有一条回答「插件的产出对不对」**。而 1372 项测试全绿完全可以配一个
+    产出平庸结果的插件 —— 绿灯只说明灯是亮的。
+
+    v6.95 第一次跑就红：`dr-024` 期望「按条目数淘汰时 evicted_lru 计数 +1」，
+    实得 `evicted_lru=0` —— `cache._evict_if_needed` 把归属写在**清标记之后**，
+    于是这个计数器恒为 0。而 1372 项测试里没有一条断言它。
+
+    ## 为什么它敢进过程门
+
+    因为它**只跑得动机械可判定的那几条**，而且**打印三个分母**：
+    机械判定 x/y、未纳入 z/40、期望级 a/b。
+    没纳入的不计为通过 —— 那 38 条要人判，硬打分只会造出假的精确度。
+    慢门没人跑，所以这道只收秒级的；40 分钟的变异探针不进这里。
+    """
+    runner = SCRIPTS / "evals" / "run_evals.py"
+    print()
+    print("一阶 —— evals.json 机械判定子集")
+    print("-" * 72)
+    if not runner.exists():
+        print(f"  [FAIL] 评测器不存在: {runner}")
+        return False
+    import subprocess
+    r = subprocess.run([sys.executable, "-X", "utf8", str(runner)],
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", cwd=str(REPO), timeout=600)
+    lines = [ln.strip() for ln in (r.stdout or "").splitlines()
+             if ln.strip().startswith("[FAIL]")]
+    # **两个分母都要打**。只打「机械判定 2/2」的话，读的人会以为 40 条都过了 ——
+    # 实际有 38 条要人判。「未纳入」那一行就是防这个的。
+    for ln in (r.stdout or "").splitlines():
+        s = ln.strip()
+        if "条评测" in s or s.startswith("未纳入 "):
+            print("  " + s)
+    for ln in lines:
+        print("  " + ln)
+    if r.returncode != 0:
+        print("  " + (r.stdout or "").strip().splitlines()[-1][:70])
+        print("  ★ 这是一阶检查：测出来的不是「测试够不够强」，是「产出对不对」")
+    return _out(r.returncode == 0,
+                "evals 机械判定子集通过" if not lines else "", "")
+
+
+# ---------------------------------------------------------------------------
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="过程门：Lead 的工作要不要机械检查")
-    ap.add_argument("--only", choices=["smoke", "single", "prov"])
+    ap.add_argument("--only", choices=["smoke", "single", "prov", "evals"])
     a = ap.parse_args(argv)
 
     print("=" * 72)
@@ -342,8 +403,9 @@ def main(argv=None):
 
     checks = {"smoke": check_smoke,
               "single": check_single_source,
-              "prov": check_provenance}
-    order = [a.only] if a.only else ["smoke", "single", "prov"]
+              "prov": check_provenance,
+              "evals": check_evals}
+    order = [a.only] if a.only else ["smoke", "single", "prov", "evals"]
     ok = True
     for name in order:
         ok &= checks[name]()

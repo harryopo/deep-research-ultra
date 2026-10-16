@@ -288,14 +288,29 @@ class LRUCache:
                 self._access_record.pop(key, None)
                 total_size -= size
                 evicted += 1
+                # 归属**必须在清标记之前**判定（v6.95）。
+                #
+                # 原实现是：先按条件把 need_evict_by_count 清成 False，
+                # 再 `if need_evict_by_count: evicted_lru += 1` —— 于是这个判断
+                # 恒为 False：**按条目数淘汰的每一次都被记到 evicted_size 上，
+                # 而 evicted_lru 永远是 0**。
+                #
+                # 它永远涨不上去是可证的：清标记的条件是
+                # `len(entries) - evicted <= max_entries`，而进来时
+                # `len(entries) > max_entries`，所以前 `len - max_entries` 次
+                # 淘汰一定会清掉标记；要「清不掉」就需要 `len <= max_entries`，
+                # 那时 need_evict_by_count 从一开始就是 False。
+                #
+                # 影响不是「计数器不准」这么轻：看 stats() 诊断缓存的人会把
+                # 「条目数超限」误读成「体积超限」，从而去调 max_size_mb ——
+                # 调错了参数。而 1372 项测试里**没有一条断言这两个计数器**，
+                # 变异检出率再高也发现不了它 —— 那里根本没有变异可找。
+                reason = 'lru' if need_evict_by_count else 'size'
                 if need_evict_by_count and len(entries) - evicted <= self.max_entries:
                     need_evict_by_count = False
                 if need_evict_by_size and total_size <= self.max_size_bytes:
                     need_evict_by_size = False
-                if need_evict_by_count:
-                    self._stats['evicted_lru'] += 1
-                else:
-                    self._stats['evicted_size'] += 1
+                self._stats['evicted_' + reason] += 1
             except OSError:
                 continue
 
