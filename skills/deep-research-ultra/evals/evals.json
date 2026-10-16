@@ -8,10 +8,34 @@
     "phase_2_execute": "并行子 Agent + 反思循环 + Drill-down",
     "phase_3_synthesize": "CER 结构 + 矛盾标注 + Mermaid 时间线",
     "phase_4_reflect": "质量自评 + 反馈收集 + super-memory 归档",
-    "layer_1_mcp": ["tavily", "firecrawl", "open-websearch", "arxiv", "paper-search", "semantic-scholar"],
-    "layer_2_skill": ["agent-reach", "oss-finder", "last30days", "sciverse", "defuddle", "context7", "agent-browser"],
-    "layer_3_builtin": ["WebSearch", "WebFetch", "Task"],
-    "layer_4_fallback": ["ddgs", "baidu-html", "bing-html", "searxng"]
+    "layer_1_mcp": [
+      "tavily",
+      "firecrawl",
+      "open-websearch",
+      "arxiv",
+      "paper-search",
+      "semantic-scholar"
+    ],
+    "layer_2_skill": [
+      "agent-reach",
+      "oss-finder",
+      "last30days",
+      "sciverse",
+      "defuddle",
+      "context7",
+      "agent-browser"
+    ],
+    "layer_3_builtin": [
+      "WebSearch",
+      "WebFetch",
+      "Task"
+    ],
+    "layer_4_fallback": [
+      "ddgs",
+      "baidu-html",
+      "bing-html",
+      "searxng"
+    ]
   },
   "features": {
     "plan": "MECE 问题树拆解（scripts/plan.py）",
@@ -29,7 +53,17 @@
     "llm_score": "LLM 语义评分（--llm-score，默认关闭）"
   },
   "deprecated": {
-    "v3_engines_removed": ["brave", "ecosia", "startpage", "so", "sm", "yahoo", "qwant", "google", "wolfram"],
+    "v3_engines_removed": [
+      "brave",
+      "ecosia",
+      "startpage",
+      "so",
+      "sm",
+      "yahoo",
+      "qwant",
+      "google",
+      "wolfram"
+    ],
     "jina_reader": "弃用，改用 defuddle skill 或 Firecrawl MCP",
     "html_regex_parsing": "弃用，改用 MCP 或 defuddle",
     "promise_16_engines": "改为四层架构"
@@ -142,14 +176,18 @@
       "name": "报告结构完整性（v4 HTML 格式）",
       "input": "深度调研 2025 年前端框架趋势",
       "expected_behavior": [
-        "默认输出 HTML 格式（含 Mermaid 图表）",
-        "报告包含：执行摘要、MECE 问题树、CER 结构分析、矛盾点、时间线、结论、附录",
-        "每个关键结论有行内引用（带 CRAAP 评分）",
-        "来源列表包含 URL、标题、CRAAP 评分、可信度等级",
-        "附录含调研质量自评（覆盖率/交叉验证率/矛盾处理率）"
+        "【HTML】默认输出 HTML 格式（含 Mermaid 图表：graph TD / timeline / pie，且已加载 mermaid 运行时）",
+        "【HTML】报告含执行摘要、MECE 问题树、CER 结构分析、矛盾点、时间线、结论、附录",
+        "【HTML】章节编号 1..N 连续不重复，且与目录所列一致、每个目录锚点在正文里存在",
+        "【骨架】Markdown 含一页拍板、执行摘要、调研方法、结论与建议、来源五节",
+        "【骨架】每条 claim 行尾挂 [N] 引用（按账本 primary_index 生成），可回源到来源登记表",
+        "【骨架】来源登记表含编号 / Tier / 标题 / URL 四列",
+        "【骨架】未验证 claim 标 ⚠️ 且写明未达判据的原因"
       ],
       "category": "output",
-      "v4_feature": true
+      "v4_feature": true,
+      "reconciled": "v6.96.0",
+      "reconciled_note": "v6.96 对账：原期望把「行内引用」「来源列表」「结论/附录」混着写，而本项目有**两条**报告渲染器 —— skeleton.py（从证据账本生成的规范 Markdown，[N] 引用 / 来源登记表 / ⚠️ 标记 / 结论与建议都在这里，validate_report 审它）与 report.py（v4/v5 血统 HTML，Mermaid 图表，账本那套 [N] 约定没有）。混着写的结果是评测有一半在量另一条 —— 我据此一度得出「报告没有 [N] 引用、没有结论」的**完全错误**结论。现按路径拆开，每条标明落在哪。注意：账本那套 [N] 溯源**一直是完整的**，它住在骨架路径上。"
     },
     {
       "id": "dr-006",

@@ -732,6 +732,7 @@ class ReportGenerator:
         timeline_section = self._html_timeline(results)
         sources_section = self._html_sources(results)
         recommendations_section = self._html_recommendations(results, plan)
+        conclusion_section = self._html_conclusion(results, verification)   # v6.95
         quality_section = self._html_quality(plan, results, verification, reflections)
         v6_appendix = self._html_v6_appendix(ledger)            # v6.0
 
@@ -744,6 +745,7 @@ class ReportGenerator:
             timeline_section,
             sources_section,
             recommendations_section,
+            conclusion_section,
             quality_section,
             v6_appendix,
         ])
@@ -760,7 +762,14 @@ class ReportGenerator:
         )
 
     def _html_toc(self) -> str:
-        """生成目录"""
+        """生成目录。
+
+        ⚠️ 目录里的编号**必须与正文 h2 一致**。v6.95 之前它们差一号：
+        目录写「8. 调研质量自评 / 9. 证据账本」，正文 h2 却是「7. 调研质量自评」，
+        而附录只以一个 h4「附录 D」的形式挂在别处 —— **三处编号各说各的**。
+        `test_v696_report_sections.py` 现在会核对「目录每一项的锚点在正文里
+        存在，且编号序列不重复」。
+        """
         return """<div class="toc">
         <h3>📑 目录</h3>
         <ul>
@@ -771,8 +780,9 @@ class ReportGenerator:
             <li><a href="#timeline">5. 时间线</a></li>
             <li><a href="#sources">6. 引用列表（CRAAP 评分）</a></li>
             <li><a href="#recommendations">7. 推荐度评分与排序（v5.2）</a></li>
-            <li><a href="#quality">8. 调研质量自评</a></li>
-            <li><a href="#v6-ledger">9. 证据账本与来源分级（v6.0）</a></li>
+            <li><a href="#conclusion">8. 结论</a></li>
+            <li><a href="#quality">9. 调研质量自评</a></li>
+            <li><a href="#appendix">10. 附录（证据账本与来源分级）</a></li>
         </ul>
     </div>"""
 
@@ -805,15 +815,25 @@ class ReportGenerator:
         return '\n'.join(parts) if len(parts) > 1 else ''
 
     def _html_v6_appendix(self, ledger: Optional[Any]) -> str:
-        """证据账本摘要（按子主题）+ 来源 Tier 分布附录。"""
+        """10. 附录 —— 证据账本摘要（按子主题）+ 来源 Tier 分布（v6.95）。
+
+        **这一节固定存在，没有账本时也出**（v6.95 改）。
+        原来 `if ledger is None: return ''` 让整个附录凭空消失 ——
+        而 `evals.json` 的 dr-005 要求「报告包含…附录」。**结构忽有忽没有，
+        比「空着」更难读**：读者会以为漏印了。
+        """
+        out = ['<h2 id="appendix">10. 附录</h2>']
         if ledger is None:
-            return ''
+            out.append('<p>本次调研未启用证据账本，故无账本摘要与来源分级明细。'
+                       '（账本不是默认路径，需要显式指定。）</p>')
+            return '\n'.join(out)
         stats = self._ledger_stats(ledger)
         if not stats or not stats['topic_stats']:
-            return ''
-        out = ['<div class="card" id="v6-ledger-detail"><h4>📒 证据账本摘要</h4>',
-               '<table><tr><th>子主题</th><th>claims</th><th>verified</th>'
-               '<th>conflict</th><th>独立来源</th><th>覆盖</th><th>充分</th></tr>']
+            out.append('<p>证据账本为空，无可列的摘要。</p>')
+            return '\n'.join(out)
+        out += ['<div class="card" id="v6-ledger-detail"><h4>📒 证据账本摘要</h4>',
+                '<table><tr><th>子主题</th><th>claims</th><th>verified</th>'
+                '<th>conflict</th><th>独立来源</th><th>覆盖</th><th>充分</th></tr>']
         for t, s in sorted(stats['topic_stats'].items()):
             mark = '✅' if s.get('sufficient') else '⚠️'
             out.append(f'<tr><td>{html.escape(t)}</td><td>{s["claims"]}</td>'
@@ -822,13 +842,57 @@ class ReportGenerator:
                        f'<td>{mark}</td></tr>')
         out.append('</table>')
         if stats['tier_dist']:
-            out += ['<h4>📍 来源 Tier 分布（附录 D）</h4>',
+            # 「附录 D」是 v6.0 留下的**悬空编号** —— 报告里从来没有附录 A/B/C，
+            # 它孤零零挂着一个 D。现在它就是本节，去掉那个后缀。
+            out += ['<h4>📍 来源 Tier 分布</h4>',
                     '<table><tr><th>Tier</th><th>含义</th><th>数量</th></tr>']
             for tier in sorted(stats['tier_dist']):
                 label = {1: '官方/学术', 2: '权威/官方文档', 3: '一般', 4: '社区/低质'}.get(tier, str(tier))
                 out.append(f'<tr><td>{tier}</td><td>{label}</td><td>{stats["tier_dist"][tier]}</td></tr>')
             out.append('</table>')
         out.append('</div>')
+        return '\n'.join(out)
+
+    def _html_conclusion(self, results: List[Any],
+                         verification: Optional[Any]) -> str:
+        """8. 结论 —— 分「已交叉验证 / 单源待确认 / 无结论」三档（v6.95 新增）。
+
+        原来报告**没有结论章**：第 1 节「执行摘要」讲的是「做了什么」，
+        不是「所以呢」。对一份调研产物，「所以呢」是读者真正要的那一段。
+        `evals.json` 的 dr-005 一直要求有结论节，实现一直没跟上。
+
+        **没有验证数据时就说「本次未做交叉验证」，不编结论。**
+        没有结论本身就是结论 —— 把来源清单当结论读是最常见的误用。
+        """
+        vc = getattr(verification, 'verified_claims', None) if verification else None
+        rows, verified, single = [], 0, 0
+        for c in (vc or []):
+            srcs = getattr(c, 'sources', None)
+            if srcs is None and isinstance(c, dict):
+                srcs = c.get('sources')
+            txt = getattr(c, 'text', None)
+            if txt is None and isinstance(c, dict):
+                txt = c.get('text')
+            n = len(srcs or [])
+            if n >= 2:
+                verified += 1
+                rows.append(('✅', '已交叉验证', str(txt or '')))
+            else:
+                single += 1
+                rows.append(('⚠️', '单源待确认', str(txt or '')))
+        head = '<h2 id="conclusion">8. 结论</h2>'
+        if not rows:
+            return (f'{head}<p>本次共纳入 <strong>{len(results)}</strong> 条来源，'
+                    '但**没有产出可引用的结论条目**（未做交叉验证，或验证结果为空）。'
+                    '「没有结论」本身就是一个结论 —— 请不要把来源清单当结论读。</p>')
+        out = [head, '<table><tr><th>状态</th><th>类别</th><th>结论</th></tr>']
+        for mark, kind, txt in rows[:40]:
+            out.append(f'<tr><td>{mark}</td><td>{kind}</td>'
+                       f'<td>{html.escape(txt[:300])}</td></tr>')
+        out.append('</table>')
+        out.append(f'<p><strong>合计</strong>：已交叉验证 {verified} 条 · '
+                   f'单源待确认 {single} 条 · 引用来源 {len(results)} 条。'
+                   '标「单源待确认」的条目不足以支撑决策，需补第二个独立来源。</p>')
         return '\n'.join(out)
 
     @staticmethod
@@ -1328,7 +1392,7 @@ class ReportGenerator:
         # 综合质量分
         quality_score = (coverage * 0.4 + verification_rate * 0.4 + contradiction_rate * 0.2) * 100
 
-        return f"""<h2 id="quality">7. 调研质量自评</h2>
+        return f"""<h2 id="quality">9. 调研质量自评</h2>
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-value">{coverage:.0%}</div>

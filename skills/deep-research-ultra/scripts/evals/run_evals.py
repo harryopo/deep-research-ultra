@@ -185,8 +185,276 @@ def _d035_export():
                    sorted(js) if isinstance(js, dict) else "-"))
 
 
+# ---------------------------------------------------------------- dr-010 / dr-020 / dr-030 / dr-005
+_QUERY = "retrieval augmented generation evaluation"
+_DIMS = ("currency", "relevance", "authority", "accuracy", "purpose")
+
+
+def _fixture():
+    """同一份夹具给 dr-005 / dr-010 / dr-020 / dr-030 用 —— 判据之间不该各造各的。
+
+    三条来源覆盖三种引擎，让 CRAAP 有区分度（实测 total 分别是 79.9 / 42.0 / 53.0，
+    恰好分属 high / low / medium 三个等级）。
+    """
+    from engines.base import SearchResult
+    from plan import ResearchPlan
+    plan = ResearchPlan(topic=_QUERY)
+    res = [
+        SearchResult(title="A paper on RAG evaluation",
+                     url="https://arxiv.org/abs/2401.00001",
+                     content=_QUERY + " " * 30, source="arxiv", score=0.9),
+        SearchResult(title="B industry notes", url="https://news.y.com/b",
+                     content="industry adoption notes " * 30, source="web", score=0.5),
+        SearchResult(title="C repo readme", url="https://github.com/o/r",
+                     content="repository readme content here " * 30, source="github", score=0.7),
+    ]
+    return plan, res
+
+
+def _d010_five_dims():
+    import score as sc
+    _plan, res = _fixture()
+    s = sc.CraapScorer().score(res[0], query=_QUERY)
+    missing = [d for d in _DIMS if d not in s]
+    return not missing, "score() 返回 %d 个键，五维缺 %s" % (len(s), missing or "无")
+
+
+def _d010_sorted_desc():
+    import score as sc
+    _plan, res = _fixture()
+    out = sc.CraapScorer().score_batch(list(res), query=_QUERY)
+    tot = [round(r.craap_score["total"], 2) for r in out]
+    # ⚠️ **score_batch 会就地改写入参**（实测 out is res）——
+    #    所以判据必须用返回值，不能回头看 res 的顺序。
+    return tot == sorted(tot, reverse=True), "score_batch 返回顺序 total=%s（降序=%s）" % (
+        tot, tot == sorted(tot, reverse=True))
+
+
+def _d010_grade_zh():
+    import score as sc
+    _plan, res = _fixture()
+    scorer = sc.CraapScorer()
+    bad = []
+    for r in res:
+        s = scorer.score(r, query=_QUERY)
+        zh = scorer.grade_to_chinese(s["grade"])
+        if zh == "未知" or not s.get("tier_label"):
+            bad.append((s["grade"], zh, s.get("tier_label")))
+    return not bad, ("三条来源的 grade/tier_label 都能呈现成中文；不可呈现的：%s"
+                     % (bad or "无"))
+
+
+def _d010_threshold():
+    import score as sc
+    _plan, res = _fixture()
+    scorer = sc.CraapScorer()
+    gate = 60.0
+    kept = [scorer.score(r, query=_QUERY)["total"] for r in res
+            if scorer.score(r, query=_QUERY)["total"] >= gate]
+    dropped = [round(scorer.score(r, query=_QUERY)["total"], 1) for r in res
+               if scorer.score(r, query=_QUERY)["total"] < gate]
+    ok = all(t >= gate for t in kept) and len(kept) + len(dropped) == len(res)
+    return ok, ("门槛 %.0f -> 保留 %s / 剔除 %s（保留项全 >= 门槛=%s）"
+                % (gate, kept, dropped, all(t >= gate for t in kept)))
+
+
+def _q20():
+    import progress as pg
+    plan, res = _fixture()
+    return pg.assess_quality(plan, res)
+
+
+def _d020_coverage():
+    q = _q20()
+    v = q["scores"].get("coverage")
+    return isinstance(v, (int, float)), "scores.coverage=%r（total_score=%r grade=%r）" % (
+        v, q.get("total_score"), q.get("grade"))
+
+
+def _d020_verification():
+    # 期望原文写「交叉验证率」，实现叫 verification —— 按**语义**判，不按字段名
+    v = _q20()["scores"].get("verification")
+    return isinstance(v, (int, float)), "scores.verification=%r" % (v,)
+
+
+def _d020_contradiction():
+    v = _q20()["scores"].get("contradiction_resolution")
+    return isinstance(v, (int, float)), "scores.contradiction_resolution=%r" % (v,)
+
+
+def _d020_result_quality():
+    v = _q20()["scores"].get("result_quality")
+    return isinstance(v, (int, float)), "scores.result_quality=%r（其余分项：%s）" % (
+        v, sorted(_q20()["scores"]))
+
+
+def _d020_improvements():
+    v = _q20().get("improvements")
+    return (isinstance(v, list) and len(v) > 0), "improvements 共 %d 条：%s" % (
+        len(v) if isinstance(v, list) else -1,
+        (v[:2] if isinstance(v, list) else v))
+
+
+def _d030_issue_tree():
+    from report import MermaidGenerator
+    plan, _res = _fixture()
+    out = MermaidGenerator.issue_tree(plan)
+    return out.lstrip().startswith("graph TD"), "issue_tree 首行=%r（%d 字符）" % (
+        out.split("\n")[0][:40], len(out))
+
+
+def _d030_timeline():
+    from report import MermaidGenerator
+    out = MermaidGenerator.timeline([{"date": "2024-01", "event": "A"},
+                                     {"date": "2024-06", "event": "B"}])
+    return out.lstrip().startswith("timeline"), "timeline 首行=%r" % out.split("\n")[0][:40]
+
+
+def _d030_pie():
+    from report import MermaidGenerator
+    _plan, res = _fixture()
+    out = MermaidGenerator.source_distribution(res)
+    # ⚠️ 空语料时返回**空串**（实测 len=0）。所以这条判据必须喂真数据 ——
+    #    第一版喂了 []，两版都返回空串，看着像「通过」其实什么都没测。
+    return out.lstrip().startswith("pie"), "source_distribution 首行=%r（%d 字符）" % (
+        out.split("\n")[0][:40] if out else "", len(out))
+
+
+def _d030_embedded():
+    import report as rp
+    plan, res = _fixture()
+    html = rp.generate_report(plan, res, format="html")
+    has_div = 'class="mermaid"' in html
+    has_cdn = "mermaid.min.js" in html
+    has_init = "mermaid.initialize" in html
+    return (has_div and has_cdn and has_init), (
+        'class="mermaid"=%s 运行时 CDN=%s mermaid.initialize=%s；'
+        '（原期望写的是 <pre class=\'mermaid\'>，实现用 div —— 已按实现对账）'
+        % (has_div, has_cdn, has_init))
+
+
+def _html_once():
+    import report as rp
+    plan, res = _fixture()
+    return rp.generate_report(plan, res, format="html")
+
+
+def _d005_is_html():
+    h = _html_once()
+    return h.lstrip().lower().startswith("<!doctype html"), (
+        "默认 format='html' -> 输出 %.60r（%d 字符）" % (h[:56], len(h)))
+
+
+# 期望原文点名的七个章节。用**语义关键词**判，不绑死具体字面 ——
+# 因为 evals.json 落后代码 4 个版本，具体措辞对不上不代表章节不存在。
+_SECTION_KEYS = [
+    ("执行摘要", ("执行摘要",)),
+    ("MECE 问题树", ("MECE",)),
+    ("CER 结构分析", ("子问题分析", "CER")),
+    ("矛盾点", ("矛盾点",)),
+    ("时间线", ("时间线",)),
+    ("结论", ("结论",)),
+    ("附录", ("附录",)),
+]
+
+
+def _d005_sections():
+    import re
+    h = _html_once()
+    titles = re.findall(r"<h[12][^>]*>([^<]{1,44})</h[12]>", h)
+    joined = " | ".join(titles)
+    missing = [name for name, keys in _SECTION_KEYS
+               if not any(k in joined for k in keys)]
+    return not missing, ("章节 %d 个：%s%s" % (
+        len(titles), titles, ("；**缺**：" + "、".join(missing)) if missing else ""))
+
+
+def _d005_numbering_unique():
+    import re
+    from collections import Counter
+    h = _html_once()
+    nums = re.findall(r"<h[12][^>]*>\s*(\d+)\.", h)
+    dup = sorted(k for k, v in Counter(nums).items() if v > 1)
+    return not dup, "标题编号序列 %s%s" % (nums, ("；**重复**：" + "、".join(dup)) if dup else "")
+
+
+# ---------------------------------------------------------------- dr-005 的骨架路径
+# ⚠️⚠️ **本项目有两条报告渲染路径，能力差别极大，别再混着量。**
+#
+# `skeleton.py` —— 规范路径，**从证据账本生成** Markdown：
+#     ## 一页拍板 / 执行摘要 / <主题> / 调研方法 / 结论与建议 / 来源
+#     每条 claim 行尾挂 [N]（账本 primary_index），来源登记表带 Tier/标题/URL，
+#     未验证 claim 标 ⚠️ 并写明原因。`validate_report.py` 审的正是这一套。
+#
+# `report.py` —— v4/v5 血统的 HTML 路径（Mermaid 图表），**账本那套 [N] 约定没有**。
+#
+# 我第一版把 dr-005 全部判据都挂在 `report.py` 上，量出「[N] 引用 0 次、
+# 没有结论」—— **那是彻底的错误结论**，而它看上去完全合理。
+# 这是本项目**第三次**栽在「量到了别的分支」（v6.91 verify_quotes.py:113、
+# afb059a 文档串命中）。
+_SKEL_QUERY = "rag"
+
+
+def _skeleton_ledger():
+    """真账本：1 条 verified（2 独立来源）+ 1 条 pending（单源）。
+
+    必须有真账本 —— `skeleton.py` 的 [N] 是**按账本 primary_index** 生成的，
+    空账本生成不出引用，于是量到的还是「0 次」但原因完全不同。
+    """
+    import tempfile as _tf
+    import ledger as lg
+    root = Path(_tf.mkdtemp(prefix="eval_skel_")) / "ledger"
+    L = lg.ResearchLedger(str(root)).init()
+    c1 = L.add_claim("检索增强生成在 RAG 系统里显著降低幻觉（已验证）",
+                     _SKEL_QUERY, "verified", "general", 0.85)["id"]
+    c2 = L.add_claim("单源结论：某库默认关闭重排", _SKEL_QUERY, "pending", "general", 0.4)["id"]
+    L.add_source(c1, "https://arxiv.org/abs/2401.00001", title="A paper", tier=1)
+    L.add_source(c1, "https://news.y.com/b", title="B notes", tier=3)
+    L.add_source(c2, "https://news.y.com/b", title="B notes", tier=3)
+    return str(root)
+
+
+def _d005_skeleton_citations():
+    """骨架路径：每条 claim 行尾挂 [N]，可回源。"""
+    import re
+    import skeleton as sk
+    md = sk.build_skeleton(_skeleton_ledger(), title="RAG 调研")
+    cites = re.findall(r"\[(\d+)\]", md)
+    return (len(cites) > 0 and len(set(cites)) > 0), (
+        "骨架 Markdown %d 字符，[N] 引用 %d 处、编号 %s"
+        % (len(md), len(cites), sorted(set(cites), key=int)))
+
+
+def _d005_skeleton_source_table():
+    """骨架路径：来源登记表含 编号/Tier/标题/URL。"""
+    import skeleton as sk
+    md = sk.build_skeleton(_skeleton_ledger(), title="RAG 调研")
+    ok = ("| 编号 | Tier | 标题 | URL |" in md
+          and "arxiv.org/abs/2401.00001" in md)
+    return ok, "来源登记表表头在=%s、具体 URL 在=%s" % (
+        "| 编号 | Tier | 标题 | URL |" in md, "arxiv.org/abs/2401.00001" in md)
+
+
+def _d005_skeleton_marks_unverified():
+    """骨架路径：未验证 claim 带 ⚠️ 且写明原因。"""
+    import skeleton as sk
+    md = sk.build_skeleton(_skeleton_ledger(), title="RAG 调研")
+    return ("⚠️" in md and "pending" in md), (
+        "⚠️ 出现 %d 次，含未达判据的说明=%s" % (md.count("⚠️"), "pending" in md))
+
+
+def _d005_skeleton_sections():
+    """骨架路径：一页拍板 / 执行摘要 / 调研方法 / 结论与建议 / 来源 都在。"""
+    import re
+    import skeleton as sk
+    md = sk.build_skeleton(_skeleton_ledger(), title="RAG 调研")
+    heads = re.findall(r"^##\s+(.+)$", md, re.M)
+    need = ["一页拍板", "执行摘要", "调研方法", "结论与建议", "来源"]
+    missing = [n for n in need if not any(n in h for h in heads)]
+    return not missing, "章节 %s%s" % (heads, ("；缺：" + "、".join(missing)) if missing else "")
+
+
 CHECKS = {
-    # id -> [(期望短名, 可调用)]
     "dr-024": [
         ("TTL 过期条目被自动清理（evicted_ttl+1）", _d024_ttl),
         ("超 max_entries 时按 LRU 淘汰（evicted_lru+1）", _d024_lru_count),
@@ -198,6 +466,34 @@ CHECKS = {
         ("每条 claim 关联 >=1 个 source", _d035_claim_has_source),
         ("status 输出独立来源数与 sufficient 判据", _d035_status_sufficient),
         ("export_md/export_json 可导出完整账本", _d035_export),
+    ],
+    "dr-010": [
+        ("每条结果都带 CRAAP 五维评分", _d010_five_dims),
+        ("score_batch 按 CRAAP 总分降序返回", _d010_sorted_desc),
+        ("每条结果带可信度等级（grade + tier_label）且可映射成中文", _d010_grade_zh),
+        ("按 total 过滤后剩下的都 >= 门槛", _d010_threshold),
+    ],
+    "dr-020": [
+        ("输出覆盖率 scores.coverage", _d020_coverage),
+        ("输出交叉验证率 scores.verification", _d020_verification),
+        ("输出矛盾处理率 scores.contradiction_resolution", _d020_contradiction),
+        ("输出结果质量/平均 CRAAP scores.result_quality", _d020_result_quality),
+        ("给出待深挖方向建议 improvements", _d020_improvements),
+    ],
+    "dr-030": [
+        ("issue_tree 生成 graph TD 流程图", _d030_issue_tree),
+        ("timeline 生成 timeline 时间线", _d030_timeline),
+        ("source_distribution 生成 pie 饼图", _d030_pie),
+        ("图表代码嵌进带 mermaid class 的元素，且已加载 mermaid 运行时", _d030_embedded),
+    ],
+    "dr-005": [
+        ("默认输出 HTML 格式", _d005_is_html),
+        ("HTML 报告含执行摘要/MECE/CER/矛盾点/时间线/结论/附录", _d005_sections),
+        ("HTML 章节编号不重复且与目录一致", _d005_numbering_unique),
+        ("骨架 Markdown 含一页拍板/执行摘要/调研方法/结论与建议/来源", _d005_skeleton_sections),
+        ("骨架 Markdown 每条 claim 行尾挂 [N] 可回源", _d005_skeleton_citations),
+        ("骨架 Markdown 来源登记表含编号/Tier/标题/URL", _d005_skeleton_source_table),
+        ("骨架 Markdown 未验证 claim 带 ⚠️ 且写明原因", _d005_skeleton_marks_unverified),
     ],
 }
 
