@@ -72,6 +72,29 @@ def _out(ok: bool, label: str, detail: str = "") -> bool:
     return ok
 
 
+def _last_line(text: str, fallback: str = "") -> str:
+    """取子进程输出的最后一行；**输出为空时给兜底，不许越界**。
+
+    v6.97 的起因：证伪新测试时看到 preflight 崩在
+        (r.stdout or "").strip().splitlines()[-1][:70]
+    抛 `IndexError: list index out of range`。
+    触发条件是子进程「非零退出且 stdout 为空」——
+    而这恰恰是**脚本自己崩了**时最常见的样子（Python 把 traceback 写 stderr）。
+
+    也就是说：**子进程崩 → 门也跟着崩**，崩的还是 traceback 而不是 FAIL。
+    一道检查工具自己抛异常，比没有它更让人不信任——
+    v6.84 那次 `parents[2]` 就是同一类，只是那次是路径错、这次是取值越界。
+
+    检查失败是一个**要报告的结果**，不是一个异常。所以兜底成 stderr 的第一行，
+    真的一行都没有才用 fallback，绝不让门因为想打印失败原因而自己失败。
+    """
+    for src in (text, ""):
+        lines = [l.strip() for l in (src or "").splitlines() if l.strip()]
+        if lines:
+            return lines[-1][:70]
+    return fallback
+
+
 # ---------------------------------------------------------------------------
 # 1) smoke：脚本能跑起来
 # ---------------------------------------------------------------------------
@@ -208,6 +231,19 @@ EXEMPT = {
     "v6.84.0": "本版数字是测试计数（1187）与版本钉子，"
                "由 run_all_tests.py 与 git tag 复算，不是分析结论",
     "v6.85.0": "纯版本对齐，无实测数字",
+      "v6.97.0": "本版数字来自**一次真实安装**（把 v7.5.0.candidate 装进宿主 skill 目录）"
+                 "与对这次修复的证伪，都由临时脚本产生、没有入库，所以没有"
+                 "「跑一下就能复算」的脚本可登记。三点交代清楚："
+                 "①可复算的部分是**测试判定**——9 条新测试"
+                 "（tests/test_v697_noncheckout_preflight.py）钉住两个缺陷的行为，"
+                 "证伪方式是把这三行退回成"
+                 "`text = changelog.read_text(...) if changelog.exists() else \"\"` "
+                 "并删掉 if in_checkout 块，然后跑该文件：安装位相关的 4 条断言会变红。"
+                 "②不可复算的数字是那条**未解释的现象**——analysis 的 --check "
+                 "曾有一次非零退出且 stdout 为空，事后 12 次复跑全部 exit=0，"
+                 "成因至今未定；如实记下而不编故事，正因为它没有复算路径。"
+                 "③本版版本号**故意不动** SKILL.md（仍 6.88.0，仍是 README/index.html 的"
+                 "单源）：CHANGELOG 走细、内核版本在打包时抬，与 v6.94~v6.96 一致。",
     "v6.91.0": "本版数字是边界实跑结果（61.2% = 41/67）与等价变异实证"
                "（L493 扫 401 个输入、L219 扫 27 个）"
                "以及编码门覆盖的 233 个文件数。"
@@ -294,28 +330,53 @@ def check_provenance() -> bool:
     print()
     ok = True
     changelog = REPO / "CHANGELOG.md"
-    text = changelog.read_text(encoding="utf-8") if changelog.exists() else ""
+    in_checkout = (REPO / ".git").exists()
 
-    # --- 正向：扫描 CHANGELOG，看有没有「该登记却没登记」的版本段 ---
-    unregistered = [ver for ver in _sections_with_measured(text)
-                    if ver not in PROVENANCE and ver not in EXEMPT
-                    and _vtuple(ver) >= BASELINE]
-    ok &= _out(not unregistered, "v6.84.0 之后标「实测」的版本段都已登记",
-               f"未登记: {unregistered} —— 要么把复算脚本加进 PROVENANCE，"
-               f"要么在 EXEMPT 里写明为什么不需要（别默默跳过）"
-               if unregistered else
-               f"已登记 {len(PROVENANCE)} 项 + 豁免 {len(EXEMPT)} 项")
+    # v6.97 的起因：真把这插件装到宿主 skill 目录才发现的 ——
+    # install.py 只拷 skills/deep-research-ultra/，CHANGELOG.md 留在仓库根，
+    # 于是 PROVENANCE 登记的 5 个版本段一个都找不到，这道门在安装位**每次都红**。
+    # 而 SKILL.md 明写「交付前跑一次 preflight.py」——
+    # 一个永远红的门等于没有门，还会教 agent 学会忽略红色。
+    #
+    # 所以「CHANGELOG 不在」必须分两种，不能一律当缺文件：
+    #   仓库检出里它不见了 → 文件被删了，红（该红）
+    #   非仓库检出（无 .git）→ 安装包的正常形态，不适用（不是通过）
+    # 判据是 .git 在不在，而不是「文件在不在」——
+    # 否则把仓库里的 CHANGELOG 删掉也能骗过这道门。
+    if changelog.exists():
+        text = changelog.read_text(encoding="utf-8")   # 有 CHANGELOG 才读
+    else:
+        text = None                                  # None = 无从核对（不是「空」）
+        if in_checkout:
+            ok &= _out(False, "仓库检出里有 CHANGELOG.md",
+                       "文件不见了 —— provenance 无从核对")
+        else:
+            print("  [ -- ] CHANGELOG 不适用：这里不是仓库检出（无 .git），"
+                  "CHANGELOG 不随安装包分发")
+            print("         「实测数字可复算」只对仓库成立；本项**跳过**，"
+                  "跳过不是通过（下面的 analysis 对账照跑）")
 
-    for ver, scripts in PROVENANCE.items():
-        has_section = f"## {ver}" in text
-        if not has_section:
-            ok &= _out(False, f"{ver} 在 CHANGELOG 里有条目", "找不到该版本段")
-            continue
-        missing = [p.relative_to(REPO).as_posix() for p in scripts
-                   if not p.exists()]
-        ok &= _out(not missing, f"{ver} 的复算脚本已入库",
-                   f"缺: {missing}" if missing else
-                   "、".join(p.relative_to(REPO).as_posix() for p in scripts))
+    if text is not None:
+        # --- 正向：扫描 CHANGELOG，看有没有「该登记却没登记」的版本段 ---
+        unregistered = [ver for ver in _sections_with_measured(text)
+                        if ver not in PROVENANCE and ver not in EXEMPT
+                        and _vtuple(ver) >= BASELINE]
+        ok &= _out(not unregistered, "v6.84.0 之后标「实测」的版本段都已登记",
+                   f"未登记: {unregistered} —— 要么把复算脚本加进 PROVENANCE，"
+                   f"要么在 EXEMPT 里写明为什么不需要（别默默跳过）"
+                   if unregistered else
+                   f"已登记 {len(PROVENANCE)} 项 + 豁免 {len(EXEMPT)} 项")
+
+        for ver, scripts in PROVENANCE.items():
+            has_section = f"## {ver}" in text
+            if not has_section:
+                ok &= _out(False, f"{ver} 在 CHANGELOG 里有条目", "找不到该版本段")
+                continue
+            missing = [p.relative_to(REPO).as_posix() for p in scripts
+                       if not p.exists()]
+            ok &= _out(not missing, f"{ver} 的复算脚本已入库",
+                       f"缺: {missing}" if missing else
+                       "、".join(p.relative_to(REPO).as_posix() for p in scripts))
 
     # --- 反向：analysis/ 里的脚本必须真的跑得起来且与 CHANGELOG 对账通过 ---
     for p in sorted((SCRIPTS / "analysis").glob("*.py")):
@@ -328,7 +389,8 @@ def check_provenance() -> bool:
                            encoding="utf-8", errors="replace",
                            cwd=str(SCRIPTS), timeout=300)
         ok &= _out(r.returncode == 0, f"{p.name} --check 通过",
-                   (r.stdout or "").strip().splitlines()[-1][:70]
+                   _last_line(r.stdout, f"退出码 {r.returncode}，无输出；"
+                                        f"stderr: {_last_line(r.stderr, '空')}")
                    if r.returncode else "")
     return ok
 
@@ -381,7 +443,9 @@ def check_evals() -> bool:
     for ln in lines:
         print("  " + ln)
     if r.returncode != 0:
-        print("  " + (r.stdout or "").strip().splitlines()[-1][:70])
+        print("  " + _last_line(r.stdout,
+                                f"退出码 {r.returncode}，无输出；"
+                                f"stderr: {_last_line(r.stderr, '空')}"))
         print("  ★ 这是一阶检查：测出来的不是「测试够不够强」，是「产出对不对」")
     return _out(r.returncode == 0,
                 "evals 机械判定子集通过" if not lines else "", "")
