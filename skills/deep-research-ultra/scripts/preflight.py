@@ -231,6 +231,18 @@ EXEMPT = {
     "v6.84.0": "本版数字是测试计数（1187）与版本钉子，"
                "由 run_all_tests.py 与 git tag 复算，不是分析结论",
     "v6.85.0": "纯版本对齐，无实测数字",
+      "v6.100.0": "本版数字是**评测子集的分母**（10/40 条评测、42/42 项期望、"
+                  "未纳入 30/40）与几条实测量（hits 1→2、misses=1、"
+                  "写 5 条后缓存目录 1750 字节 / 上限 max_size_mb=100、"
+                  "evals.json 40 条结构完整 id 唯一、版本差距 94 个中版本）。"
+                  "复算入口是两条命令："
+                  "`evals/run_evals.py`（三个分母）与 `preflight.py --only meta`"
+                  "（元数据三条判据 + 版本差距）。"
+                  "仍登记 EXEMPT 而非 PROVENANCE 的理由："
+                  "其中「版本差距 94」这一条**故意不判红** —— 规格内容自 "
+                  "2026-09-18 起确实没变过，声明落后不等于声明说谎；"
+                  "给它一个受管的复算脚本反而会让人以为那是个待修的缺陷，"
+                  "而它其实是一个需要人判断、并且已经被打印出来的事实。",
       "v6.99.0": "本版不含需要复算的分析结论，数字都是**结构性**的"
                  "（包内 248 条目、11 个关键文件、3 项关键修复、6 条 skip 三方一致、"
                  "10 项新测试）。这些的复算入口就是新工具本身："
@@ -478,9 +490,104 @@ def check_evals() -> bool:
 # ---------------------------------------------------------------------------
 
 
+def check_metadata() -> bool:
+    """声明的元数据不许在骗人 —— 「它说了什么」与「它是什么」要对得上。
+
+    起因是打包时撞见的一个**至今没有任何门核对**的缺口：
+    `SKILL.md` 的 `version:` 是 README / index.html 的单源（`test_v6.py` 在管），
+    CHANGELOG 有自己的版本序列，而**这两者之间没有任何检查**。
+    打出包的那天我才看见：CHANGELOG 已到 v6.96，SKILL.md 仍写 6.88.0。
+    单看每一边都自洽，合起来没有任何东西保证它们对得上。
+
+    三条判据，分工明确：
+
+    1. **SKILL.md 的版本必须在 CHANGELOG 里有对应版本段** —— 判红。
+       包里印着的那个版本号，在变更日志里查不到，说不过去。
+    2. **evals.json 每条评测结构完整、id 唯一** —— 判红。
+       这是规格自身的完整性；`run_evals.py` 按 id 取条目，重复或缺字段会静默出错。
+    3. **evals.json 声明版本与 CHANGELOG 的差距** —— **只打印，不判红**。
+       这一条**故意不设门**：规格自 2026-09-18 起内容确实没变过，
+       声明落后不等于声明说谎。给它设门会逼着人去改一个准确的数字 ——
+       **保守到逼人造假的门比没门更坏**。差距该由人判断，判断依据一并打出来。
+    """
+    print()
+    print("metadata —— 声明的元数据不许在骗人")
+    print("  （起因：打包时发现 CHANGELOG 已到 v6.96 而 SKILL.md 仍写 6.88.0，")
+    print("   而这两者之间没有任何门核对。单看每一边都自洽，合起来没人保证对得上）")
+    print()
+    ok = True
+
+    # --- 1) SKILL.md 的版本要有 CHANGELOG 版本段 ---
+    sk = SKILL / "SKILL.md"
+    sk_ver = ""
+    if sk.exists():
+        for line in sk.read_text(encoding="utf-8").splitlines()[:14]:
+            s = line.strip()
+            if s.startswith("version:"):
+                sk_ver = s.split(":", 1)[1].strip()
+                break
+    changelog = REPO / "CHANGELOG.md"
+    cl_text = changelog.read_text(encoding="utf-8") if changelog.exists() else ""
+    bare = sk_ver.lstrip("v")
+    has_section = bool(bare) and ("## v%s" % bare) in cl_text
+    ok &= _out(has_section,
+               "SKILL.md 的 version=%s 在 CHANGELOG 里有版本段" % (sk_ver or "?"),
+               "找不到 `## v%s` —— 包里印的版本号在变更日志里查不到" % bare
+               if bare and not has_section else
+               ("没读到 SKILL.md 的 version" if not bare else "## v%s ✓" % bare))
+
+    # --- 2) evals.json 的结构完整性 ---
+    spec_path = SKILL / "evals" / "evals.json"
+    bad_ids, bad_shape = [], []
+    declared = declared_at = ""
+    if spec_path.exists():
+        try:
+            spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            spec = {}
+            bad_shape.append("不是合法 JSON：%s" % exc)
+        declared = str(spec.get("version", ""))
+        declared_at = str(spec.get("last_updated", ""))
+        seen = {}
+        for e in spec.get("evals") or []:
+            eid = e.get("id")
+            if not eid:
+                bad_ids.append("<没有 id>")
+                continue
+            seen[eid] = seen.get(eid, 0) + 1
+            miss = [k for k in ("name", "expected_behavior") if not e.get(k)]
+            if miss:
+                bad_shape.append("%s 缺 %s" % (eid, miss))
+        dup = sorted(k for k, v in seen.items() if v > 1)
+        if dup:
+            bad_ids.append("id 重复：%s" % dup)
+    else:
+        bad_shape.append("找不到 evals/evals.json")
+    ok &= _out(not bad_ids and not bad_shape,
+               "evals.json 每条评测结构完整且 id 唯一",
+               ("%d 条；%s" % (len(spec.get("evals") or []),
+                               "、".join(bad_shape + bad_ids) or "全部完整 ✓")))
+
+    # --- 3) 版本差距：只打印，不判红 ---
+    heads = re.findall(r"^## (v[\d.]+)", cl_text, re.M)
+    latest = heads[0] if heads else ""
+    if declared and latest:
+        def mid(v):
+            nums = re.findall(r"\d+", str(v))
+            return int(nums[1]) if len(nums) > 1 else -1
+        gap = mid(latest) - mid(declared)
+        print("  [ -- ] evals.json 声明 version=%s（last_updated=%s），"
+              "CHANGELOG 最新 %s" % (declared, declared_at, latest))
+        print("         差 %s 个中版本。**不判红**：规格内容确实没变过，"
+              "声明落后 ≠ 声明说谎。" % gap)
+        print("         判断该由人做：要么内容真的没变（那就留着），"
+              "要么忘了更新（那就改声明）。这道门不替人决定。")
+    return ok
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="过程门：Lead 的工作要不要机械检查")
-    ap.add_argument("--only", choices=["smoke", "single", "prov", "evals"])
+    ap.add_argument("--only", choices=["smoke", "single", "prov", "evals", "meta"])
     a = ap.parse_args(argv)
 
     print("=" * 72)
@@ -496,8 +603,9 @@ def main(argv=None):
     checks = {"smoke": check_smoke,
               "single": check_single_source,
               "prov": check_provenance,
-              "evals": check_evals}
-    order = [a.only] if a.only else ["smoke", "single", "prov", "evals"]
+              "evals": check_evals,
+              "meta": check_metadata}
+    order = [a.only] if a.only else ["smoke", "single", "prov", "evals", "meta"]
     ok = True
     for name in order:
         ok &= checks[name]()

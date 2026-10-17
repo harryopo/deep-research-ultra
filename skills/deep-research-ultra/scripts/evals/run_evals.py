@@ -661,6 +661,71 @@ def _d036_effort_beats_depth():
                 % (a, b, c))
 
 
+# ---------------------------------------------------------------- dr-009
+# 缓存命中。先量过（实测）：
+#   set 后 stats: hits=0 misses=0 entries=1
+#   第 1 次 get -> hits=1 hit_rate=100.0   第 2 次 get -> hits=2 hit_rate=100.0
+#   查不存在的 -> misses=1（hit/miss 两条路是分开的，不是同一个计数器）
+#   两次 get 的返回值完全一致（dict，键 content/title/url）
+#   LRUCache 默认 max_size_mb=100；1 条小记录写盘 50 字节
+#
+# 期望原文第 3 条「响应时间显著缩短」**不收**：耗时是环境相关的连续量，
+# 「显著」没有可机械判定的阈值 —— 判它就要么给一个武断的毫秒数，
+# 要么在噪声里赌输赢。收进来就是造假精确度。理由记在 PARTIAL_NOTES。
+
+def _d009_cache():
+    import cache as cache_mod
+    d = Path(tempfile.mkdtemp(prefix="eval_hit_"))
+    return cache_mod.LRUCache(cache_dir=d, ttl=timedelta(hours=1),
+                              max_entries=10, max_size_mb=100), d
+
+
+def _d009_hit_counted():
+    c, _d = _d009_cache()
+    c.set("k1", {"content": "内容" * 50, "title": "T", "url": "https://e.example/k1"})
+    c.get("k1")
+    before = c.stats()["hits"]
+    c.get("k1")
+    after = c.stats()["hits"]
+    # ⚠️ 这里**真的要查一次不存在的键**。
+    #    第一版的 detail 印「查不存在的键 misses=0」来佐证「命中与未命中是两个计数器」，
+    #    可那次查询根本没发生 —— misses=0 只是因为压根没查。
+    #    **detail 里出现一个我没量过的数字，读的人会以为量过了**（v6.98 已经栽过一次）。
+    got_miss = c.get("根本没有这个键")
+    s = c.stats()
+    return (after == before + 1 and s["misses"] == 1 and got_miss is None), (
+        "连续两次 get 同一键：hits %s -> %s（hit_rate=%s）；"
+        "再查一个不存在的键 -> 返回 %r、misses=%s —— 命中与未命中确实是两个计数器"
+        % (before, after, s["hit_rate"], got_miss, s["misses"]))
+
+
+def _d009_same_result():
+    c, _d = _d009_cache()
+    payload = {"content": "内容" * 50, "title": "T", "url": "https://e.example/k1"}
+    c.set("k1", dict(payload))
+    r1, r2 = c.get("k1"), c.get("k1")
+    return (r1 is not None and r1 == r2 == payload), (
+        "两次 get 返回值与写入值三者全等=%s（类型 %s，键 %s）"
+        % (r1 == r2 == payload, type(r2).__name__,
+           sorted(r2) if isinstance(r2, dict) else "非 dict"))
+
+
+def _d009_size_under_limit():
+    import inspect
+    import cache as cache_mod          # ← 第一版漏了这个 import，判据直接 NameError
+    c, d = _d009_cache()
+    for i in range(5):
+        c.set("k%d" % i, {"content": "v" * 200, "title": "t",
+                          "url": "https://e.example/k%d" % i})
+    used = sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
+    sig = inspect.signature(cache_mod.LRUCache.__init__)
+    default_mb = sig.parameters["max_size_mb"].default
+    cap = default_mb * 1024 * 1024
+    return (used <= cap and default_mb == 100), (
+        "写 5 条后目录实测 %d 字节，上限 max_size_mb=%s（= %d 字节）-> 未超"
+        % (used, default_mb, cap))
+
+
 CHECKS = {
     "dr-024": [
         ("TTL 过期条目被自动清理（evicted_ttl+1）", _d024_ttl),
@@ -719,6 +784,11 @@ CHECKS = {
         ("exhaustive 级：子问题 ≥10 且 breadth=12", _d036_exhaustive_shape),
         ("--effort 与 --depth 同给时以 --effort 为准", _d036_effort_beats_depth),
     ],
+    "dr-009": [
+        ("第二次取同一键记为命中（hits+1 且 misses 不涨）", _d009_hit_counted),
+        ("命中时返回结果与首次写入完全一致", _d009_same_result),
+        ("缓存目录体积不超过 max_size_mb（默认 100MB）", _d009_size_under_limit),
+    ],
 }
 
 
@@ -729,6 +799,11 @@ CHECKS = {
 # 「专家团 / 红队」这类工作流散文不是布尔量，硬打分只会造出假的精确度
 # ——与本项目从 v6.95 起就在守的那条规矩同源。
 PARTIAL_NOTES = {
+    "dr-009": [
+        ("第二次搜索「响应时间显著缩短」",
+         "耗时是环境相关的连续量，「显著」没有可机械判定的阈值 —— "
+         "判它要么给一个武断的毫秒数，要么在噪声里赌输赢"),
+    ],
     "dr-036": [
         ("quick 级「跳过专家团、单 Agent 串行」",
          "scripts/ 下没有任何按 effort 分级的专家团开关；这是 SKILL.md 的编排散文"),
@@ -763,6 +838,19 @@ def main() -> int:
         meta = by_id.get(eid)
         print("-" * 78)
         print(f"[{eid}] {meta.get('name') if meta else '（评测文件里没有这一条！）'}")
+        # ⚠️ 判一个 evals.json 里**不存在**的条目，必须判失败。
+        #    第一版只在标题里印一句「（评测文件里没有这一条！）」然后照跑判据、
+        #    照常计入「机械判定 N/M」—— 也就是说：**删掉评测文件里的一条，
+        #    判定器会继续判它、并且把它算成通过**。
+        #    「没判过的东西不许算通过」在这里同样成立，而且是反向的：
+        #    连判据的依据都没了，还判它通过。
+        if meta is None:
+            print(f"  [FAIL] {eid} 不在 {EVALS_JSON.name} 里 —— "
+                  "判据的依据已经没了，不能判它通过")
+            print("         要么把这一条评测加回 evals.json，要么把判据从注册表里删掉")
+            failed_ev.append(eid)
+            n_expect += len(checks)          # 分母照加：它确实占着位置
+            continue
         print(f"       原始期望 {len(meta.get('expected_behavior') or [])} 条，"
               f"本版机械判定 {len(checks)} 条")
         # ⚠️ 每个判据**只跑一次**。第一版为了算「整条过没过」又调了一遍，
