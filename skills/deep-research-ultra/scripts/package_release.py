@@ -68,6 +68,23 @@ MUST_HAVE = [
     "skills/deep-research-ultra/evals/evals.json",
 ]
 
+# 关键修复的**内容**必须在包里 ——「文件在」不等于「修的那行在」。
+# 提到模块级，好让测试能逐项核对它指向的文件真的存在
+#（第一版它是 build() 里的局部变量，测试够不着，只能干看着它查错文件）。
+#
+# 每项都指明查哪个文件。第一版三项全查 preflight.py，
+# 而 PARTIAL_NOTES 根本不在 preflight.py 而在 evals/run_evals.py ——
+# 于是它报「包内少了 v6.98 的修复」，而包里明明有。
+# **一个报错的检查比没有检查更坏**：它会让你去修一个没坏的东西。
+NEED_MARKS = [
+    ("skills/deep-research-ultra/scripts/preflight.py",
+     ".git 判据（v6.97）", 'in_checkout = (REPO / ".git").exists()'),
+    ("skills/deep-research-ultra/scripts/preflight.py",
+     "_last_line 兜底（v6.97）", "def _last_line("),
+    ("skills/deep-research-ultra/scripts/evals/run_evals.py",
+     "评测子集 PARTIAL_NOTES（v6.98）", "PARTIAL_NOTES = {"),
+]
+
 # 允许的 skip 理由白名单。出现第四种 = 包里缺东西，不是环境问题。
 ALLOWED_SKIP = (
     "本机无 bash",       # setup-mcp.sh 要 bash
@@ -190,29 +207,19 @@ def build(version: str, dry_run: bool = False) -> int:
         problems.append("缺 %d 个关键文件：%s" % (len(miss), miss))
 
     # 关键修复的**内容**必须在包里 —— 「文件在」不等于「修的那行在」。
-    # ⚠️ 每项都指明查哪个文件。第一版三项全查 preflight.py，
-    # 而 PARTIAL_NOTES 根本不在 preflight.py 而在 evals/run_evals.py ——
-    # 于是它报「包内少了 v6.98 的修复」，而包里明明有。
-    # **一个报错的检查比没有检查更坏**：它会让你去修一个没坏的东西。
-    need_marks = [
-        ("skills/deep-research-ultra/scripts/preflight.py",
-         ".git 判据（v6.97）", 'in_checkout = (REPO / ".git").exists()'),
-        ("skills/deep-research-ultra/scripts/preflight.py",
-         "_last_line 兜底（v6.97）", "def _last_line("),
-        ("skills/deep-research-ultra/scripts/evals/run_evals.py",
-         "评测子集 PARTIAL_NOTES（v6.98）", "PARTIAL_NOTES = {"),
-    ]
+    # 每项查哪个文件见模块级 NEED_MARKS。
     missing_marks = []
-    for rel, what, needle in need_marks:
+    for rel, what, needle in NEED_MARKS:
         blob = blobs.get(PREFIX + rel)
         if blob is None:
             missing_marks.append("%s（文件不在包里）" % what)
             continue
         if needle not in blob.decode("utf-8", "replace"):
-            missing_marks.append("%s（%s 里没有 %r）" % (what, rel.split("/")[-1], needle))
+            missing_marks.append("%s（%s 里没有 %r）"
+                                 % (what, rel.split("/")[-1], needle))
     problems.extend("包内缺关键修复：%s" % m for m in missing_marks)
     print("  关键修复在包里：%s"
-          % ("%d/%d 全部在 ✓" % (len(need_marks), len(need_marks))
+          % ("%d/%d 全部在 ✓" % (len(NEED_MARKS), len(NEED_MARKS))
              if not missing_marks else "缺：%s" % missing_marks))
 
     md = blobs[PREFIX + "skills/deep-research-ultra/SKILL.md"].decode("utf-8", "replace")
