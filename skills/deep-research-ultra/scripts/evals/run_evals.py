@@ -25,9 +25,14 @@
 
 ## 三个分母，缺一不可
 
-    机械判定 3/4 条评测          <- 真正跑了且通过的比例
-    未纳入 36/40 条（需人判）    <- 明说哪些还没被任何东西量过
-    期望 13 项中通过 11 项
+    机械判定 N/M 条评测          <- 真正跑了且通过的比例
+    未纳入 (40-M)/40 条（需人判） <- 明说哪些还没被任何东西量过
+    期望 K 项中通过 J 项
+
+另外还有**第三个「没量」的口子**：一条评测可能只判了期望的一部分
+（代码能算的收了，代码里根本不存在的散文半截没收）——那些用 `[ -- ]`
+逐条印在对应评测下面，记在 `PARTIAL_NOTES` 里。
+只报「未纳入 N/40」会漏掉它们，而那一半看起来就像「已经量过了」。
 
 把「没跑的」混进「跑过的」是这类评测最常见的注水方式。
 
@@ -454,6 +459,208 @@ def _d005_skeleton_sections():
     return not missing, "章节 %s%s" % (heads, ("；缺：" + "、".join(missing)) if missing else "")
 
 
+# ---------------------------------------------------------------- dr-025
+# EngineRegistry 降级链。四条期望**全部离线可判**：注册表只读内存里的
+# `_engines` 字典，排序发生在 `get_fallback_chain()` 里，没有任何 IO。
+#
+# 为什么值得收：dr-025 的 `test_file` 字段指向
+# `tests/test_core.py::TestEngineRegistry::test_fallback_chain` —— 那条测试
+# **已经存在**，但它只注册了 2 个引擎、每个层一个，只断言「Layer 1 在 Layer 4 前面」。
+# **同层 priority 排序**与**不可用引擎被排除**这两条期望它一条都没测。
+# 有测试 ≠ 期望被覆盖过，这里补的是真实空白。
+def _d025_registry():
+    """造一个注册表：两层各多档 priority，外加两个 is_available()=False 的引擎。
+
+    不可用的那两个**故意放在最前排的位置**（layer=1 priority=1）——
+    如果排除逻辑坏了，它们会立刻爬到链首，判据立刻红，而不是「碰巧通过」。
+    """
+    from engines.base import EngineRegistry, SearchEngine, EngineMetadata
+
+    spec = [
+        # (名字, layer, priority, 可用)
+        ("l4_cheap", 4, 1, True),      # Layer 4 但 priority 最小 —— 层必须压过 priority
+        ("l2_a", 2, 99, True),
+        ("l1_b", 1, 50, True),
+        ("l1_a", 1, 10, True),         # 与 l1_b 同层，priority 更小 → 必须排在前面
+        ("l1_dead_first", 1, 1, False),  # 不可用却排在最前位
+        ("l3_dead", 3, 1, False),        # 不可用
+    ]
+
+    def make(name, layer, priority, ok):
+        class _E(SearchEngine):
+            @property
+            def metadata(self):
+                return EngineMetadata(name=name, layer=layer, description="", priority=priority)
+
+            def is_available(self):
+                return ok
+
+            def search(self, query, max_results=10, **kw):
+                return []
+        _E.__name__ = "E_%s" % name
+        return _E()
+
+    reg = EngineRegistry()
+    # 逆序注册：注册顺序不该影响降级链顺序
+    for name, layer, priority, ok in reversed(spec):
+        reg.register(make(name, layer, priority, ok))
+    return reg, spec
+
+
+def _d025_ordering():
+    reg, spec = _d025_registry()
+    chain = reg.get_fallback_chain()
+    keys = [(e.get_layer(), e.metadata.priority) for e in chain]
+    return keys == sorted(keys), "降级链 (layer,priority)=%s，升序=%s" % (
+        keys, keys == sorted(keys))
+
+
+def _d025_layer_order():
+    reg, _spec = _d025_registry()
+    layers = [e.get_layer() for e in reg.get_fallback_chain()]
+    return (layers and layers[0] == 1 and layers[-1] == 4), (
+        "链首 layer=%s、链尾 layer=%s（期望 1 → 4）" % (layers[0], layers[-1]))
+
+
+def _d025_same_layer_priority():
+    reg, _spec = _d025_registry()
+    chain = reg.get_fallback_chain()
+    per_layer = {}
+    for e in chain:
+        per_layer.setdefault(e.get_layer(), []).append(e.metadata.priority)
+    bad = {k: v for k, v in per_layer.items() if v != sorted(v)}
+    return (not bad and len(per_layer) >= 3), (
+        "各层 priority %s；层内未升序的：%s" % (per_layer, bad or "无"))
+
+
+def _d025_excludes_unavailable():
+    reg, spec = _d025_registry()
+    chain = reg.get_fallback_chain()
+    dead = [n for n, _l, _p, ok in spec if not ok]
+    leaked = [e.get_name() for e in chain if e.get_name() in dead]
+    total_avail = sum(1 for _n, _l, _p, ok in spec if ok)
+    return (not leaked and len(chain) == total_avail), (
+        "注册 %d 个（不可用 %s）→ 链上 %d 个，期望 %d；漏进来的：%s"
+        % (len(spec), dead, len(chain), total_avail, leaked or "无"))
+
+
+# ---------------------------------------------------------------- dr-028
+# 中文查询。先量过再写判据（实测）：
+#   _score_relevance('FastAPI性能', ...)          -> 100
+#   _score_relevance('FastAPI 性能测试', ...)      -> 75.0
+#   _score_relevance('   ')                       -> 50.0（中性基线，非 0）
+#   score(...) 的签名要带 .url 的结果对象，不是 (query,title,content) ——
+#   按期望原文直接调会抛 AttributeError。判据一律走 `_score_relevance`。
+#
+# ⚠️ exp1 与 exp3 在期望原文里高度重叠（一个说机制、一个说结果）。
+#    这里**不把两条合并成一条**：exp1 判的是「机制上不依赖空格分词」
+#    ——所以额外断言「按空格切出的那个整串**不是**标题的子串」，
+#    这样正分只能来自更细粒度的匹配；exp3 判的是用户可见的结果（分数 > 0）。
+#    合并成一条会让「机制」那一半变成没人验证的散文。
+
+def _d028_scores(query, title, content):
+    import score as sc
+    return sc.CraapScorer()._score_relevance(query, title, content)
+
+
+def _d028_no_space_dependency():
+    q, title = "FastAPI性能", "FastAPI 性能基准"
+    v = _d028_scores(q, title, "FastAPI 在中文场景下的性能测试与基准对比")
+    # v3 的 query.split() 在这里得到 ['FastAPI性能']，而标题里是 'FastAPI 性能基准'
+    # ——**整串不是子串**，所以 v3 的覆盖度必然是 0。
+    whole_is_sub = q.lower() in title.lower()
+    ok = v > 0 and not whole_is_sub
+    # ⚠️ 标签写成「整串**不是**标题子串=True」而不是「整串是子串=False」。
+    #    两种写法都能表达同一件事，但前者的 True 读起来是「符合预期」。
+    #    **第一版我把 `whole_not_sub` 印成「整串是标题子串=True」——判据对、文字反了**，
+    #    读的人会得出与事实相反的结论。量出来的细节文本误导人，比数字错更坏。
+    return ok, ("查询 %r（无空格）对标题 %r -> %s；整串**不是**标题子串=%s"
+                "（为真才说明正分不可能来自空格分词，只能来自更细粒度匹配）"
+                % (q, title, v, not whole_is_sub))
+
+
+def _d028_char_ngram():
+    # 构造一个**只有字符级 2-gram 能命中**的语料：
+    # 查询整串「向量数据库选型」不在标题里，查询里也没有任何英文 token
+    # （所以「英文按空格分词」这条路一点都走不通）。
+    q, title = "向量数据库选型", "向量数据库横向对比"
+    v = _d028_scores(q, title, "向量数据库的选型维度与对比结论")
+    whole_is_sub = q in title
+    has_latin = any("a" <= ch.lower() <= "z" for ch in q)
+    ok = v > 0 and not whole_is_sub and not has_latin
+    return ok, ("查询 %r 对标题 %r -> %s；整串**不是**标题子串=%s、查询**不含**拉丁字母=%s"
+                "（两者皆为真 ⇒ 英文按空格分词这条路完全走不通，"
+                "命中只可能来自字符级 n-gram）"
+                % (q, title, v, not whole_is_sub, not has_latin))
+
+
+def _d028_relevance_positive():
+    # ⚠️ 标题**故意不含查询整串**（`推理成本优化` vs `大模型推理的成本优化路径`，
+    #    中间隔了个「的」）。第一版我把标题写成 `大模型推理成本测算` ——
+    #    整串正好是子串，于是**连 v3 的 split() 都能命中**，
+    #    把相关性退回 v3 实现时这条判据照样绿 ⇒ **一条没有区分力的判据**。
+    #    期望原文括号里写的就是「v3 会是 0」，所以判据必须选一个 v3 真的会得 0 的语料。
+    q, title = "推理成本优化", "大模型推理的成本优化路径"
+    v = _d028_scores(q, title, "推理成本的优化手段与取舍")
+    whole_is_sub = q in title
+    return (v > 0 and not whole_is_sub), (
+        "纯中文查询 %r 对标题 %r -> %s；整串**不是**标题子串=%s"
+        "（为真 ⇒ v3 的 split() 会得 0，这条判据才有区分力）"
+        % (q, title, v, not whole_is_sub))
+
+
+def _d028_mixed_query():
+    v = _d028_scores("FastAPI 性能测试", "FastAPI 性能测试报告",
+                     "FastAPI 性能测试方法与瓶颈定位")
+    return v > 0, "中英混合查询 'FastAPI 性能测试' relevance=%s（期望 > 0）" % (v,)
+
+
+# ---------------------------------------------------------------- dr-036
+# effort 分级路由。先量过（实测）：
+#   PlanGenerator.DEPTH_PRESETS: quick/standard/deep/extreme 的 max_sub_questions
+#                              = 3 / 5 / 8 / 12
+#   research.EFFORT_BREADTH     = {'quick':2,'standard':4,'deep':8,'exhaustive':12}
+#   resolve_preset_key(effort='quick', depth='extreme')     = 'quick'
+#   resolve_preset_key(effort='exhaustive', depth='quick') = 'extreme'
+#
+# ⚠️ 期望原文里的「跳过专家团 / 单 Agent 串行 / red-team 对抗评审 / 多轮修订 /
+#    计划确认门待确认清单」**不是代码，是 SKILL.md 里的工作流散文**：
+#    搜遍 scripts/*.py 与 scripts/engines/*.py 没有任何按 effort 分级的
+#    专家团/红队/修订轮常量；`待确认`/`确认门`/`计划确认` 只在 SKILL.md 出现
+#    （5 / 3 / 3 处）。**代码里没有的东西不能机械判** —— 收进来就是造假精确度。
+#    所以本条只判代码能判的那几项，剩下的在 PARTIAL_NOTES 里逐条列出原因。
+def _d036_quick_shape():
+    from plan import PlanGenerator
+    import research
+    sub = PlanGenerator.DEPTH_PRESETS["quick"]["max_sub_questions"]
+    breadth = research.EFFORT_BREADTH["quick"]
+    return (sub <= 3 and breadth == 2), (
+        "quick：max_sub_questions=%s（期望 <=3）、EFFORT_BREADTH=%s（期望 2）"
+        % (sub, breadth))
+
+
+def _d036_exhaustive_shape():
+    from plan import PlanGenerator, resolve_preset_key
+    import research
+    key = resolve_preset_key(effort="exhaustive")
+    sub = PlanGenerator.DEPTH_PRESETS[key]["max_sub_questions"]
+    breadth = research.EFFORT_BREADTH["exhaustive"]
+    return (sub >= 10 and breadth == 12), (
+        "effort=exhaustive → 预设键 %r：max_sub_questions=%s（期望 >=10）、"
+        "EFFORT_BREADTH=%s（期望 12）" % (key, sub, breadth))
+
+
+def _d036_effort_beats_depth():
+    from plan import resolve_preset_key
+    a = resolve_preset_key(effort="quick", depth="extreme")
+    b = resolve_preset_key(effort="exhaustive", depth="quick")
+    c = resolve_preset_key(depth="extreme")
+    ok = (a == "quick" and b == "extreme" and c == "extreme")
+    return ok, ("effort+depth 同给：quick+extreme -> %r（期望 quick）、"
+                "exhaustive+quick -> %r（期望 extreme）；只给 depth=extreme -> %r"
+                % (a, b, c))
+
+
 CHECKS = {
     "dr-024": [
         ("TTL 过期条目被自动清理（evicted_ttl+1）", _d024_ttl),
@@ -494,6 +701,42 @@ CHECKS = {
         ("骨架 Markdown 每条 claim 行尾挂 [N] 可回源", _d005_skeleton_citations),
         ("骨架 Markdown 来源登记表含编号/Tier/标题/URL", _d005_skeleton_source_table),
         ("骨架 Markdown 未验证 claim 带 ⚠️ 且写明原因", _d005_skeleton_marks_unverified),
+    ],
+    "dr-025": [
+        ("降级链按 (layer, priority) 升序排列", _d025_ordering),
+        ("Layer 1（MCP）排最前、Layer 4（降级）排最后", _d025_layer_order),
+        ("同一 layer 内按 priority 数字小→大排", _d025_same_layer_priority),
+        ("is_available()=False 的引擎被排除", _d025_excludes_unavailable),
+    ],
+    "dr-028": [
+        ("中文查询不依赖空格分词（v3 split() 已修复）", _d028_no_space_dependency),
+        ("使用字符级 n-gram 提取关键词（只有 2-gram 能命中的语料）", _d028_char_ngram),
+        ("中文查询 relevance 评分 > 0", _d028_relevance_positive),
+        ("支持中英混合查询", _d028_mixed_query),
+    ],
+    "dr-036": [
+        ("quick 级：子问题 ≤3 且 breadth=2", _d036_quick_shape),
+        ("exhaustive 级：子问题 ≥10 且 breadth=12", _d036_exhaustive_shape),
+        ("--effort 与 --depth 同给时以 --effort 为准", _d036_effort_beats_depth),
+    ],
+}
+
+
+# 收了「一部分」的评测：那些**代码里根本没有对应符号**的期望半截。
+# 必须显式列出来 —— 否则这条评测会看起来「全判过了」，而实际上有一半没人量。
+#
+# 判据：代码里能算出来的判，代码里根本不存在的**不判**。
+# 「专家团 / 红队」这类工作流散文不是布尔量，硬打分只会造出假的精确度
+# ——与本项目从 v6.95 起就在守的那条规矩同源。
+PARTIAL_NOTES = {
+    "dr-036": [
+        ("quick 级「跳过专家团、单 Agent 串行」",
+         "scripts/ 下没有任何按 effort 分级的专家团开关；这是 SKILL.md 的编排散文"),
+        ("exhaustive 级「red-team 对抗评审、多轮修订」",
+         "同样没有按 effort 分级的红队/修订轮常量"),
+        ("计划确认门输出待确认清单",
+         "`待确认`/`确认门`/`计划确认` 只出现在 SKILL.md（5/3/3 处），"
+         "plan.py 与 research.py 里没有任何对应符号"),
     ],
 }
 
@@ -538,6 +781,11 @@ def main() -> int:
             mark = "OK  " if ok else "FAIL"
             print(f"  [{mark}] {label}")
             print(f"         {detail}")
+        # 收了「一半」的评测要把没判的那一半印出来。
+        # 不印的话，这条评测会显示成「全判过了」，而实际上有一半根本没人量过。
+        for what, why in PARTIAL_NOTES.get(eid, []):
+            print(f"  [ -- ] {what}")
+            print(f"         未判：{why}")
         (passed_ev if ev_ok else failed_ev).append(eid)
 
     unscored = [e["id"] for e in evals if e["id"] not in CHECKS]

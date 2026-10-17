@@ -231,6 +231,21 @@ EXEMPT = {
     "v6.84.0": "本版数字是测试计数（1187）与版本钉子，"
                "由 run_all_tests.py 与 git tag 复算，不是分析结论",
     "v6.85.0": "纯版本对齐，无实测数字",
+      "v6.98.0": "本版数字是**评测子集的分母**（9/40 条评测、39/39 项期望、"
+                 "未纳入 31/40）与几条实测量（max_sub_questions 3/5/8/12、"
+                 "EFFORT_BREADTH quick=2/exhaustive=12、"
+                 "resolve_preset_key(quick,extreme)=quick、"
+                 "_score_relevance('FastAPI性能')=100、"
+                 "SKILL.md 里 待确认/确认门/计划确认 = 5/3/3 处）。"
+                 "它们**可复算**：分母三条命令就够 —— "
+                 "`evals/run_evals.py` 打出三个分母、"
+                 "`python -c \"from plan import PlanGenerator; "
+                 "print({k: v['max_sub_questions'] for k, v in "
+                 "PlanGenerator.DEPTH_PRESETS.items()})\"`、"
+                 "`grep -c 待确认 SKILL.md`。"
+                 "之所以仍登记 EXEMPT 而不是 PROVENANCE：复算入口分散在三个不同"
+                 "脚本/命令里，为它单独写一个 --check 脚本不值得，"
+                 "而登记理由里把命令写全，比让它假装有单一复算脚本更诚实。",
       "v6.97.0": "本版数字来自**一次真实安装**（把 v7.5.0.candidate 装进宿主 skill 目录）"
                  "与对这次修复的证伪，都由临时脚本产生、没有入库，所以没有"
                  "「跑一下就能复算」的脚本可登记。三点交代清楚："
