@@ -312,6 +312,42 @@ def build(version: str, dry_run: bool = False) -> int:
             errors="replace", env=env, timeout=2400)
         _reasons, probs = reconcile_skips(r.stdout or "", claimed_skips)
         problems.extend(probs)
+
+        # ---------------------------------------------------------------
+        # 安装布局验证 —— v6.100.0 加的，因为一个真事故
+        # ---------------------------------------------------------------
+        # 只验包内是不够的，而且这个「不够」很隐蔽：
+        #   包布局   <pkg>/deep-research-ultra/skills/deep-research-ultra
+        #            → preflight 里 REPO = <pkg>/deep-research-ultra = **包根**，CHANGELOG 在
+        #   安装布局 <skills池>/deep-research-ultra
+        #            → REPO = <skills池>，那里**没有 CHANGELOG、没有 .git**
+        # 两者 REPO 指向完全不同的东西。v6.100.0 我新写的 check_metadata
+        # 只在包布局验过 → 装到宿主后**每次交付都红**，而包内全绿。
+        # 「包内绿」不等于「装上去能用」。
+        #
+        # 所以这里把 skill 目录单独拷进一个空的「技能池」，再在**那个布局**里跑一遍。
+        print("\n  【安装布局验证】把 skill 拷进一个空技能池再跑 —— 包内绿 ≠ 装上能用")
+        pool = pkg / "skills_pool"
+        pool.mkdir(parents=True, exist_ok=True)
+        installed = pool / "deep-research-ultra"
+        shutil.copytree(inner / "skills" / "deep-research-ultra", installed)
+        # 刻意**不放** CHANGELOG / .git —— 那正是 install.py 拷出来的东西的样子
+        for script, label in (("scripts/preflight.py", "preflight.py"),
+                              ("scripts/evals/run_evals.py", "evals/run_evals.py")):
+            rr = subprocess.run([sys.executable, "-X", "utf8", str(installed / script)],
+                                cwd=str(installed), capture_output=True, text=True,
+                                encoding="utf-8", errors="replace",
+                                env=env, timeout=900)
+            last = [l.strip() for l in (rr.stdout or "").splitlines()
+                    if l.strip()][-1:]
+            print("      %-22s exit=%d  %s" % (label, rr.returncode,
+                                              (last[0] if last else "")[:60]))
+            results.append(("安装布局 " + label, rr.returncode == 0))
+            if rr.returncode != 0:
+                tail = [l.strip() for l in (rr.stdout or "").splitlines()
+                        if "FAIL" in l]
+                for l in tail[:3]:
+                    print("        ! " + l[:92])
     finally:
         shutil.rmtree(pkg, ignore_errors=True)
 

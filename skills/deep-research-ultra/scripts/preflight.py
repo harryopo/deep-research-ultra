@@ -527,14 +527,40 @@ def check_metadata() -> bool:
                 sk_ver = s.split(":", 1)[1].strip()
                 break
     changelog = REPO / "CHANGELOG.md"
-    cl_text = changelog.read_text(encoding="utf-8") if changelog.exists() else ""
+    in_checkout = (REPO / ".git").exists()
     bare = sk_ver.lstrip("v")
-    has_section = bool(bare) and ("## v%s" % bare) in cl_text
-    ok &= _out(has_section,
-               "SKILL.md 的 version=%s 在 CHANGELOG 里有版本段" % (sk_ver or "?"),
-               "找不到 `## v%s` —— 包里印的版本号在变更日志里查不到" % bare
-               if bare and not has_section else
-               ("没读到 SKILL.md 的 version" if not bare else "## v%s ✓" % bare))
+
+    # ⚠️⚠️ **这一段我第一版写错了，写法与 v6.97 修掉的 provenance 缺陷一模一样。**
+    #   「CHANGELOG 不存在」我只当了一种情况（文件被删了）→ 判红。
+    #   实际有两种，而**用户安装的位置正落在第二种**：
+    #     仓库检出里 CHANGELOG 不见了 → 文件被删了 → 红
+    #     非仓库检出（无 .git）→ 安装包的正常形态 → **不适用**（不是通过）
+    #   装到宿主 skill 目录后，`REPO = SKILL.parents[1]` 指向共享的 skills 池
+    #   （实测 `~/.trae-cn`），那里既没有 CHANGELOG 也没有 `.git` ——
+    #   于是这道门**每次交付都红**，一个永远红的门等于没有门。
+    #
+    #   为什么没被更早抓到：**我只在包布局里验证**。包布局下 `REPO` 恰好等于
+    #   包根，CHANGELOG 就在那儿，所以包内全绿。
+    #   「包内绿」不等于「装上去能用」—— 这两处的 REPO 指向完全不同的东西。
+    #   所以 `package_release.py` 现在除了验包内，还多验一次**安装布局**。
+    if changelog.exists():
+        cl_text = changelog.read_text(encoding="utf-8")
+        has_section = bool(bare) and ("## v%s" % bare) in cl_text
+        ok &= _out(has_section,
+                   "SKILL.md 的 version=%s 在 CHANGELOG 里有版本段"
+                   % (sk_ver or "?"),
+                   "找不到 `## v%s` —— 包里印的版本号在变更日志里查不到" % bare
+                   if bare and not has_section else
+                   ("没读到 SKILL.md 的 version" if not bare else "## v%s ✓" % bare))
+    elif in_checkout:
+        ok &= _out(False, "仓库检出里有 CHANGELOG.md",
+                   "文件不见了 —— 元数据核对无从进行")
+    else:
+        print("  [ -- ] CHANGELOG 核对不适用：这里不是仓库检出（无 .git），"
+              "CHANGELOG 不随安装包分发")
+        print("         SKILL.md 声明 version=%s；「这个版本号在变更日志里查得到吗」"
+              "只对仓库成立。**跳过不是通过**（下面的 evals.json 结构核对照跑）"
+              % (sk_ver or "?"))
 
     # --- 2) evals.json 的结构完整性 ---
     spec_path = SKILL / "evals" / "evals.json"
@@ -569,7 +595,8 @@ def check_metadata() -> bool:
                                "、".join(bad_shape + bad_ids) or "全部完整 ✓")))
 
     # --- 3) 版本差距：只打印，不判红 ---
-    heads = re.findall(r"^## (v[\d.]+)", cl_text, re.M)
+    # --- 3) 版本差距：只打印，不判红 ---
+    heads = re.findall(r"^## (v[\d.]+)", cl_text, re.M) if changelog.exists() else []
     latest = heads[0] if heads else ""
     if declared and latest:
         def mid(v):
