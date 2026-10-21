@@ -30,6 +30,7 @@
 
 **过程中的一次真错误**：`cmd_list(registry)` 我按 `cmd_list(registry, args)` 调，
 TypeError 当场炸——「判据崩了也算失败」这条机制照旧抓住了它。
+提交 `13cecd5`。
 
 ---
 
