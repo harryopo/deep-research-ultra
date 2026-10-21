@@ -59,6 +59,7 @@ deep-research-skill / auto-deep-research / deep-research-zh —— 所以它**�
   **机械判定 12/12、期望级 51/51、未纳入 30/42**；
 - 实网复验：修复后同一条查询词回 `pi-deep-research` / `deep-research-skill` /
   `Skywork-Skills`，且 npm / crates / GitLab 三家在限额内都露面（轮转合并生效）。
+提交 `e534e14`。
 
 ---
 
