@@ -69,6 +69,7 @@ SKILL.md、README、`index.html`、`references/playbooks.md` 同步。
 
 `test_v695_evals.py` 两处写死的 40 改为从 `evals.json` 动态读取（现 41 条）；
 `test_v670_source_count_caliber.py` 改为从注册表现算，不再钉死某一版的数字。
+提交 `da92ec8`。
 
 ---
 
