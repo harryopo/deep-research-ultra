@@ -823,6 +823,79 @@ def _d041_interleave():
                                 "B=smithery 的模型）" % tags)
 
 
+# ---------------------------------------------------------------- dr-042
+def _d042_ascii_norm():
+    """中文词元剔除、ASCII 词元保留（纯函数，可离线复算）。"""
+    import engines.marketplaces as mkt_mod
+    got = mkt_mod._ascii_query("找一个现成的 deep research skill")
+    keep = mkt_mod._ascii_query("@mimo-ai/plugin crates.io/api")
+    ok = got == "deep research skill" and keep == "mimo-ai/plugin crates.io/api"
+    return ok, ("_ascii_query('找一个现成的 deep research skill')=%r；"
+                "包名/路径形状=%r" % (got, keep))
+
+
+def _d042_pure_chinese_fallback():
+    """纯中文查询：原样传回 + 标 non-ascii（不编造译名、不静默丢弃）。"""
+    import engines.marketplaces as mkt_mod
+    used, lang = mkt_mod._registry_query("深度调研工具")
+    ok = used == "深度调研工具" and lang == "non-ascii"
+    return ok, ("纯中文查询 → used=%r lang=%r" % (used, lang))
+
+
+def _d042_subquery_shape():
+    """实际发出去的查询词：注册表类=ASCII 形式，skills.sh=原样。
+
+    端点是假的（只记录 URL），所以判据测的是**查询词形状**，
+    不是上游今天返回什么。
+    """
+    import engines.marketplaces as mkt_mod
+    import urllib.parse as up
+    seen = []
+
+    def fget(url, **kw):
+        seen.append(url)
+        return {}
+
+    orig = mkt_mod._http_get_json
+    mkt_mod._http_get_json = fget
+    try:
+        eng_mkt = mkt_mod.SkillMarketEngine()
+        eng_oss = mkt_mod.OssRegistryEngine()
+        eng_oss._npm("找一个现成的 deep research skill", 5)
+        eng_oss._crates("找一个现成的 deep research skill", 5)
+        eng_oss._gitlab("找一个现成的 deep research skill", 5)
+        eng_mkt._smithery("找一个现成的 deep research skill", 5)
+        eng_mkt._skills_sh("找一个现成的 deep research skill", 5)
+    finally:
+        mkt_mod._http_get_json = orig
+    qs = [up.parse_qs(up.urlparse(u).query) for u in seen]
+    reg = [d.get("text", d.get("q", d.get("search")))[0] for d in qs[:4]]
+    sem = qs[4].get("q", [""])[0]
+    ok = all(v == "deep research skill" for v in reg) and \
+        sem == "找一个现成的 deep research skill"
+    return ok, ("注册表类发出=%s；语义源保留=%r" % (reg, sem))
+
+
+def _d042_query_provenance():
+    """结果里要能查回实际用的查询词与语言标记，正文写明规范化。"""
+    import engines.marketplaces as mkt_mod
+    orig = mkt_mod._http_get_json
+    mkt_mod._http_get_json = lambda url, **kw: {"objects": [
+        {"package": {"name": "pi-deep-research"}}]}
+    try:
+        got = mkt_mod.OssRegistryEngine()._npm("找一个现成的 deep research skill", 5)
+        ok = bool(got) and got[0].raw.get("query_used") == "deep research skill" \
+            and got[0].raw.get("query_language") == "ascii" \
+            and "规范化" in got[0].content
+    finally:
+        mkt_mod._http_get_json = orig
+    detail = ("query_used=%r query_language=%r 正文含「规范化」=%s"
+              % (got[0].raw.get("query_used") if got else None,
+                 got[0].raw.get("query_language") if got else None,
+                 ("规范化" in got[0].content) if got else False))
+    return ok, detail
+
+
 CHECKS = {
     "dr-024": [
         ("TTL 过期条目被自动清理（evicted_ttl+1）", _d024_ttl),
@@ -897,6 +970,16 @@ CHECKS = {
          _d041_oss_registry),
         ("多子源轮转合并：两个市场、三家注册表在限额内都露面，"
          "不被先到者独占截断", _d041_interleave),
+    ],
+    "dr-042": [
+        ("中文词元被剔除，只留 ASCII 词元再发给按 ASCII 名索引的源",
+         _d042_ascii_norm),
+        ("纯中文查询原样发出并标为低置信（query_language=non-ascii），"
+         "不编造译名也不静默丢弃", _d042_pure_chinese_fallback),
+        ("注册表类源实际发出的查询词是 ASCII 形式；语义搜索源保留原查询词",
+         _d042_subquery_shape),
+        ("结果记录实际发出的查询词与语言标记，正文写明查询词被规范化",
+         _d042_query_provenance),
     ],
 }
 

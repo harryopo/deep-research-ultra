@@ -7,7 +7,7 @@
 - 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
 - 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1457 项（本机 Windows 1455 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1470 项（本机 Windows 1468 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
 - 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（v6.62.0）＋ **体检更正两条并修复**（v6.63.0）＋ **SKILL.md 信息架构重构**（手册搬走＋约束前置，v6.64.0）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
@@ -39,6 +39,7 @@
 - `[V]` **体检更正两条并修复**（v6.63.0）——读代码推翻体检初稿的 P1-4/P1-5 两条结论，报告已标注更正：①`relevance` 权重 0.35 本就是五维最高，真问题是**判别力≈0**（中文 2-gram 匹配英文标题恒零命中；实测切题 27.3/跑题 21.3/无关 20.0，authority=95 把三者都托到 ~61 medium）→ 新增 `_relevance_is_reliable()`，不可判定时封顶 45 + `grade=unrated`（封顶必须放在 Tier 加权之后，实测旁路会把 45 抬回 54）；②门限本就是 `max(2, 参数)` 且硬失败，真问题是**旋钮拧不动** → 默认值改 2，放宽走 `--allow-single-source` 并记进 warnings/stats/防伪戳 — `tests/test_v663_truthful_scoring.py` 9 项；收集数 1031→1040
 
 - `[V]` **v6.101.0 技能市场与开源注册表源**——用户实测「skill 搜索只认官方渠道、开源搜索偏弱」。根因：`opensource` 链里没有任何市场源，且 `skill`/`mcp` 不在 STRONG/WEAK 关键词表，这类查询落进 `general` 走通用网搜。先量后写（2026-10-20 本机直连：skills.sh/smithery/npm/crates.io/GitLab 五个端点 200；glama 401 要 key、mcp.so/maven/HF 超时、PyPI 无 JSON 搜索，均不启用），新增 `engines/marketplaces.py` 两个 L2 引擎：`skill-market`（skills.sh+smithery）、`oss-registry`（npm+crates.io+GitLab），`_interleave` 轮转合并，出口白名单按注册域加 5 个主机；19 项离线 fixture 判据 + 评测 `dr-041`（机械判定 11/11、期望级 47/47、未纳入 30/41）；全量 1455 过 / 0 挂 / 2 跳
+- `[V]` **v6.102.0 注册表类源的查询词语言适配**——v6.101 补完市场/注册表源后做**端到端实跑**（不是探针）才发现：端点 200、解析对、字段对，但 npm 回的 5 条全不相干（@antv/g-plugin-canvas-picker 等）——根因是 npm/crates.io/GitLab/smithery 都按 **ASCII 名**索引，中文词进去只召回泛匹配，GitLab 中文 search 直接回 **HTTP 500**。先量后写（2026-10-21 三组对照：npm 中文→5 条不相干 / 只留 ASCII 词「deep research skill」→ pi-deep-research、deep-research-skill 全切题；smithery 同理；GitLab 中文 500 → ASCII 正常）。改法：注册表类子源走 `_ascii_query()` 剔中文；**纯中文查询原样传回并标 `query_language='non-ascii'`**（不编造译名、不静默丢子源）；skills.sh 是语义搜索（实测中文能召回 deep-research-zh 等）**不改写查询词**。效果：相关性中位 0→38、判定失效 9/10→1/10；**未修完的照实说**：9 条仍低于 50 分是「中文查询×英文语料」的跨语言判准问题（v6.63 起的 P1 遗留），本版没动。新增 13 项离线判据（不发网络，monkeypatch 记实际发出的查询词形状）+ 评测 `dr-042`（机械判定 12/12、期望级 51/51、未纳入 30/42）
 - `[V]` `tests/test_v695_evals.py` 两处写死的评测条数 40 改为从 `evals.json` 动态读取（现 41 条）；`tests/test_v670_source_count_caliber.py` 改为从注册表现算；落地页 h2 / 图例两处漏改的 34（含「5 个需配置，其余 29」）改 36 / 31
 
 ## ★3. 进行中与断点
@@ -117,7 +118,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1457 项**＝内核 1407＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1470 项**＝内核 1420＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
 - **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它

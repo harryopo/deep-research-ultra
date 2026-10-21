@@ -675,6 +675,19 @@
       ],
       "category": "v6101_market_sources",
       "v6_feature": true
+    },
+    {
+      "id": "dr-042",
+      "name": "注册表类源的查询词语言适配",
+      "input": "找一个现成的 deep research skill（中文提问，含英文产品名）",
+      "expected_behavior": [
+        "中文词元被剔除，只保留 ASCII 词元后再发给按 ASCII 名索引的源（npm/crates.io/GitLab/smithery）",
+        "纯中文查询原样发出并标记为低置信（query_language=non-ascii），不编造译名也不静默丢弃",
+        "语义搜索源（skills.sh）保留原始查询词，不做同样的剔除",
+        "结果里记录实际发出的查询词与语言标记，正文写明查询词被规范化"
+      ],
+      "category": "v6102_query_language",
+      "v6_feature": true
     }
   ]
 }

@@ -33,6 +33,21 @@ marketplaces.py — Skill/MCP 市场与 OSS 生态注册表引擎  [v6.101 新�
     ❌ maven / huggingface  read timed out（本机网络）— 不启用
     ❌ pypi        无官方 JSON 搜索端点 — 不启用
 
+    ⚠️ 查询词语言不匹配（2026-10-21 实测）：
+       skills.sh 是**语义**搜索，中文能听懂；smithery / npm / crates.io / GitLab
+       都是**按 ASCII 名索引**的，中文词进去只会召回泛匹配，甚至直接报错。
+       实测同一条查询词「找一个现成的 deep research skill」：
+         · npm 原样传 → dsh-mcp-connector / @antv/g-plugin-canvas-picker /
+           openxiangda-cli / html-to-md / minigame-api-typings（**全不相干**）
+         · npm 只留 ASCII 词「deep research skill」→ pi-deep-research /
+           deep-research-skill / @mimo-ai/plugin / @mimo-ai/sdk /
+           verified-deep-research（**全切题**）
+         · smithery 原样传中文 → silly-geese/estonian-mcp 等乱码条目；
+           只留 ASCII 词 → tofan96you/deep-research-mcp、hyperresearch/hyperresearch
+         · GitLab 原样传中文 → **HTTP 500**；只留 ASCII 词 → 正常返回
+       所以注册表类子源统一走 `_ascii_query()`；纯中文查询（提不出 ASCII 词）
+       原样传回并在 raw 里标 query_language='non-ascii'，**不假装它听得懂**。
+
 设计约束（沿 platform_engines.py 的既定风格）：
 - 纯 JSON API 直连，不解析 HTML；失败返回 None/[]，**编造 = 0**
 - 子源相互独立：skills.sh 挂了 smithery 还能用；一个子源挂了不等于引擎死了
@@ -43,8 +58,9 @@ marketplaces.py — Skill/MCP 市场与 OSS 生态注册表引擎  [v6.101 新�
 
 from __future__ import annotations
 
+import re
 import urllib.parse
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .base import SearchEngine, EngineMetadata, SearchResult
 from .platform_engines import (
@@ -58,6 +74,44 @@ HOST_SMITHERY = 'registry.smithery.ai'
 HOST_NPM = 'registry.npmjs.org'
 HOST_CRATES = 'crates.io'
 HOST_GITLAB = 'gitlab.com'
+
+# ASCII 词元：字母数字开头，可带 . _ @ / + -（包名/路径/域名的实际形状）
+_ASCII_TOKEN_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9._@/+-]*')
+_CJK_RE = re.compile(r'[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]')
+
+
+def _ascii_query(query: str) -> str:
+    """只保留查询词里的 ASCII 词元（中文/日文/韩文一律剔除）。
+
+    为什么：smithery / npm / crates.io / GitLab 都按 **ASCII 名**索引，
+    中文词原样传进去只会召回泛匹配（GitLab 甚至回 HTTP 500）。
+    实测数据见本文件顶部的「查询词语言不匹配」一节。
+    """
+    return ' '.join(_ASCII_TOKEN_RE.findall(query or ''))
+
+
+def _registry_query(query: str) -> Tuple[str, str]:
+    """返回 (实际用的查询词, 语言标记)。
+
+    - 有 ASCII 词 → 用 ASCII 词，标记 'ascii'
+    - 纯中文（提不出 ASCII 词）→ **原样传回**，标记 'non-ascii'
+      （这些子源按 ASCII 名索引，纯中文查询大概率召回泛匹配；
+        标出来是为了让读者知道置信度低，而不是把泛匹配当成精确实测）
+    """
+    ascii_q = _ascii_query(query)
+    if ascii_q:
+        return ascii_q, 'ascii'
+    return (query or '').strip(), 'non-ascii'
+
+
+def _norm_note(original: str, used: str, lang: str) -> str:
+    """查询词被改写时给一句人话说明（进 content 与 raw）。"""
+    if lang == 'ascii' and used and used != (original or '').strip():
+        return ('（查询词已规范化：剔除中文部分，只留 ASCII 词 '
+                f'"{used}"——该源按 ASCII 名索引）')
+    if lang == 'non-ascii':
+        return '（查询词为纯中文：该源按 ASCII 名索引，返回的可能只是泛匹配）'
+    return ''
 
 
 def _as_int(value: Any) -> Optional[int]:
@@ -194,7 +248,11 @@ class SkillMarketEngine(SearchEngine):
                 raw={'marketplace': 'skills.sh', 'source': source,
                      'skillId': skill_id,
                      'github_repo': f'https://github.com/{source}' or None,
-                     'installs': installs},
+                     'installs': installs,
+                     # skills.sh 是语义搜索：中文能听懂（2026-10-21 实测
+                     # 「深度调研工具」召回 deep-research-skill 等），**不改写查询词**
+                     'query_used': str(query).strip(),
+                     'query_language': 'semantic'},
             ))
         return out
 
@@ -202,14 +260,18 @@ class SkillMarketEngine(SearchEngine):
     # 子源 2：smithery（MCP 服务器市场）
 
     def _smithery(self, query: str, max_results: int) -> Optional[List[SearchResult]]:
+        # smithery 按 ASCII 名索引：查询词先做 ASCII 规范化（实测中文原样传
+        # 召回的是 silly-geese/estonian-mcp 这类乱码条目）
+        q_used, q_lang = _registry_query(query)
         url = (f'{self.SEARCH_SMITHERY}?'
-               f'q={urllib.parse.quote(str(query).strip()[:300])}'
+               f'q={urllib.parse.quote(q_used[:300])}'
                f'&pageSize={min(int(max_results), 25)}')
         data = _http_get_json(url)
         if data is None:
             return None
         items = (data.get('servers') or []) if isinstance(data, dict) else []
         out: List[SearchResult] = []
+        note = _norm_note(query, q_used, q_lang)
         for it in list(items)[:max_results]:
             if not isinstance(it, dict):
                 continue
@@ -233,6 +295,8 @@ class SkillMarketEngine(SearchEngine):
                 parts.append('verified')
             if flag:
                 parts.append('（链接为构造值：smithery 无 404 可分辨）')
+            if note:
+                parts.append(note)
             out.append(SearchResult(
                 title=it.get('displayName') or qname,
                 url=landing,
@@ -245,7 +309,8 @@ class SkillMarketEngine(SearchEngine):
                      'homepage': homepage or None,
                      'useCount': _as_int(it.get('useCount')),
                      'verified': bool(it.get('verified')),
-                     'constructed_url': flag},
+                     'constructed_url': flag,
+                     'query_used': q_used, 'query_language': q_lang},
             ))
         return out
 
@@ -317,12 +382,16 @@ class OssRegistryEngine(SearchEngine):
     # 子源 1：npm registry
 
     def _npm(self, query: str, max_results: int) -> Optional[List[SearchResult]]:
-        url = (f'{self.SEARCH_NPM}?text={urllib.parse.quote(str(query).strip()[:200])}'
+        # npm 按包名（ASCII）索引：查询词先做 ASCII 规范化
+        # （实测中文原样传召回的是 @antv/g-plugin-canvas-picker 这类不相干包）
+        q_used, q_lang = _registry_query(query)
+        url = (f'{self.SEARCH_NPM}?text={urllib.parse.quote(q_used[:200])}'
                f'&size={min(int(max_results), 20)}')
         data = _http_get_json(url)
         if data is None:
             return None
         out: List[SearchResult] = []
+        note = _norm_note(query, q_used, q_lang)
         for o in list((data.get('objects') or []))[:max_results]:
             pkg = o.get('package') if isinstance(o, dict) else None
             if not isinstance(pkg, dict):
@@ -345,6 +414,8 @@ class OssRegistryEngine(SearchEngine):
                 parts.append(f'[被依赖数] {deps}')
             if pkg.get('version'):
                 parts.append(f'v{pkg["version"]}')
+            if note:
+                parts.append(note)
             repo = str(links.get('repository') or '')
             # npm 的 repository 实测是 "git+https://github.com/x/y.git" 形状 ——
             # 规范化成可直接打开的 https 链接（仍是 API 原值，只去协议前后缀）
@@ -362,7 +433,8 @@ class OssRegistryEngine(SearchEngine):
                 raw={'registry': 'npm', 'name': name,
                      'monthly_downloads': monthly, 'dependents': deps,
                      'version': pkg.get('version') or None,
-                     'github_repo': repo or None},
+                     'github_repo': repo or None,
+                     'query_used': q_used, 'query_language': q_lang},
             ))
         return out
 
@@ -370,12 +442,15 @@ class OssRegistryEngine(SearchEngine):
     # 子源 2：crates.io
 
     def _crates(self, query: str, max_results: int) -> Optional[List[SearchResult]]:
-        url = (f'{self.SEARCH_CRATES}?q={urllib.parse.quote(str(query).strip()[:200])}'
+        # crates.io 按 crate 名（ASCII）索引：查询词先做 ASCII 规范化
+        q_used, q_lang = _registry_query(query)
+        url = (f'{self.SEARCH_CRATES}?q={urllib.parse.quote(q_used[:200])}'
                f'&per_page={min(int(max_results), 20)}')
         data = _http_get_json(url)
         if data is None:
             return None
         out: List[SearchResult] = []
+        note = _norm_note(query, q_used, q_lang)
         for it in list((data.get('crates') or []))[:max_results]:
             if not isinstance(it, dict):
                 continue
@@ -388,6 +463,8 @@ class OssRegistryEngine(SearchEngine):
             if _as_int(it.get('downloads')) is not None:
                 parts.append(f'[总下载] {it.get("downloads")}')
             repo = str(it.get('repository') or '') or None
+            if note:
+                parts.append(note)
             out.append(SearchResult(
                 title=f'{cid} (crates.io)',
                 # crates.io 的规范 slug URL：实测条目含 id；下方 raw 注明认知来源
@@ -399,7 +476,8 @@ class OssRegistryEngine(SearchEngine):
                 raw={'registry': 'crates.io', 'name': cid,
                      'downloads': _as_int(it.get('downloads')),
                      'description': it.get('description') or None,
-                     'github_repo': repo},
+                     'github_repo': repo,
+                     'query_used': q_used, 'query_language': q_lang},
             ))
         return out
 
@@ -407,14 +485,18 @@ class OssRegistryEngine(SearchEngine):
     # 子源 3：GitLab（免 key 项目搜索）
 
     def _gitlab(self, query: str, max_results: int) -> Optional[List[SearchResult]]:
+        # GitLab 按项目路径（ASCII）索引：查询词先做 ASCII 规范化
+        # （实测中文原样传回 HTTP 500，ASCII 词正常）
+        q_used, q_lang = _registry_query(query)
         data = _http_get_json(
-            f'{self.SEARCH_GITLAB}?search={urllib.parse.quote(str(query).strip()[:200])}'
+            f'{self.SEARCH_GITLAB}?search={urllib.parse.quote(q_used[:200])}'
             f'&per_page={min(int(max_results), 20)}'
             f'&order_by=name&sort=asc')
         if data is None:
             return None
         items = data if isinstance(data, list) else (data.get('items') or [])
         out: List[SearchResult] = []
+        note = _norm_note(query, q_used, q_lang)
         for it in list(items)[:max_results]:
             if not isinstance(it, dict):
                 continue
@@ -428,6 +510,8 @@ class OssRegistryEngine(SearchEngine):
                 parts.append(f'[Stars] {it.get("star_count")}')
             if it.get('last_activity_at'):
                 parts.append(f'[Last activity] {str(it["last_activity_at"])[:10]}')
+            if note:
+                parts.append(note)
             out.append(SearchResult(
                 title=it.get('name_with_namespace') or it.get('name') or web,
                 url=web,                       # API 自证字段
@@ -437,6 +521,7 @@ class OssRegistryEngine(SearchEngine):
                 engine='oss-registry',
                 raw={'registry': 'gitlab',
                      'star_count': _as_int(it.get('star_count')),
-                     'last_activity': it.get('last_activity_at') or None},
+                     'last_activity': it.get('last_activity_at') or None,
+                     'query_used': q_used, 'query_language': q_lang},
             ))
         return out

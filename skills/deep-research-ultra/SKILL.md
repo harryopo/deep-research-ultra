@@ -1156,6 +1156,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 │  ├── oss-finder          GitHub/GitLab/Gitee/npm/PyPI               │
 │  ├── skill-market        skills.sh/smithery（skill/MCP 市场）        │
 │  ├── oss-registry        npm/crates/GitLab（GitHub 外注册表）        │
+│  │                        ↑ 这类源按 ASCII 名索引，中文词会被剔除   │
 │  ├── last30days          近 30 天全网                                │
 │  ├── sciverse            学术论文深度检索                            │
 │  ├── defuddle            网页转 Markdown（替代 Jina）                │

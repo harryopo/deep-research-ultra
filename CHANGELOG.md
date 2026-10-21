@@ -5,6 +5,63 @@
 
 ---
 
+## v6.102.0（2026-10-21）— 端点通了、解析对了，结果还是不对：查询词的语言
+
+v6.101 补完市场/注册表源后做了一次**端到端实跑**（不是探针），
+查询词「找一个现成的 deep research skill」——结果暴露了一个探针抓不到的问题：
+
+```
+📊 找到 10 条结果（来自 2 个引擎）
+⚠️ 10 条与查询词几乎无重叠（relevance < 50）
+ℹ️ 9 条相关性判定失效（封顶 0、grade=unrated）
+```
+
+npm 那 5 条是 `dsh-mcp-connector` / `@antv/g-plugin-canvas-picker` / `openxiangda-cli`
+/ `html-to-md` / `minigame-api-typings` —— **全不相干**。端点 200、解析对、字段对，
+错的只是**查询词的语言**：npm / crates.io / GitLab / smithery 都按 **ASCII 名**索引
+（包名、项目路径、server 名），中文词进去只能召回泛匹配。
+
+### 先量后写：同一条查询词，两种形态
+
+| 源 | 原样传中文 | 只留 ASCII 词 |
+|---|---|---|
+| npm | dsh-mcp-connector / @antv/g-plugin-canvas-picker / openxiangda-cli / html-to-md / minigame-api-typings | pi-deep-research / deep-research-skill / @mimo-ai/plugin / @mimo-ai/sdk / verified-deep-research |
+| smithery | silly-geese/estonian-mcp / liqi-cuhk/cuqu-mcp / 7388603/cn-hotrank | tofan96you/deep-research-mcp / dev-chad/skilldb-catalog / hyperresearch/hyperresearch |
+| GitLab | **HTTP 500** | z3kigz/Skywork-Skills / kelseyrecinas/deep-learning-intensive |
+
+skills.sh 是**语义**搜索，形状不同处理就不同：纯中文「深度调研工具」能召回
+deep-research-skill / auto-deep-research / deep-research-zh —— 所以它**不改写查询词**。
+
+### 改法与它的边界
+
+注册表类子源统一走 `_ascii_query()`（只保留 ASCII 词元）。
+**提不出 ASCII 词时（纯中文查询）原样传回**，并在 `raw` 里标
+`query_language='non-ascii'`、正文写明「可能只是泛匹配」——
+**不编造译名，也不静默丢掉这条子源**（丢掉是丢数据，不是降级）。
+每个结果都带 `raw.query_used`，能查回**实际发出去的查询词**，溯源链不断在这儿。
+
+### 效果（同一条查询词，同一条管线）
+
+| | 修复前 | 修复后 |
+|---|---|---|
+| 相关性分布 | 0 ~ 40，中位 **0** | 0 ~ 50，中位 **38** |
+| 判定失效条数 | 9 / 10 | **1 / 10** |
+| npm 前 5 条 | 全不相干 | pi-deep-research / deep-research-skill / … |
+
+**没修完的部分照实说**：9 条仍低于 50 分——那是**中文查询 × 英文语料**的跨语言
+相关性判准问题（v6.63 起就登记为 P1 遗留），与查询词规范化无关，本版没动它。
+
+### 验证
+
+- 新增 13 项离线判据（`tests/test_v6102_registry_query_norm.py`）：不发网络，
+  monkeypatch 记录**实际发出的查询词形状**；
+- 评测新增 `dr-042`（4 条期望，全部可离线复算）：
+  **机械判定 12/12、期望级 51/51、未纳入 30/42**；
+- 实网复验：修复后同一条查询词回 `pi-deep-research` / `deep-research-skill` /
+  `Skywork-Skills`，且 npm / crates / GitLab 三家在限额内都露面（轮转合并生效）。
+
+---
+
 ## v6.101.0（2026-10-21）— 技能搜索只认官方、开源搜索偏弱：补两块市场/注册表源
 
 用户实测两条缺陷：①想找 skill 时结果全是官方文档，skill 市场一条不出现；
