@@ -37,6 +37,7 @@ v5.1 新增：论文全文下载(arXiv/Unpaywall) + 引用图谱(S2) + Crawl4AI�
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -944,6 +945,8 @@ def cmd_search(args, registry):
             # 表现是「加不加 --strict-anchor 输出一样」，看着像开关没生效）。
             _report_anchor_hits(cached.get('results', []),
                                 getattr(args, 'strict_anchor', False))
+            # v6.105：语言不匹配的诊断同样要在这条路径报（缓存命中也是常见路径）
+            _report_language_mismatch(cached.get('results', []), args.query)
             _output_results(cached, args)
             return
 
@@ -1181,6 +1184,11 @@ def cmd_search(args, registry):
     #     所以抽成函数（缓存命中那条分支会直接 return）。
     _report_relevance_spread(all_results, args.min_relevance)
 
+    # 5c-2. v6.105：语言不匹配的诊断（中文查询 × 英文语料 → 判定器判不了）。
+    #     工具不自动翻词（playbooks §1.6 已实测否决三条自动取词的路子），
+    #     但必须把「为什么这批证据没有先后」和「怎么给词」说清楚。
+    language_note = _report_language_mismatch(all_results, args.query)
+
     # 5d. v6.83：主题锚词命中情况——**默认只报数不过滤**。详见 _report_anchor_hits。
     _report_anchor_hits(all_results, getattr(args, 'strict_anchor', False))
 
@@ -1239,6 +1247,8 @@ def cmd_search(args, registry):
         'verification': _to_dict_safe(verification),
         'reflections': [_to_dict_safe(r) for r in reflections],
         'used_engines': used_engines,
+        # v6.105：语言不匹配的诊断也进产出（账本/报告读者看到的和回执一样）
+        'language_note': _to_dict_safe(language_note),
     }
 
     # 9. 缓存
@@ -1292,6 +1302,114 @@ def _rel_note(craap) -> str:
     return f'{v:.0f}/100' if isinstance(v, (int, float)) else '未知'
 
 
+def _craap_of_any(r):
+    """结果有两种形状：新鲜检索是带属性的对象，缓存命中是 JSON 反序列化出的 dict。"""
+    c = getattr(r, 'craap_score', None)
+    if c is None and isinstance(r, dict):
+        c = r.get('craap_score')
+    return c if isinstance(c, dict) else None
+
+
+def _result_text(r):
+    """取结果的标题+正文（两种形状都取得到）。"""
+    if isinstance(r, dict):
+        return f"{r.get('title') or ''} {r.get('content') or ''}"
+    return f"{getattr(r, 'title', '') or ''} {getattr(r, 'content', '') or ''}"
+
+
+def _corpus_script(r):
+    """这条结果的语料是中文还是外文：**看标题**，不看正文。
+
+    为什么不看正文：市场/注册表类引擎的 `content` 是**我们自己拼的**
+    （"[Market] skills.sh（Agent Skill 市场）；来源仓库 github.com/…"），
+    里面**永远有中文**——拿它判语种，每个市场结果都会被误判成「中文语料」
+    （第一版就这么写错了，skill-market 被归进「查询词太窄」那一组）。
+    标题才是语料本身。标题里没有文字时退回正文。
+    """
+    title = r.get('title') if isinstance(r, dict) else getattr(r, 'title', '')
+    t = title or ''
+    if re.search(r'[\u4e00-\u9fff]', t):
+        return 'cjk'
+    if re.search(r'[A-Za-z]', t):
+        return 'latin'
+    body = _result_text(r)
+    if re.search(r'[\u4e00-\u9fff]', body):
+        return 'cjk'
+    if re.search(r'[A-Za-z]', body):
+        return 'latin'
+    return 'unknown'
+
+
+def _result_engine(r):
+    if isinstance(r, dict):
+        return r.get('engine') or r.get('source') or '?'
+    return getattr(r, 'engine', None) or getattr(r, 'source', None) or '?'
+
+
+def _report_language_mismatch(results, query: str) -> dict:
+    """**语言不匹配**的诊断：中文查询打英文语料，判定器判不了（v6.105）。
+
+    ## 为什么要单独报一段
+
+    v6.104 量出来的事实：中文查询 × 英文语料时，判定器 **100% 判 unrated**
+    （AUC 0.500、recall 0%——它从来没判过任何一条）。后果不是「结果少」，
+    是**证据集里没有先后**：所有条目的 relevance 都是 0，Lead 读到的
+    证据集与「这批全是噪声」长得一模一样。
+
+    而修法**不是工具能做的**：`references/playbooks.md` §1.6 已经把三条
+    「让工具自动取词」的路子实测否决（词典翻译：34 个通用词、专业词零覆盖，
+    命中也是中英混排串；引文扩引：precision 0/10；取主题词：precision 0/10），
+    结论是**检索词的判断留给 Lead**。所以工具该做的是**把这件事说出来**，
+    并给出 Lead 能直接抄的命令形式。
+
+    ## 报什么
+
+    分两组，因为两种病不一样：
+    - **语料是英文**：语言不匹配 → 给英文机制描述（`--source-query`）
+    - **语料是中文**：语料里没有查询词 → 查询词太窄/太泛 → 换更具体的说法
+
+    只在**判定失效（unrated）确实存在**且**查询含中文**时说话；
+    英文查询不报（那条路径判定是有效的，见 playbooks §1.6 的同语种实测）。
+    """
+    out = {'triggered': False, 'query_cjk': False, 'unrated': 0,
+           'foreign_corpus': [], 'same_script_corpus': []}
+    if not query or not re.search(r'[\u4e00-\u9fff]', query):
+        return out
+    out['query_cjk'] = True
+    unrated = [r for r in (results or [])
+               if (_craap_of_any(r) or {}).get('relevance_capped')]
+    if not unrated:
+        return out
+    out['triggered'] = True
+    out['unrated'] = len(unrated)
+    foreign, same = {}, {}
+    for r in unrated:
+        script = _corpus_script(r)
+        bucket = foreign if script == 'latin' else same
+        eng = _result_engine(r)
+        bucket[eng] = bucket.get(eng, 0) + 1
+    out['foreign_corpus'] = sorted(foreign.items())
+    out['same_script_corpus'] = sorted(same.items())
+
+    if foreign:
+        engines = ', '.join(f'{e}({n} 条)' for e, n in out['foreign_corpus'])
+        print(f"🌐 语言不匹配：{engines} 的语料是外文（标题是外文），"
+              f"而这次查询是中文 —— 判定器**判不了**（{out['unrated']} 条 unrated，"
+              f"不是「不相关」）。", file=sys.stderr)
+        print("   实测：中文整句主题发给英文学术库，切题 0/5（references/playbooks.md §1.6）。"
+              "   工具**不自动翻**（三条自动取词的路子已实测否决），词由你给：",
+              file=sys.stderr)
+        print("     --source-query \"<引擎名>=<一句英文机制描述>\"", file=sys.stderr)
+        print("   例：--source-query \"openalex=verifying generated code citations "
+              "against sources\"", file=sys.stderr)
+    if same:
+        engines = ', '.join(f'{e}({n} 条)' for e, n in out['same_script_corpus'])
+        print(f"🔍 查询词太窄：{engines} 的语料是中文（或看不出语种），"
+              f"却一个查询词都没命中（unrated）—— 换更具体的说法，或补 --sources。",
+              file=sys.stderr)
+    return out
+
+
 def _report_relevance_spread(results, threshold) -> None:
     """报"留下来的这些到底有多切题"（v6.81）。
 
@@ -1305,19 +1423,8 @@ def _report_relevance_spread(results, threshold) -> None:
     少报几条不等于报得准。这里只如实报数，判断留给 Lead——与本项目
     「提示不是门」一致。
     """
-    def _craap_of(r):
-        """结果有两种形状：新鲜检索是带属性的对象，缓存命中是 JSON 反序列化出的 dict。
-
-        第一版只写了 `getattr`，于是**缓存命中这条最常见的路径静默拿不到分数**——
-        分布行压根不打印。判据写成"两种形状都能取到"，不留只认一种的后门。
-        """
-        c = getattr(r, 'craap_score', None)
-        if c is None and isinstance(r, dict):
-            c = r.get('craap_score')
-        return c if isinstance(c, dict) else None
-
     rels = sorted(float(v) for v in
-                  ((_craap_of(r) or {}).get('relevance') for r in (results or []))
+                  ((_craap_of_any(r) or {}).get('relevance') for r in (results or []))
                   if isinstance(v, (int, float)))
     if rels:
         mid = rels[len(rels) // 2]
@@ -1328,7 +1435,7 @@ def _report_relevance_spread(results, threshold) -> None:
             print(f"⚠️ 其中 {below} 条仍低于 {threshold} —— 过滤只保证"
                   f"「高相关的够数」，不保证「留下的都切题」。读证据时优先看分布上半段。",
                   file=sys.stderr)
-    capped = sum(1 for r in (results or []) if (_craap_of(r) or {}).get('relevance_capped'))
+    capped = sum(1 for r in (results or []) if (_craap_of_any(r) or {}).get('relevance_capped'))
     if capped:
         print(f"ℹ️ {capped} 条相关性判定失效（封顶 0、grade=unrated）："
               f"那是判定器没听懂这个语料，**不是「评出来不相关」**，别当零分读。",

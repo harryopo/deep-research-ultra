@@ -236,6 +236,9 @@ PROVENANCE = {
     # 在三套量法上的 precision/recall），复算入口是 analysis/crosslang.py ——
     # 秒级、全离线、结果确定，所以进 PROVENANCE。
     "v6.104.0": [SCRIPTS / "analysis" / "crosslang.py"],
+    # v6.105 的回执里引用的那组数字（中文查询 × 外文语料 → 判定器 100% 判
+    # unrated、AUC 0.500、recall 0%）与 v6.104 是同一批实测，复算入口不变。
+    "v6.105.0": [SCRIPTS / "analysis" / "crosslang.py"],
 }
 
 # 豁免：同样是实测数字，但**不需要**分析脚本 —— 必须在代码里写清理由，
