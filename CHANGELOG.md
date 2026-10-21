@@ -5,6 +5,73 @@
 
 ---
 
+## v6.101.0（2026-10-21）— 技能搜索只认官方、开源搜索偏弱：补两块市场/注册表源
+
+用户实测两条缺陷：①想找 skill 时结果全是官方文档，skill 市场一条不出现；
+②「找开源实现」只给 GitHub / awesome，看不到 npm、crates.io 这类注册表，
+也看不到技能市场。
+
+### 根因（先量后写）
+
+- `ENGINE_CHAIN_MAP['opensource']` 里**没有任何市场源**，整条链只有
+  GitHub 深搜 + Gitee + 降级引擎；
+- `skill` / `mcp` **不在** STRONG/WEAK 关键词表里 → 这类查询落进 `general` 链走通用网搜，
+  官方文档自然占满结果。
+
+两条叠加，用户看到的就是「只会从官方渠道找」。这是来源面本身的问题，
+与宿主是否装了那 6 个 Layer 2 skill 无关（本机实测它们全都装着）。
+
+### 端点实测（2026-10-20，本机直连；没打通的如实记，不启用）
+
+| 端点 | 结果 | 处置 |
+|---|---|---|
+| `skills.sh/api/search?q=` | 200，JSON | 启用 |
+| `registry.smithery.ai/servers?q=` | 200，免 key | 启用 |
+| npm `/-/v1/search` | 200 | 启用 |
+| crates.io `/api/v1/crates` | 200 | 启用 |
+| GitLab `/api/v4/projects` | 200 | 启用 |
+| glama.ai | 401（要 key） | 不启用 |
+| mcp.so / maven / HuggingFace | 超时 | 不启用 |
+| PyPI | 无 JSON 搜索端点 | 不启用 |
+
+### 新引擎（L2，2 个）
+
+- `SkillMarketEngine`（`skill-market`，priority 66）：skills.sh + smithery，轮转合并；
+- `OssRegistryEngine`（`oss-registry`，priority 68）：npm + crates.io + GitLab，轮转合并。
+
+第一版把各路结果拼接后截断，实测 5 条配额被 skills.sh 全占、smithery 一条不剩 ——
+改成 `_interleave()` 轮转。`mcp` 只进 WEAK 关键词（否则「MCP 协议含义」会被拉进
+opensource），`skill` / `agent skills` / `claude skills` 进 STRONG。
+
+子源语义：全崩 → `search()` 返回 `None`（通道级失败，不当「查无」）；
+全返回空 → `[]`；半数失败 → 结果照出，并在 `raw.channel_note` 记明。
+`is_available()` 探任一子源主机，避免只探 npm 时把整支误报成不可用。
+
+链接诚实性：smithery 的页面 URL **无法自证**（任意 slug 都返回 200 SPA 壳），
+所以链接只信 API 的 `homepage` 字段；缺失时构造并标 `raw.constructed_url=True`，
+正文写明「构造值」。出口白名单按**注册域**登记 5 个主机
+（skills.sh / smithery.ai / npmjs.org / crates.io / gitlab.com），守卫仍拦陌生主机。
+
+### 验证
+
+- 19 项离线判据（`tests/test_v6101_marketplaces.py`）+ 5 个真实响应 fixture，不发网；
+- 实网冒烟：skill 查询路由 opensource 0.95；市场引擎返回 skills.sh + smithery 混合 5 条；
+  注册表引擎返回 npm / crates / gitlab 三家；「MCP 协议含义」仍走 definition；
+- 评测新增 `dr-041`（5 条期望）：**机械判定 11/11、期望级 47/47、未纳入 30/41**；
+- 全量 1455 过 / 0 挂 / 2 跳（收集 1457）；编码门 6 项过；过程门通过。
+
+### 文档与钉子
+
+数据源 34→36（可搜索 29→31、探针 23→25），引擎模块 14→16：
+SKILL.md、README、`index.html`、`references/playbooks.md` 同步。
+落地页 h2 与图例两处漏改的 34（含「5 个需配置，其余 29」）一并改成 36 / 31 ——
+它们没有被任何钉子覆盖，是 `sync_test_counts` 之外的人工核对补上的。
+
+`test_v695_evals.py` 两处写死的 40 改为从 `evals.json` 动态读取（现 41 条）；
+`test_v670_source_count_caliber.py` 改为从注册表现算，不再钉死某一版的数字。
+
+---
+
 ## v6.100.1（2026-10-20）— 「包内绿」≠「装上能用」：安装位每次交付都红的真事故
 
 真事故（用户可复现）：装到 Trae 后 `preflight.py` 的 `check_metadata()` **每次都 [FAIL]** ——

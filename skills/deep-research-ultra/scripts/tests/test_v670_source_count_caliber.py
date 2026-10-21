@@ -7,7 +7,8 @@
     宣传口径改为双数字——「34 个数据源 / 本机 probe 实测可用 N 个」，
     并让 index.html 的 N 由 --probe 输出自动生成（一行脚本 + CI 定期跑）
 
-**但宣传页早就写着**（`index.html` 能力区末尾）：
+**但宣传页早就写着**（`index.html` 能力区末尾；下面引的是 v6.70 当时的 34 条口径，
+数字会随注册表增长，句子结构不变）：
 
     34 个源里 5 个要先配 key 或服务，其余 29 个开箱即用——**这个分配只取决于配置**，
     用 `--list` 查一次就是定数。至于某个源此刻到底还出不出数据，那是 `--probe` 的实测
@@ -31,24 +32,35 @@ CI 机器的环境不等于用户机器，页面数字每天变，读者看到�
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[4]   # 仓库根（tests 下面还有 4 层）
 SKILL_MD = REPO / 'skills' / 'deep-research-ultra' / 'SKILL.md'
 README = REPO / 'README.md'
 INDEX = REPO / 'index.html'
+SCRIPTS = REPO / 'skills' / 'deep-research-ultra' / 'scripts'
+
+
+def _total():
+    """数据源总数——从注册表现算，不写死（条数会随版本增长）。"""
+    if str(SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS))
+    from research import build_registry
+    return len(build_registry().get_all())
 
 
 # ---------------------------------------------------------------------------
-# 1. 三处都要说清 34 是什么
+# 1. 三处都要说清这个数字是什么
 # ---------------------------------------------------------------------------
 
-def test_readme_explains_what_34_means():
-    """README 里那个"34"曾经是个孤立数字——宣传页有口径说明，README 没有。"""
+def test_readme_explains_what_the_count_means():
+    """README 里那个总数曾经是个孤立数字——宣传页有口径说明，README 没有。"""
+    total = _total()
     text = README.read_text(encoding='utf-8')
-    assert '34 个数据源' in text
-    m = re.search(r'34 是[^。]*。', text)
-    assert m, 'README 没解释"34"的口径'
+    assert f'{total} 个数据源' in text
+    m = re.search(rf'{total} 是[^。]*。', text)
+    assert m, f'README 没解释"{total}"的口径'
     assert '--probe' in m.group(0) or 'probe' in text[:1200], \
         '口径说明要把读者指向 probe（那是唯一能回答"今天出不出数据"的东西）'
 
@@ -62,9 +74,10 @@ def test_landing_page_keeps_its_caliber_note():
 
 
 def test_skill_md_does_not_promise_all_sources_are_usable():
-    """SKILL.md 是 Lead 读的那份，不能出现"34 个源都能用"这种承诺。"""
+    """SKILL.md 是 Lead 读的那份，不能出现"N 个源都能用"这种承诺。"""
+    total = _total()
     text = SKILL_MD.read_text(encoding='utf-8')
-    bad = re.findall(r'34 个(?:数据源|源)(?:都|全部|均)', text)
+    bad = re.findall(rf'{total} 个(?:数据源|源)(?:都|全部|均)', text)
     assert not bad, f'SKILL.md 里出现了可用性承诺：{bad}'
 
 

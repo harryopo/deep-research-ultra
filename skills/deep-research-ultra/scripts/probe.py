@@ -60,6 +60,10 @@ PROBE_QUERIES: Dict[str, str] = {
     'sogou-weixin': '大模型微调实践',
     'sogou-zhihu': 'LangChain 怎么样',
     'baidu-xueshu': 'transformer 注意力机制',
+    # Layer 2 市场/注册表（v6.101：skills.sh/smithery + npm/crates/GitLab）
+    # 市场语义搜索吃自然语言短句；注册表关键词搜索用通用词即可
+    'skill-market': 'deep research',
+    'oss-registry': 'deep research',
     # Layer 4 降级
     'duckduckgo': 'python',
     'baidu-html': 'python',

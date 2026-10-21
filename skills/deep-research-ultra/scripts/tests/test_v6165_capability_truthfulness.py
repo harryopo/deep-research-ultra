@@ -86,7 +86,8 @@ class TestInventoryUnchanged:
 
     def test_total_sources_and_config_split_are_untouched(self):
         reg = build_registry()
-        assert len(reg.get_all()) == 34
+        # v6.101：+2（skill-market 市场、oss-registry 注册表）34 -> 36
+        assert len(reg.get_all()) == 36
         # v6.16：不锁 `get_configured()` 的**个数**。它数的是"当前机器上配置就绪
         # 的引擎"，而配置就绪取决于运行环境的 .mcp.json / 环境变量——实测在
         # 本机 `setup-mcp.sh --core` 配了 3 个 MCP 后，这个数从 29 变成 30，

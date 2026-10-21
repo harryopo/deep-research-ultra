@@ -7,7 +7,7 @@
 它们回答「这套测试能不能抓出代码里的 bug」。
 **没有一条回答「这插件产出的东西到底对不对」。**
 
-`evals/evals.json` 有 40 条评测，但**全是散文式期望，没有任何东西去跑它**。
+`evals/evals.json` 有几十条评测，但**全是散文式期望，没有任何东西去跑它**。
 于是它是规格，不是测量。
 
 ## 第一版跑出来就抓到一条真缺陷
@@ -58,6 +58,13 @@ import cache as cache_mod                      # noqa: E402
 EVALS_DIR = S / "evals"
 RUNNER = EVALS_DIR / "run_evals.py"
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
+
+
+def _eval_total():
+    """evals.json 的条目总数 —— 不写死，条数会随版本增长。"""
+    import json
+    spec = json.loads((S.parent / "evals" / "evals.json").read_text(encoding="utf-8"))
+    return len(spec["evals"])
 
 
 def _mk(max_entries, max_size_mb, n, tag, payload_size=400):
@@ -137,14 +144,16 @@ def test_runner_prints_all_three_denominators():
     m2 = re.search(r"未纳入 (\d+)/(\d+) 条", out)
     m3 = re.search(r"期望级 (\d+)/(\d+)", out)
     assert m1 and m2 and m3, "三个分母没全印出来：\n%s" % out[-900:]
-    assert m2.group(2) == "40", "总数应当是 evals.json 的条目数 40，实得 %s" % m2.group(2)
+    total = _eval_total()
+    assert m2.group(2) == str(total), (
+        "总数应当是 evals.json 的条目数 %d，实得 %s" % (total, m2.group(2)))
     assert int(m2.group(1)) + int(m1.group(2)) == int(m2.group(2)), (
         "已判定 %s + 未纳入 %s != 总数 %s —— 有一条既没判也没列进未纳入"
         % (m1.group(2), m2.group(1), m2.group(2)))
 
 
 def test_unscored_evals_are_never_counted_as_passed():
-    """「已判定」那个分母必须等于 CHECKS 的条数，**不能**等于 evals.json 的 40。
+    """「已判定」那个分母必须等于 CHECKS 的条数，**不能**等于 evals.json 的条目数。
 
     这是这类评测最常见的注水方式：把没跑的算成过了。
     """
@@ -155,8 +164,9 @@ def test_unscored_evals_are_never_counted_as_passed():
     assert m, out[-500:]
     assert int(m.group(2)) == len(R.CHECKS), (
         "分母 %s != CHECKS 条数 %d —— 没纳入的被算成了判定过的" % (m.group(2), len(R.CHECKS)))
-    assert len(R.CHECKS) < 40, (
-        "全 40 条都判定了？那「需人判」的去哪了 —— 判据多半是假的")
+    total = _eval_total()
+    assert len(R.CHECKS) < total, (
+        "全 %d 条都判定了？那「需人判」的去哪了 —— 判据多半是假的" % total)
 
 
 def test_every_check_id_exists_in_evals_json():

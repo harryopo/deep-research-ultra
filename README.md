@@ -26,9 +26,9 @@
 
 ## 数据源口径（先看这个）
 
-34 个数据源分四层：MCP 服务器、全局 Skill、内置工具、降级引擎。
+36 个数据源分四层：MCP 服务器、全局 Skill、内置工具、降级引擎。
 
-**34 是注册表里的口径，不是"今天能用 34 个"。** 它等于 `--list` 报的总数。可用性分三层看，
+**36 是注册表里的口径，不是"今天能用 36 个"。** 它等于 `--list` 报的总数。可用性分三层看，
 层层收紧：
 
 | 命令 | 回答的问题 |
@@ -37,7 +37,7 @@
 | `--probe` | 这个引擎今天真出不出得来数据 |
 | `--probe --sources a,b --theme-query "<本维度真要用的词>"` | 这个引擎对你这个主题到不到数据 |
 
-**别拿 34 当可用数**，也别把某次 probe 的数字写进文档当定数：它取决于网络、凭据与上游状态，
+**别拿 36 当可用数**，也别把某次 probe 的数字写进文档当定数：它取决于网络、凭据与上游状态，
 每次都不一样。静态文档只承诺可复算的东西（注册表口径），动态的交给 `--probe`。
 
 ## 安装
@@ -414,14 +414,14 @@ deep-research-ultra/                  # 仓库根＝插件壳；skill 本体在 
         ├── recommend.py  score.py  tier.py  similarity.py   # 推荐度 / CRAAP / Tier / 判同
         ├── panel.py  report.py  verify.py  cache.py  console.py
         ├── install.py  mcp_config_writer.py  setup-mcp.sh   # 跨宿主安装与 MCP 配置
-        ├── engines/                  # 13 个引擎模块，撑起四层共 34 个数据源
+        ├── engines/                  # 14 个引擎模块，撑起四层共 36 个数据源
         │   ├── base.py               # SearchEngine 抽象基类 + EngineRegistry
         │   ├── mcp_client.py  mcp_engines.py               # MCP 层（5 个）
         │   ├── academic_engines.py  academic_fulltext.py
         │   ├── skill_engines.py  github_deep_search.py  platform_engines.py
         │   ├── cn_sources.py  builtin.py  crawl4ai_engine.py
         │   └── fallback.py           # 降级引擎 + curl_cffi TLS 指纹伪装
-        └── tests/                    # 136 个测试文件 / 1388 个用例
+        └── tests/                    # 137 个测试文件 / 1407 个用例
 ```
 
 ## 测试
@@ -437,14 +437,14 @@ cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 python -m pytest tests/ -v
 ```
 
-当前 **1438 项**（内核 1388 + 壳 50）。Windows 上有 2 项因缺 `bash` 跳过
+当前 **1457 项**（内核 1407 + 壳 50）。Windows 上有 2 项因缺 `bash` 跳过
 （跑 `setup-mcp.sh` 的那两条，是环境依赖不是回归）。
 
 ## 与竞品对比
 
 | 特性 | Deep Research Ultra | Perplexity | OpenAI Deep Research | LangChain open_deep_research |
 |---|---|---|---|---|
-| 架构 | 四层 34 数据源 + 四阶段 + Lead 编排 | 单引擎 | 闭源 | 单框架 |
+| 架构 | 四层 36 数据源 + 四阶段 + Lead 编排 | 单引擎 | 闭源 | 单框架 |
 | 子 Agent 并行 | 支持：并行派发 + 证据账本 | 不支持 | 支持 | 不支持 |
 | 专家团评审 | 支持：多视角 + 对抗闭环 | 不支持 | 不支持 | 不支持 |
 | 证据账本 | 支持：claim → source 可溯源 | 不支持 | 不支持 | 不支持 |

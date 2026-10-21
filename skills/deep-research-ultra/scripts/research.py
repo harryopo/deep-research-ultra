@@ -87,6 +87,7 @@ def build_registry():
         AgentReachEngine, OssFinderEngine, Last30DaysEngine,
         SciverseEngine, DefuddleEngine, Context7Engine,
         GitHubDeepSearchEngine, GitHubCodeSearchEngine,
+        SkillMarketEngine, OssRegistryEngine,   # v6.101：市场与注册表
         BaiduSerpEngine, SogouWeixinEngine, SogouZhihuEngine, BaiduXueshuEngine,
         WebSearchEngine, WebFetchEngine,
         Crawl4aiEngine, LayeredCrawler,
@@ -112,6 +113,8 @@ def build_registry():
         SciverseEngine, DefuddleEngine, Context7Engine,
         # Layer 2: GitHub 深度搜索（v5.2 新增：分桶+低星+依赖图+awesome，不漏项目）
         GitHubDeepSearchEngine, GitHubCodeSearchEngine,
+        # Layer 2: 市场与注册表（v6.101 新增：skills.sh/smithery 市场 + npm/crates/GitLab）
+        SkillMarketEngine, OssRegistryEngine,
         # Layer 2: 国内内容源（v5.2 新增：百度/搜狗微信/搜狗知乎/百度学术）
         BaiduSerpEngine, SogouWeixinEngine, SogouZhihuEngine, BaiduXueshuEngine,
         # Layer 3: 内置

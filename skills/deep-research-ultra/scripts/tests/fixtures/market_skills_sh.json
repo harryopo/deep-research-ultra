@@ -1,0 +1,721 @@
+{
+ "query": "deep research",
+ "searchType": "semantic",
+ "searchVersion": "algolia",
+ "skills": [
+  {
+   "id": "firecrawl/firecrawl-workflows/firecrawl-deep-research",
+   "source": "firecrawl/firecrawl-workflows",
+   "skillId": "firecrawl-deep-research",
+   "name": "firecrawl-deep-research",
+   "installs": 35224
+  },
+  {
+   "id": "parallel-web/parallel-agent-skills/parallel-deep-research",
+   "source": "parallel-web/parallel-agent-skills",
+   "skillId": "parallel-deep-research",
+   "name": "parallel-deep-research",
+   "installs": 15472
+  },
+  {
+   "id": "199-biotechnologies/claude-deep-research-skill/deep-research",
+   "source": "199-biotechnologies/claude-deep-research-skill",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 10130
+  },
+  {
+   "id": "affaan-m/ecc/deep-research",
+   "source": "affaan-m/ecc",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 10615
+  },
+  {
+   "id": "claude-office-skills/skills/deep-research",
+   "source": "claude-office-skills/skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 4843
+  },
+  {
+   "id": "samber/cc-skills/deep-research",
+   "source": "samber/cc-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 3930
+  },
+  {
+   "id": "shubhamsaboo/awesome-llm-apps/deep-research",
+   "source": "shubhamsaboo/awesome-llm-apps",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 3724
+  },
+  {
+   "id": "bytedance/deer-flow/deep-research",
+   "source": "bytedance/deer-flow",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 2739
+  },
+  {
+   "id": "lingzhi227/agent-research-skills/deep-research",
+   "source": "lingzhi227/agent-research-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 1854
+  },
+  {
+   "id": "daymade/claude-code-skills/deep-research",
+   "source": "daymade/claude-code-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 1741
+  },
+  {
+   "id": "anthropics/claude-for-legal/cocounsel-legaldeep-research",
+   "source": "anthropics/claude-for-legal",
+   "skillId": "cocounsel-legaldeep-research",
+   "name": "cocounsel-legal:deep-research",
+   "installs": 605
+  },
+  {
+   "id": "bytedance/deer-flow/github-deep-research",
+   "source": "bytedance/deer-flow",
+   "skillId": "github-deep-research",
+   "name": "github-deep-research",
+   "installs": 2894
+  },
+  {
+   "id": "jezweb/claude-skills/deep-research",
+   "source": "jezweb/claude-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 1163
+  },
+  {
+   "id": "collaborative-deep-research/agent-papers-cli/deep-research",
+   "source": "collaborative-deep-research/agent-papers-cli",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 317
+  },
+  {
+   "id": "ruvnet/ruflo/deep-research",
+   "source": "ruvnet/ruflo",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 893
+  },
+  {
+   "id": "zernie/vigiles/deep-research",
+   "source": "zernie/vigiles",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 762
+  },
+  {
+   "id": "sanjay3290/ai-skills/deep-research",
+   "source": "sanjay3290/ai-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 623
+  },
+  {
+   "id": "rebyteai-template/rebyte-skills/financial-deep-research",
+   "source": "rebyteai-template/rebyte-skills",
+   "skillId": "financial-deep-research",
+   "name": "financial-deep-research",
+   "installs": 973
+  },
+  {
+   "id": "hkustdial/supervisor-skills/deep-research",
+   "source": "hkustdial/supervisor-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 457
+  },
+  {
+   "id": "24601/agent-deep-research/deep-research",
+   "source": "24601/agent-deep-research",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 285
+  },
+  {
+   "id": "kesslerio/academic-deep-research-clawhub-skill/academic-deep-research",
+   "source": "kesslerio/academic-deep-research-clawhub-skill",
+   "skillId": "academic-deep-research",
+   "name": "academic-deep-research",
+   "installs": 560
+  },
+  {
+   "id": "sickn33/agentic-awesome-skills/deep-research",
+   "source": "sickn33/agentic-awesome-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 360
+  },
+  {
+   "id": "anycap-ai/anycap/anycap-deepresearch",
+   "source": "anycap-ai/anycap",
+   "skillId": "anycap-deepresearch",
+   "name": "anycap-deepresearch",
+   "installs": 709
+  },
+  {
+   "id": "weizhena/deep-research-skills/research-deep",
+   "source": "weizhena/deep-research-skills",
+   "skillId": "research-deep",
+   "name": "research-deep",
+   "installs": 898
+  },
+  {
+   "id": "coreyhaines31/makerskills/deep-research",
+   "source": "coreyhaines31/makerskills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 332
+  },
+  {
+   "id": "mims-harvard/tooluniverse/tooluniverse-literature-deep-research",
+   "source": "mims-harvard/tooluniverse",
+   "skillId": "tooluniverse-literature-deep-research",
+   "name": "tooluniverse-literature-deep-research",
+   "installs": 660
+  },
+  {
+   "id": "glebis/claude-skills/deep-research",
+   "source": "glebis/claude-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 322
+  },
+  {
+   "id": "feiskyer/claude-code-settings/deep-research",
+   "source": "feiskyer/claude-code-settings",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 298
+  },
+  {
+   "id": "parags/deep-research-pro/deep-research-pro",
+   "source": "parags/deep-research-pro",
+   "skillId": "deep-research-pro",
+   "name": "deep-research-pro",
+   "installs": 386
+  },
+  {
+   "id": "skills.volces.com/deep-research",
+   "source": "skills.volces.com",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 203
+  },
+  {
+   "id": "davidondrej/skills/deep-research",
+   "source": "davidondrej/skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 194
+  },
+  {
+   "id": "collaborative-deep-research/agent-papers-cli/literature-review",
+   "source": "collaborative-deep-research/agent-papers-cli",
+   "skillId": "literature-review",
+   "name": "literature-review",
+   "installs": 729
+  },
+  {
+   "id": "petekp/claude-code-setup/deep-research",
+   "source": "petekp/claude-code-setup",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 176
+  },
+  {
+   "id": "smithery.ai/deep-research",
+   "source": "smithery.ai",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 162
+  },
+  {
+   "id": "actionbook/actionbook/deep-research",
+   "source": "actionbook/actionbook",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 148
+  },
+  {
+   "id": "qodex-ai/ai-agent-skills/deep-research-agent",
+   "source": "qodex-ai/ai-agent-skills",
+   "skillId": "deep-research-agent",
+   "name": "deep-research-agent",
+   "installs": 277
+  },
+  {
+   "id": "companion-inc/feynman/deep-research",
+   "source": "companion-inc/feynman",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 138
+  },
+  {
+   "id": "moonlight-lupin/agent-skills/deep-research",
+   "source": "moonlight-lupin/agent-skills",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 137
+  },
+  {
+   "id": "feiskyer/codex-settings/deep-research",
+   "source": "feiskyer/codex-settings",
+   "skillId": "deep-research",
+   "name": "deep-research",
+   "installs": 126
+  },
+  {
+   "id": "witt3rd/oh-my-hermes/omh-deep-research",
+   "source": "witt3rd/oh-my-hermes",
+   "skillId": "omh-deep-research",
+   "name": "omh-deep-research",
+   "installs": 206
+  },
+  {
+   "id": "wentorai/research-plugins/deep-research-skills",
+   "source": "wentorai/research-plugins",
+   "skillId": "deep-research-skills",
+   "name": "deep-research-skills",
+   "installs": 194
+  },
+  {
+   "id": "collaborative-deep-research/agent-papers-cli/research-coordinator",
+   "source": "collaborative-deep-research/agent-papers-cli",
+   "skillId": "research-coordinator",
+   "name": "research-coordinator",
+   "installs": 167
+  },
+  {
+   "id": "opensensenova/sensenova-skills/sn-deep-research",
+   "source": "opensensenova/sensenova-skills",
+   "skillId": "sn-deep-research",
+   "name": "sn-deep-research",
+   "installs": 136
+  },
+  {
+   "id": "collaborative-deep-research/agent-papers-cli/fact-check",
+   "source": "collaborative-deep-research/agent-papers-cli",
+   "skillId": "fact-check",
+   "name": "fact-check",
+   "installs": 258
+  },
+  {
+   "id": "skills.volces.com/academic-deep-research",
+   "source": "skills.volces.com",
+   "skillId": "academic-deep-research",
+   "name": "academic-deep-research",
+   "installs": 125
+  },
+  {
+   "id": "lllllllama/rigorpilot-skills/ai-research-explore",
+   "source": "lllllllama/rigorpilot-skills",
+   "skillId": "ai-research-explore",
+   "name": "ai-research-explore",
+   "installs": 326825
+  },
+  {
+   "id": "lllllllama/rigorpilot-skills/analyze-project",
+   "source": "lllllllama/rigorpilot-skills",
+   "skillId": "analyze-project",
+   "name": "analyze-project",
+   "installs": 326642
+  },
+  {
+   "id": "lllllllama/rigorpilot-skills/ai-research-reproduction",
+   "source": "lllllllama/rigorpilot-skills",
+   "skillId": "ai-research-reproduction",
+   "name": "ai-research-reproduction",
+   "installs": 326466
+  },
+  {
+   "id": "lllllllama/rigorpilot-skills/safe-debug",
+   "source": "lllllllama/rigorpilot-skills",
+   "skillId": "safe-debug",
+   "name": "safe-debug",
+   "installs": 326142
+  },
+  {
+   "id": "lllllllama/rigorpilot-skills/run-train",
+   "source": "lllllllama/rigorpilot-skills",
+   "skillId": "run-train",
+   "name": "run-train",
+   "installs": 325919
+  },
+  {
+   "id": "lllllllama/rigorpilot-skills/explore-code",
+   "source": "lllllllama/rigorpilot-skills",
+   "skillId": "explore-code",
+   "name": "explore-code",
+   "installs": 325891
+  },
+  {
+   "id": "lllllllama/rigorpilot-skills/explore-run",
+   "source": "lllllllama/rigorpilot-skills",
+   "skillId": "explore-run",
+   "name": "explore-run",
+   "installs": 325646
+  },
+  {
+   "id": "langchain-ai/langchain-skills/deep-agents-orchestration",
+   "source": "langchain-ai/langchain-skills",
+   "skillId": "deep-agents-orchestration",
+   "name": "deep-agents-orchestration",
+   "installs": 15750
+  },
+  {
+   "id": "coreyhaines31/marketingskills/competitor-profiling",
+   "source": "coreyhaines31/marketingskills",
+   "skillId": "competitor-profiling",
+   "name": "competitor-profiling",
+   "installs": 91074
+  },
+  {
+   "id": "parallel-web/parallel-agent-skills/parallel-web-search",
+   "source": "parallel-web/parallel-agent-skills",
+   "skillId": "parallel-web-search",
+   "name": "parallel-web-search",
+   "installs": 14280
+  },
+  {
+   "id": "coreyhaines31/marketingskills/marketing-plan",
+   "source": "coreyhaines31/marketingskills",
+   "skillId": "marketing-plan",
+   "name": "marketing-plan",
+   "installs": 64564
+  },
+  {
+   "id": "parallel-web/parallel-agent-skills/parallel-findall",
+   "source": "parallel-web/parallel-agent-skills",
+   "skillId": "parallel-findall",
+   "name": "parallel-findall",
+   "installs": 12161
+  },
+  {
+   "id": "yuan1z0825/nature-skills/nature-paper-card",
+   "source": "yuan1z0825/nature-skills",
+   "skillId": "nature-paper-card",
+   "name": "nature-paper-card",
+   "installs": 9882
+  },
+  {
+   "id": "bmad-code-org/bmad-method/bmad-deep-recon",
+   "source": "bmad-code-org/bmad-method",
+   "skillId": "bmad-deep-recon",
+   "name": "bmad-deep-recon",
+   "installs": 9879
+  },
+  {
+   "id": "affaan-m/ecc/exa-search",
+   "source": "affaan-m/ecc",
+   "skillId": "exa-search",
+   "name": "exa-search",
+   "installs": 9608
+  },
+  {
+   "id": "imbad0202/academic-research-skills/academic-pipeline",
+   "source": "imbad0202/academic-research-skills",
+   "skillId": "academic-pipeline",
+   "name": "academic-pipeline",
+   "installs": 6997
+  },
+  {
+   "id": "lijigang/ljg-skills/ljg-travel",
+   "source": "lijigang/ljg-skills",
+   "skillId": "ljg-travel",
+   "name": "ljg-travel",
+   "installs": 5979
+  },
+  {
+   "id": "brave/brave-search-skills/answers",
+   "source": "brave/brave-search-skills",
+   "skillId": "answers",
+   "name": "answers",
+   "installs": 1176
+  },
+  {
+   "id": "anthropics/financial-services/sector-overview",
+   "source": "anthropics/financial-services",
+   "skillId": "sector-overview",
+   "name": "sector-overview",
+   "installs": 1140
+  },
+  {
+   "id": "brave/brave-search-skills/bx",
+   "source": "brave/brave-search-skills",
+   "skillId": "bx",
+   "name": "bx",
+   "installs": 1075
+  },
+  {
+   "id": "parallel-web/parallel-agent-skills/choose-your-parallel-api",
+   "source": "parallel-web/parallel-agent-skills",
+   "skillId": "choose-your-parallel-api",
+   "name": "choose-your-parallel-api",
+   "installs": 1037
+  },
+  {
+   "id": "bytedance/deer-flow/claude-to-deerflow",
+   "source": "bytedance/deer-flow",
+   "skillId": "claude-to-deerflow",
+   "name": "claude-to-deerflow",
+   "installs": 3845
+  },
+  {
+   "id": "k-dense-ai/scientific-agent-skills/research-lookup",
+   "source": "k-dense-ai/scientific-agent-skills",
+   "skillId": "research-lookup",
+   "name": "research-lookup",
+   "installs": 1875
+  },
+  {
+   "id": "valyuai/skills/valyu-best-practices",
+   "source": "valyuai/skills",
+   "skillId": "valyu-best-practices",
+   "name": "valyu-best-practices",
+   "installs": 3325
+  },
+  {
+   "id": "actionbook/actionbook/active-research",
+   "source": "actionbook/actionbook",
+   "skillId": "active-research",
+   "name": "active-research",
+   "installs": 2781
+  },
+  {
+   "id": "liangdabiao/claude-code-stock-deep-research-agent/stock-research-executor",
+   "source": "liangdabiao/claude-code-stock-deep-research-agent",
+   "skillId": "stock-research-executor",
+   "name": "stock-research-executor",
+   "installs": 1775
+  },
+  {
+   "id": "weizhena/deep-research-skills/research-report",
+   "source": "weizhena/deep-research-skills",
+   "skillId": "research-report",
+   "name": "research-report",
+   "installs": 845
+  },
+  {
+   "id": "weizhena/deep-research-skills/research",
+   "source": "weizhena/deep-research-skills",
+   "skillId": "research",
+   "name": "research",
+   "installs": 731
+  },
+  {
+   "id": "kochetkov-ma/claude-brewcode/text-optimizer",
+   "source": "kochetkov-ma/claude-brewcode",
+   "skillId": "text-optimizer",
+   "name": "text-optimizer",
+   "installs": 2137
+  },
+  {
+   "id": "assafelovic/gpt-researcher/gpt-researcher",
+   "source": "assafelovic/gpt-researcher",
+   "skillId": "gpt-researcher",
+   "name": "gpt-researcher",
+   "installs": 2023
+  },
+  {
+   "id": "weizhena/deep-research-skills/research-add-fields",
+   "source": "weizhena/deep-research-skills",
+   "skillId": "research-add-fields",
+   "name": "research-add-fields",
+   "installs": 673
+  },
+  {
+   "id": "weizhena/deep-research-skills/research-add-items",
+   "source": "weizhena/deep-research-skills",
+   "skillId": "research-add-items",
+   "name": "research-add-items",
+   "installs": 671
+  },
+  {
+   "id": "davila7/claude-code-templates/scientific-writing",
+   "source": "davila7/claude-code-templates",
+   "skillId": "scientific-writing",
+   "name": "scientific-writing",
+   "installs": 1990
+  },
+  {
+   "id": "davila7/claude-code-templates/market-research-reports",
+   "source": "davila7/claude-code-templates",
+   "skillId": "market-research-reports",
+   "name": "market-research-reports",
+   "installs": 1916
+  },
+  {
+   "id": "k-dense-ai/scientific-agent-skills/parallel-web",
+   "source": "k-dense-ai/scientific-agent-skills",
+   "skillId": "parallel-web",
+   "name": "parallel-web",
+   "installs": 1894
+  },
+  {
+   "id": "cline/skills/exa-search",
+   "source": "cline/skills",
+   "skillId": "exa-search",
+   "name": "exa-search",
+   "installs": 1822
+  },
+  {
+   "id": "lingzhi227/agent-research-skills/github-research",
+   "source": "lingzhi227/agent-research-skills",
+   "skillId": "github-research",
+   "name": "github-research",
+   "installs": 1742
+  },
+  {
+   "id": "arnabbagxd/brand-building-skills/target-audience",
+   "source": "arnabbagxd/brand-building-skills",
+   "skillId": "target-audience",
+   "name": "target-audience",
+   "installs": 1571
+  },
+  {
+   "id": "gasserane/personal-skills/researcher",
+   "source": "gasserane/personal-skills",
+   "skillId": "researcher",
+   "name": "researcher",
+   "installs": 653
+  },
+  {
+   "id": "hyperb1iss/hyperskills/research",
+   "source": "hyperb1iss/hyperskills",
+   "skillId": "research",
+   "name": "research",
+   "installs": 644
+  },
+  {
+   "id": "uniswap/uniswap-ai/swap-planner",
+   "source": "uniswap/uniswap-ai",
+   "skillId": "swap-planner",
+   "name": "swap-planner",
+   "installs": 1182
+  },
+  {
+   "id": "wanshuiyin/auto-claude-code-research-in-sleep/research-review",
+   "source": "wanshuiyin/auto-claude-code-research-in-sleep",
+   "skillId": "research-review",
+   "name": "research-review",
+   "installs": 537
+  },
+  {
+   "id": "jwynia/agent-skills/research-workflow",
+   "source": "jwynia/agent-skills",
+   "skillId": "research-workflow",
+   "name": "research-workflow",
+   "installs": 514
+  },
+  {
+   "id": "aaron-he-zhu/aaron-marketing-skills/audience-mapper",
+   "source": "aaron-he-zhu/aaron-marketing-skills",
+   "skillId": "audience-mapper",
+   "name": "audience-mapper",
+   "installs": 1003
+  },
+  {
+   "id": "posthog/skills/posthog-onboarding-lead-research",
+   "source": "posthog/skills",
+   "skillId": "posthog-onboarding-lead-research",
+   "name": "posthog-onboarding-lead-research",
+   "installs": 181
+  },
+  {
+   "id": "framix-team/openclaw-tavily/tavily-search",
+   "source": "framix-team/openclaw-tavily",
+   "skillId": "tavily-search",
+   "name": "tavily-search",
+   "installs": 840
+  },
+  {
+   "id": "curiositech/some_claude_skills/personal-finance-coach",
+   "source": "curiositech/some_claude_skills",
+   "skillId": "personal-finance-coach",
+   "name": "personal-finance-coach",
+   "installs": 760
+  },
+  {
+   "id": "ferdinandobons/startup-skill/startup-competitors",
+   "source": "ferdinandobons/startup-skill",
+   "skillId": "startup-competitors",
+   "name": "startup-competitors",
+   "installs": 631
+  },
+  {
+   "id": "liangdabiao/claude-code-stock-deep-research-agent/stock-question-refiner",
+   "source": "liangdabiao/claude-code-stock-deep-research-agent",
+   "skillId": "stock-question-refiner",
+   "name": "stock-question-refiner",
+   "installs": 367
+  },
+  {
+   "id": "agricidaniel/claude-obsidian/autoresearch",
+   "source": "agricidaniel/claude-obsidian",
+   "skillId": "autoresearch",
+   "name": "autoresearch",
+   "installs": 521
+  },
+  {
+   "id": "dotneet/claude-code-marketplace/perplexity-search",
+   "source": "dotneet/claude-code-marketplace",
+   "skillId": "perplexity-search",
+   "name": "perplexity-search",
+   "installs": 454
+  },
+  {
+   "id": "coreyhaines31/makerskills/social-fetch",
+   "source": "coreyhaines31/makerskills",
+   "skillId": "social-fetch",
+   "name": "social-fetch",
+   "installs": 440
+  },
+  {
+   "id": "kortix-ai/kortix-registry/openalex-paper-search",
+   "source": "kortix-ai/kortix-registry",
+   "skillId": "openalex-paper-search",
+   "name": "openalex-paper-search",
+   "installs": 436
+  },
+  {
+   "id": "nansen-ai/nansen-cli/nansen-token-research",
+   "source": "nansen-ai/nansen-cli",
+   "skillId": "nansen-token-research",
+   "name": "nansen-token-research",
+   "installs": 428
+  },
+  {
+   "id": "davidondrej/skills/research-prompt",
+   "source": "davidondrej/skills",
+   "skillId": "research-prompt",
+   "name": "research-prompt",
+   "installs": 207
+  }
+ ],
+ "count": 100,
+ "duration_ms": 305,
+ "timings_ms": {
+  "rate_limit": 62.93013300001621,
+  "flags": 0.9519380000419915,
+  "visibility": 104.94273599982262,
+  "retrieval": 247.90569799998775,
+  "algolia_processing": 399,
+  "repositories": 34.235123000107706,
+  "ranking": 20.82270700018853,
+  "search": 305,
+  "total": 367.75310999993235
+ },
+ "provider_duration_ms": 247.90569799998775
+}

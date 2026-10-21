@@ -189,6 +189,10 @@ _EGRESS_ALLOW = frozenset({
     'ncbi.nlm.nih.gov', 'europepmc.org', 'ebi.ac.uk', 'unpaywall.org', 'doi.org',
     # 代码仓库与制品
     'github.com', 'githubusercontent.com', 'gitee.com', 'modelscope.cn', 'osv.dev',
+    # 市场/注册表（v6.101：先量后写，2026-10-20 实测 200 免 key）
+    # skills.sh=Agent Skill 市场（Vercel）；smithery=MCP 市场（registry.smithery.ai
+    # 是 API 主机非 smithery.ai，两个都要放行）；npm/crates/GitLab=生态注册表
+    'skills.sh', 'smithery.ai', 'npmjs.org', 'crates.io', 'gitlab.com',
     # 中文/通用搜索
     'baidu.com', 'sogou.com', 'sm.cn', 'so.com', 'bing.com', 'duckduckgo.com',
     'brave.com', 'ecosia.org', 'startpage.com', 'google.com',

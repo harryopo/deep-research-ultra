@@ -2,7 +2,7 @@
 name: deep-research-ultra
 version: 6.88.0
 description: |
-  超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 34 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
+  超级深度调研工具，基于 Plan-Execute-Synthesize-Reflect 四阶段范式，由主 Agent 担任 Lead 编排子 Agent 并行检索（Orchestrator-Worker），配合深度调研专家团（多视角对抗/审稿人闭环）、证据账本（claim→source 溯源）、来源 Tier 分级与发布前校验门；智能路由（三级级联）匹配 36 个数据源（四层：MCP+学术直连 / Skill+GitHub+国内平台深搜 / 内置+浏览器 / 降级+反爬），引擎真实可用性由 --probe 自检把关。
   当用户说"深度调研"、"deep research"、"帮我研究"、"全面分析"、"调研报告"时调用。
 allowed-tools: Read Write Bash Glob Grep AskUserQuestion Agent WebSearch WebFetch
 ---
@@ -282,7 +282,7 @@ RoutingDecision → 动态引擎链 + 多语言查询变体
 | 查询类型 | 关键词特征 | 推荐引擎链 |
 |---------|----------|-----------|
 | **学术论文** | paper/research/论文/arxiv/doi | arxiv, paper-search, openalex, semantic-scholar, crossref, pubmed, europepmc, **baidu-xueshu** |
-| **开源项目** | github/open source/开源/npm | **github-deep-search**, **github-code-search**, oss-finder, tavily, open-websearch |
+| **开源项目** | github/open source/开源/npm/**skill**/**mcp** | **github-deep-search**, **github-code-search**, **skill-market**（skills.sh/smithery 市场）, **oss-registry**（npm/crates/GitLab）, oss-finder, gitee, tavily, open-websearch |
 | **社区口碑** | reddit/评价/口碑/知乎 | agent-reach, last30days, tavily, **sogou-zhihu**, **baidu-serp** |
 | **技术文档** | docs/文档/api/tutorial | context7, defuddle, firecrawl |
 | **时效新闻** | 最新/今天/近期/2025 | last30days, tavily, websearch, **baidu-serp** |
@@ -338,7 +338,7 @@ python "${SKILL_DIR}/scripts/research.py" "深度调研大语言模型微调" --
 | 调研场景 | profile | 必需环境 | 可选增强（缺失逐条说明掉哪块能力，不说"不影响"） |
 |----------|---------|----------|------------------------|
 | 快速浏览 / 通用搜索 | `minimal` | Python + 内置引擎 + 网络 | — |
-| **开源项目调研** | `opensource` | Python + 网络（GitHub/OpenAlex 免费直连） | `GITHUB_TOKEN`、`GITEE_TOKEN`；oss-finder/agent-reach 等全局 skill |
+| **开源项目调研** | `opensource` | Python + 网络（GitHub/skills.sh/smithery/npm/crates/GitLab 免 key 直连） | `GITHUB_TOKEN`、`GITEE_TOKEN`；oss-finder/agent-reach 等全局 skill |
 | 学术论文调研 | `academic` | Python + 网络（OpenAlex/S2/PubMed 直连） | `UNPAYWALL_EMAIL`、`GITHUB_TOKEN` |
 | 全量深度调研 | `full` | Python + 网络 + MCP（setup-mcp.sh --core） | Tavily/Firecrawl/Crawl4AI/`npx`/`uvx`（`claude` 只在 `--via-claude` 路线才需要） |
 
@@ -1132,7 +1132,7 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 
 ---
 
-## 四、四层数据源架构（共 34 个数据源：29 个可搜索，23 个支持 --probe 自检，含 5 个 MCP）
+## 四、四层数据源架构（共 36 个数据源：31 个可搜索，25 个支持 --probe 自检，含 5 个 MCP）
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -1151,9 +1151,11 @@ python "${SKILL_DIR}/scripts/validate_report.py" --report report.md --ledger .re
 │  ├── Unpaywall           DOI→合法 OA PDF                             │
 │  └── S2 Citation Graph   引用图谱 + intents + influential            │
 ├─────────────────────────────────────────────────────────────────────┤
-│  Layer 2: 全局 Skill + GitHub 深搜 + 国内源层（14 个引擎）           │
+│  Layer 2: 全局 Skill + GitHub 深搜 + 国内源层（16 个引擎）           │
 │  ├── agent-reach         13 平台社交（X/Reddit/HN/B站/知乎...）     │
 │  ├── oss-finder          GitHub/GitLab/Gitee/npm/PyPI               │
+│  ├── skill-market        skills.sh/smithery（skill/MCP 市场）        │
+│  ├── oss-registry        npm/crates/GitLab（GitHub 外注册表）        │
 │  ├── last30days          近 30 天全网                                │
 │  ├── sciverse            学术论文深度检索                            │
 │  ├── defuddle            网页转 Markdown（替代 Jina）                │
@@ -1314,6 +1316,8 @@ flagship/mainstream/niche 分组排序。**未取到的元数据如实标「未�
 | "近 30 天 X 怎么样" | last30days | 时效性调研 |
 | "找 X 的学术论文" | sciverse / **本 skill 学术路由** | 学术深度 |
 | "找 GitHub 上的 X 项目" | oss-finder / **本 skill 开源路由（含深搜）** | 开源项目（不漏低星） |
+| "找个现成的 X skill / MCP 插件" | **本 skill 开源路由（skill-market 市场）** | skill/MCP 市场（skills.sh/smithery） |
+| "类似 X 的开源方案（npm/Rust 包）" | **本 skill 开源路由（oss-registry）** | GitHub 外注册表（真实下载量） |
 | "X 在 Reddit 上怎么样" | agent-reach / **本 skill 社区路由** | 社区口碑 |
 | "国内 X 怎么样" | **本 skill 国内源路由** | 百度/搜狗/知乎/微信 |
 

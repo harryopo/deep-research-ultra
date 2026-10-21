@@ -1,13 +1,13 @@
 # HANDOFF · deep-research-ultra（任何 agent 先读这份）
 
-> 最后更新：2026-10-16
+> 最后更新：2026-10-21
 > 读法：本文件 → `.ai/knowledge/` → 架构文档 → **以代码为最终准**。描述与代码不符时以代码为准并回来更新本文件。
 
 ## ★1. 会话概览
 - 会话时间区间：2026-10-06 至 2026-10-11（上一轮 10-03 至 10-04 见第 10 节版本记录）
 - 核心目标与交付范围：DRUX_RETRIEVER 检索器热切换（v6.57.0）→ L3 基准重放评测＋compare 分析插槽（v6.58.0）→ 包清理（18 份开发期文档移入 `docs/dev/`，CHANGELOG 3565→521 行）→ 管线全线基准重放＋知识模式分析插槽（v6.59.0）→ 多轮持续对抗压测＋骨架阅读指南＋分析段写法（v6.60.0）→ 子 Agent 按角色配模型（v6.61.0）→ **系统体检与 P0 三条堵漏（v6.62.0）**
 - 核心模块：`scripts/{research,validate_report,skeleton,ledger}.py`、`references/report-types.md`、`tests/test_v6{58,59,60,61,62}_*.py`、`docs/dev/v6.62-系统体检报告.md`、`CHANGELOG.md`、`dist/`
-- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1438 项（本机 Windows 1436 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
+- 整体完成度：四层注入防线经**四轮升级攻击语料**压测仍闭环；**可溯源链首次真正焊死**（v6.62.0：校验门硬绑账本）；**相关性不可判定时不再装懂**（v6.63.0）；**约束全部前置到前 200 行**（v6.64.0）；全量 1457 项（本机 Windows 1455 过 / 2 跳——bash 缺失按 skipif 照实跳，见第 4 节）
 - 本次沉淀摘要：**系统体检**（8 维评判框架 + 实弹攻击实验，14 条问题清单落盘 `docs/dev/v6.62-系统体检报告.md`）＋ **P0 三条全堵**（v6.62.0）＋ **体检更正两条并修复**（v6.63.0）＋ **SKILL.md 信息架构重构**（手册搬走＋约束前置，v6.64.0）＋ P1 模型配档 ＋ 收口五件
 
 ## ★2. 已完成工作
@@ -37,6 +37,9 @@
 - `[V]` **P0-3 产出边界写清**（v6.62.0）——实测 `research.py --format markdown` 产出是**证据集**（检索结果页）而非报告，与宣传页形态错位；SKILL.md Phase 3、README、index.html 三处写明「脚本产出=证据集，不能直接交付，报告由 Lead 从账本组稿后过门」
 - `[V]` `tests/test_v662_gate_needs_ledger.py` 8 项（含 `ledger=none` 伪造戳、正路不误伤、两条目录自建）；版本追平 6.62.0，收集数 1023→1031
 - `[V]` **体检更正两条并修复**（v6.63.0）——读代码推翻体检初稿的 P1-4/P1-5 两条结论，报告已标注更正：①`relevance` 权重 0.35 本就是五维最高，真问题是**判别力≈0**（中文 2-gram 匹配英文标题恒零命中；实测切题 27.3/跑题 21.3/无关 20.0，authority=95 把三者都托到 ~61 medium）→ 新增 `_relevance_is_reliable()`，不可判定时封顶 45 + `grade=unrated`（封顶必须放在 Tier 加权之后，实测旁路会把 45 抬回 54）；②门限本就是 `max(2, 参数)` 且硬失败，真问题是**旋钮拧不动** → 默认值改 2，放宽走 `--allow-single-source` 并记进 warnings/stats/防伪戳 — `tests/test_v663_truthful_scoring.py` 9 项；收集数 1031→1040
+
+- `[V]` **v6.101.0 技能市场与开源注册表源**——用户实测「skill 搜索只认官方渠道、开源搜索偏弱」。根因：`opensource` 链里没有任何市场源，且 `skill`/`mcp` 不在 STRONG/WEAK 关键词表，这类查询落进 `general` 走通用网搜。先量后写（2026-10-20 本机直连：skills.sh/smithery/npm/crates.io/GitLab 五个端点 200；glama 401 要 key、mcp.so/maven/HF 超时、PyPI 无 JSON 搜索，均不启用），新增 `engines/marketplaces.py` 两个 L2 引擎：`skill-market`（skills.sh+smithery）、`oss-registry`（npm+crates.io+GitLab），`_interleave` 轮转合并，出口白名单按注册域加 5 个主机；19 项离线 fixture 判据 + 评测 `dr-041`（机械判定 11/11、期望级 47/47、未纳入 30/41）；全量 1455 过 / 0 挂 / 2 跳
+- `[V]` `tests/test_v695_evals.py` 两处写死的评测条数 40 改为从 `evals.json` 动态读取（现 41 条）；`tests/test_v670_source_count_caliber.py` 改为从注册表现算；落地页 h2 / 图例两处漏改的 34（含「5 个需配置，其余 29」）改 36 / 31
 
 ## ★3. 进行中与断点
 > （已关闭：原 P0「对比类报告实跑验收」compare-os-agents-20261004 过门盖戳 body=b5f033a5；原 P1「GitHub 推送」3 提交已推、分支与 origin 同步；原 P1「dist 上传 Release」**已完成 2026-10-10**——`v7.0.0` 资产替换为内核 6.60.0 包，SHA256 与本地一致 `064DB1BD…B4BE`，标题同步「内核 6.60.0」，notes 换新）
@@ -114,7 +117,7 @@
 ## ★8. 运行与验证
 - 环境变量变更：`OPENALEX_MAILTO` 已 setx（复用 UNPAYWALL_EMAIL）；本会话内联 `OPENALEX_MAILTO="$UNPAYWALL_EMAIL"` 前缀仍需保留
 - 新增依赖：agent-reach v1.5.0（venv `~/.agent-reach-venv`）、yt-dlp 2026.08.19、bili-cli 0.6.2、mcporter 0.14.2（均免登录通道）
-- 测试命令：仓库根 `python run_all_tests.py`（**1438 项**＝内核 1388＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
+- 测试命令：仓库根 `python run_all_tests.py`（**1457 项**＝内核 1407＋壳 50；Windows 无 bash 时内核 2 项 skip，见第 4 节）；单套 `cd skills/deep-research-ultra/scripts && pytest`
 - 完整回归：`run_all_tests.py`＋`research.py --probe`（实弹；**本机 2026-10-11 实测 25 引擎探测、14 个真出数据**——5 个 MCP 未配、2 个缺 key、S2 族 429、百度学术 403、Gitee 401）
 - 排查工具：`canary.py check`、`guard.py --session`、`verify_quotes.py --raw`、`agent-reach doctor`、`research.py --probe`
 - **交付门禁自查**（v6.62.0 起）：`validate_report.py` 不给 `--ledger` 一律判未通过且拒绝盖章——报告交付前必须带 `--ledger`，别为"过门"省略它

@@ -661,6 +661,20 @@
       ],
       "category": "v65_engine_truth",
       "v6_feature": true
+    },
+    {
+      "id": "dr-041",
+      "name": "Skill 市场与 OSS 生态注册表来源",
+      "input": "找一个现成的能做 PDF 解析的 Claude skill / 类似 X 的开源方案",
+      "expected_behavior": [
+        "「找现成 skill」类查询路由到 opensource 且引擎链含 skill-market（不落入 general 通用网搜）",
+        "skill/MCP 市场覆盖 skills.sh 与 smithery 两家，免 key 可用（先量后写：2026-10-20 实测逐端点 200）",
+        "市场条目带真实安装量/使用量（skills.sh installs、smithery useCount），链接出自平台自证 homepage 字段",
+        "OSS 生态注册表覆盖 GitHub 之外的 npm/crates/GitLab 并携带真实下载量/被依赖数",
+        "多市场结果轮转合并不让先到市场独占配额（smithery 不被 skills.sh 挤出限额）"
+      ],
+      "category": "v6101_market_sources",
+      "v6_feature": true
     }
   ]
 }

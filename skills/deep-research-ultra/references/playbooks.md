@@ -746,7 +746,7 @@ scripts/
 ├── skeleton.py              # 报告骨架生成（v6.14）：从账本出引用编号+来源登记表，正文留【待写】给 Lead（v6.48：conflict 行带出账本留痕，没留痕才写"未裁决"）
 ├── verify_quotes.py         # 引文逐字对账（v6.44）：账本『…』与报告「…」段须在存档原始材料里逐字命中（v6.46 起含 --report；v6.47 短段列未对账），缺材料或缺待查文本退 2
 ├── engines/
-│   ├── __init__.py          # 引擎导出聚合（34 个数据源，29 个可搜索）
+│   ├── __init__.py          # 引擎导出聚合（36 个数据源，31 个可搜索）
 │   ├── base.py              # SearchEngine 抽象基类 + EngineMetadata + EngineRegistry
 │   ├── mcp_client.py        # MCP 客户端封装
 │   ├── mcp_engines.py       # MCP 服务器封装（Tavily/Firecrawl/open-websearch/arxiv/paper-search）
@@ -758,6 +758,7 @@ scripts/
 │   ├── cn_sources.py        # 国内内容源（百度/搜狗微信/搜狗知乎/百度学术）
 │   ├── builtin.py           # Claude 内置工具封装（WebSearch/WebFetch）
 │   ├── crawl4ai_engine.py   # Crawl4AI 浏览器自动化 + LayeredCrawler
+│   ├── marketplaces.py      # 技能市场与开源注册表（skills.sh/smithery + npm/crates.io/GitLab）
 │   └── fallback.py          # 降级引擎（ddgs/百度/Bing/SearXNG）+ curl_cffi TLS 伪装 + LAST_HTTP_ERROR 诊断
 ├── plan.py                  # MECE 问题树 + 6 状态机（多视角注入 + 通用维度兜底）
 ├── score.py                 # CRAAP 五维评分（Tier 加权 + has_low_quality_ratio）

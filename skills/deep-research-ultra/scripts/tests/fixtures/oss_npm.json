@@ -1,0 +1,157 @@
+{
+ "objects": [
+  {
+   "downloads": {
+    "monthly": 12419728,
+    "weekly": 1569292
+   },
+   "dependents": "129",
+   "updated": "2026-10-19T12:37:24.874Z",
+   "searchScore": 596.96265,
+   "package": {
+    "name": "math-expression-evaluator",
+    "keywords": [
+     "math",
+     "expression",
+     "evaluator",
+     "parser"
+    ],
+    "version": "2.0.7",
+    "description": "A flexible math expression evaluator",
+    "sanitized_name": "math-expression-evaluator",
+    "publisher": {
+     "email": "bugwheels94@gmail.com",
+     "username": "bugwheels94"
+    },
+    "maintainers": [
+     {
+      "email": "bugwheels94@gmail.com",
+      "username": "bugwheels94"
+     }
+    ],
+    "license": "MIT",
+    "date": "2025-06-06T12:36:39.407Z",
+    "links": {
+     "homepage": "https://github.com/redhivesoftware/math-expression-evaluator#readme",
+     "repository": "git+https://github.com/redhivesoftware/math-expression-evaluator.git",
+     "bugs": "https://github.com/redhivesoftware/math-expression-evaluator/issues",
+     "npm": "https://www.npmjs.com/package/math-expression-evaluator"
+    }
+   },
+   "score": {
+    "final": 596.96265,
+    "detail": {
+     "popularity": 1,
+     "quality": 1,
+     "maintenance": 1
+    }
+   },
+   "flags": {
+    "insecure": 0
+   }
+  },
+  {
+   "downloads": {
+    "monthly": 48,
+    "weekly": 10
+   },
+   "dependents": 0,
+   "updated": "2026-10-13T20:11:36.690Z",
+   "searchScore": 490.20706,
+   "package": {
+    "name": "evaluator",
+    "keywords": [
+     "eval",
+     "js"
+    ],
+    "version": "1.0.2",
+    "description": "Simple evaluator of files with JavaScript code.",
+    "sanitized_name": "evaluator",
+    "publisher": {
+     "email": "inbox@yakimchuk.me",
+     "username": "yakimchuk"
+    },
+    "maintainers": [
+     {
+      "email": "inbox@yakimchuk.me",
+      "username": "yakimchuk"
+     }
+    ],
+    "license": "MIT",
+    "date": "2014-12-21T04:59:09.142Z",
+    "links": {
+     "homepage": "https://github.com/yakimchuk/evaluator",
+     "repository": "https://github.com/yakimchuk/evaluator.git",
+     "bugs": "https://github.com/yakimchuk/evaluator/issues",
+     "npm": "https://www.npmjs.com/package/evaluator"
+    }
+   },
+   "score": {
+    "final": 490.20706,
+    "detail": {
+     "popularity": 1,
+     "quality": 1,
+     "maintenance": 1
+    }
+   },
+   "flags": {
+    "insecure": 0
+   }
+  },
+  {
+   "downloads": {
+    "monthly": 82568,
+    "weekly": 10269
+   },
+   "dependents": "12",
+   "updated": "2026-10-19T12:37:55.077Z",
+   "searchScore": 486.67337,
+   "package": {
+    "name": "@nlpjs/evaluator",
+    "keywords": [],
+    "version": "5.0.0-alpha.5",
+    "description": "Evaluator",
+    "sanitized_name": "@nlpjs/evaluator",
+    "publisher": {
+     "email": "xavier.redondo@axa.com",
+     "username": "xavier-redondo"
+    },
+    "maintainers": [
+     {
+      "email": "daniel.garcia@axa.com",
+      "username": "dgarcia56"
+     },
+     {
+      "email": "ericzon@gmail.com",
+      "username": "ericzon"
+     },
+     {
+      "email": "xavier.redondo@axa.com",
+      "username": "xavier-redondo"
+     }
+    ],
+    "license": "MIT",
+    "date": "2025-01-23T09:16:33.607Z",
+    "links": {
+     "homepage": "https://github.com/axa-group/nlp.js#readme",
+     "repository": "git+https://github.com/axa-group/nlp.js.git",
+     "bugs": "https://github.com/axa-group/nlp.js/issues",
+     "npm": "https://www.npmjs.com/package/@nlpjs/evaluator"
+    }
+   },
+   "score": {
+    "final": 486.67337,
+    "detail": {
+     "popularity": 1,
+     "quality": 1,
+     "maintenance": 1
+    }
+   },
+   "flags": {
+    "insecure": 0
+   }
+  }
+ ],
+ "total": 2092,
+ "time": "2026-10-20T01:19:34.961Z"
+}

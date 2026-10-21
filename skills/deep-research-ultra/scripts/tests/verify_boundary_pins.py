@@ -101,16 +101,16 @@ CLAIMED = [
     ("ledger.py", 366, "compare", ">="),         # len(seg) > 1
     ("ledger.py", 366, "compare", "not in"),     # seg[0] in (...)
     # research.py filter_by_relevance 的四道门（嵌套门槛：外层不够数就整体放回）
-    ("research.py", 399, "compare", "<"),        # min_relevance <= 0
-    ("research.py", 406, "compare", ">"),        # _relevance(r) >= min_relevance
-    ("research.py", 416, "const", "6"),          # min(target_count, 5)
-    ("research.py", 417, "compare", ">"),        # len(strong) >= needed
-    ("research.py", 831, "not", ""),             # elif not auto_claim
+    ("research.py", 402, "compare", "<"),        # min_relevance <= 0
+    ("research.py", 409, "compare", ">"),        # _relevance(r) >= min_relevance
+    ("research.py", 419, "const", "6"),          # min(target_count, 5)
+    ("research.py", 420, "compare", ">"),        # len(strong) >= needed
+    ("research.py", 834, "not", ""),             # elif not auto_claim
     # cmd_search 里的两道门：要真跑一遍检索流程才观察得到（夹具见测试文件）
-    ("research.py", 1158, "compare", ">="),       # args.min_score > 0
-    ("research.py", 1160, "compare", ">"),       # craap_score['total'] >= min_score
-    ("research.py", 1541, "compare", ">="),      # len(content) > 500
-    ("research.py", 1541, "const", "501"),       # content[:500]
+    ("research.py", 1161, "compare", ">="),       # args.min_score > 0
+    ("research.py", 1163, "compare", ">"),       # craap_score['total'] >= min_score
+    ("research.py", 1544, "compare", ">="),      # len(content) > 500
+    ("research.py", 1544, "const", "501"),       # content[:500]
     ("ledger.py", 973, "compare", "<="),         # len(abody) < MIN_IDENTITY_BODY
     ("ledger.py", 973, "boolop", "and"),         # ... or ... -> and
     ("ledger.py", 1422, "compare", ">="),        # len(val) > 1 -> >= 1
@@ -138,10 +138,10 @@ CLAIMED = [
     # 它们是 `probe_mutation.py --systematic` 按算子随机抽样撞出来的 ——
     # 也就是说：**边界清单有分母，随机抽样没有；两者互补，不是替代。**
     # 逐条实测过的可观察差异见 test_v688_boundary_pins.py 第十七节。
-    ("research.py", 600, "boolop", "and"),    # goal=args.goal or ''  -> and
-    ("research.py", 1072, "compare", "in"),   # name not in explicit_sources -> in
-    ("research.py", 1102, "compare", "in"),   # 同上（降级链那份拷贝）
-    ("research.py", 1214, "compare", "is"),   # ledger is not None -> is None
+    ("research.py", 603, "boolop", "and"),    # goal=args.goal or ''  -> and
+    ("research.py", 1075, "compare", "in"),   # name not in explicit_sources -> in
+    ("research.py", 1105, "compare", "in"),   # 同上（降级链那份拷贝）
+    ("research.py", 1217, "compare", "is"),   # ledger is not None -> is None
     ("ledger.py", 587, "const", "3"),         # max_retries=2 -> 3
     ("ledger.py", 1017, "boolop", "or"),      # type=='source' and claim_id -> or
 ]
@@ -173,7 +173,7 @@ EQUIVALENT = [
     # 而 `Reflector(max_rounds=0)` 构造本身没有副作用（实测可构造）。
     # 跑三次 cmd_search（rr=0/1/2）归一化时间戳后逐字节比对：**全部相同**。
     # 那一圈唯一的输出差异是报告里的「生成时间」，那是墙钟不是行为。
-    ("research.py", 1201, "compare", ">=",
+    ("research.py", 1204, "compare", ">=",
      "`args.reflect_rounds > 0` → `>= 0`：进分支但 range(1,1) 空转，"
      "Reflector(max_rounds=0) 无副作用；rr=0/1/2 三次实跑归一化时间戳后逐字节相同。"),
     # tier.py L135 `if len(parts) >= 2` 的两条：扫 13 个主机全部不变。
@@ -194,7 +194,7 @@ EQUIVALENT = [
     # **两版都会 mkdir**。副本上实测：PARENT_EXISTS/FILE_EXISTS 两边都是 True。
     # 这一条长得极像缺口 —— 它就是为了补目录才写的那半句 —— 但补目录这半个意图
     # 在两版里都实现了。
-    ("research.py", 729, "boolop", "or",
+    ("research.py", 732, "boolop", "or",
      "`p.parent and not p.parent.exists()` → `or`：Path 没有 __bool__/__len__，"
      "`bool(p.parent)` 恒为 True，`or` 短路在第一个操作数，"
      "`p.parent.exists()` 根本不求值 —— 两版都会 mkdir。副本实测输出目录与文件两侧都建成。"),
@@ -372,24 +372,24 @@ PIN_ANCHORS = {
     ('ledger.py', 973): 'if len(abody) < MIN_IDENTITY_BODY or len(tbody) < MIN_IDENTITY_BODY:',
     ('ledger.py', 1017): "if e.get('type') == 'source' and e.get('claim_id'):",
     ('ledger.py', 1422): "if len(val) > 1 and val.startswith('-'):",
-    ('research.py', 399): 'if min_relevance <= 0:',
-    ('research.py', 406): 'strong = [r for r in results if _relevance(r) >= min_relevance]',
-    ('research.py', 416): 'needed = max(1, min(target_count, 5))',
-    ('research.py', 417): 'if len(strong) >= needed:',
-    ('research.py', 600): "goal=args.goal or '',",
-    ('research.py', 729): 'if p.parent and not p.parent.exists():',
-    ('research.py', 831): 'elif not auto_claim:',
+    ('research.py', 402): 'if min_relevance <= 0:',
+    ('research.py', 409): 'strong = [r for r in results if _relevance(r) >= min_relevance]',
+    ('research.py', 419): 'needed = max(1, min(target_count, 5))',
+    ('research.py', 420): 'if len(strong) >= needed:',
+    ('research.py', 603): "goal=args.goal or '',",
+    ('research.py', 732): 'if p.parent and not p.parent.exists():',
+    ('research.py', 834): 'elif not auto_claim:',
     # ⚠️ 1072 与 1102 是**同一行代码的两份拷贝**，指纹必然相同。
     #   `test_anchors_are_actually_distinctive_enough` 判的是
     #   「命中多行且不含自己」才报错，两行都在 hits 里所以放过 —— 这是对的：
     #   锚点在这里的作用是「别漂到别的算子上」，而这两行本来就该一起动。
-    ('research.py', 1072): "if not engine.has_capability('search') and name not in explicit_sources:",
-    ('research.py', 1102): "if not engine.has_capability('search') and name not in explicit_sources:",
-    ('research.py', 1158): 'if args.min_score > 0:',
-    ('research.py', 1160): "all_results = [r for r in all_results if r.craap_score and r.craap_score.get('total', 0) >= args.min_score]",
-    ('research.py', 1201): 'if args.reflect_rounds > 0 and plan:',
-    ('research.py', 1214): 'if ledger is not None:',
-    ('research.py', 1541): "display_content = content[:500] + ('...' if len(content) > 500 else '')",
+    ('research.py', 1075): "if not engine.has_capability('search') and name not in explicit_sources:",
+    ('research.py', 1105): "if not engine.has_capability('search') and name not in explicit_sources:",
+    ('research.py', 1161): 'if args.min_score > 0:',
+    ('research.py', 1163): "all_results = [r for r in all_results if r.craap_score and r.craap_score.get('total', 0) >= args.min_score]",
+    ('research.py', 1204): 'if args.reflect_rounds > 0 and plan:',
+    ('research.py', 1217): 'if ledger is not None:',
+    ('research.py', 1544): "display_content = content[:500] + ('...' if len(content) > 500 else '')",
     ('score.py', 398): 'if years_ago <= 0:',
     ('score.py', 400): 'elif years_ago == 1:',
     ('score.py', 402): 'elif years_ago == 2:',

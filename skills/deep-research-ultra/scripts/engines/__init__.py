@@ -45,6 +45,7 @@ from .skill_engines import (
     Context7Engine,
 )
 from .github_deep_search import GitHubDeepSearchEngine, GitHubCodeSearchEngine
+from .marketplaces import SkillMarketEngine, OssRegistryEngine  # v6.101：市场与注册表
 from .cn_sources import (
     BaiduSerpEngine,
     SogouWeixinEngine,
@@ -75,6 +76,8 @@ __all__ = [
     "SciverseEngine", "DefuddleEngine", "Context7Engine",
     # Layer 2: GitHub 深度搜索（v5.2 新增）
     "GitHubDeepSearchEngine", "GitHubCodeSearchEngine",
+    # Layer 2: 市场与注册表（v6.101 新增：skills.sh/smithery + npm/crates/GitLab）
+    "SkillMarketEngine", "OssRegistryEngine",
     # Layer 2: 国内内容源（v5.2 新增）
     "BaiduSerpEngine", "SogouWeixinEngine", "SogouZhihuEngine", "BaiduXueshuEngine",
     # Layer 3: 内置

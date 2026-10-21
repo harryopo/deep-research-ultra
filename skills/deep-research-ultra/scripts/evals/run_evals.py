@@ -726,6 +726,103 @@ def _d009_size_under_limit():
         % (used, default_mb, cap))
 
 
+# ---------------------------------------------------------------- dr-041
+def _d041_router():
+    from router import ENGINE_CHAIN_MAP, QueryRouter
+    chain = ENGINE_CHAIN_MAP["opensource"]
+    ok_chain = ("skill-market" in chain and "oss-registry" in chain and
+                chain.index("github-deep-search") < chain.index("skill-market"))
+    d = QueryRouter().route("帮我找一个能做 PDF 解析的 Claude skill")
+    ok_route = d.query_type == "opensource" and "skill-market" in d.engine_chain
+    return ok_chain and ok_route, (
+        "开源链含市场引擎=%s；skill 查询实路由=%s（链首 %s）"
+        % (ok_chain, d.query_type, d.engine_chain[:3]))
+
+
+def _d041_market_coverage():
+    import engines.marketplaces as mkt_mod
+    from engines.fallback import _EGRESS_ALLOW, egress_denied_reason
+    meta = mkt_mod.SkillMarketEngine().metadata
+    hosts = (mkt_mod.HOST_SKILLS_SH, mkt_mod.HOST_SMITHERY)
+    # 清单登记的是注册域（smithery.ai），子源主机是 registry.smithery.ai ——
+    # 同 dr-041 OSS 判据：按注册域查清单、按整主机查守卫
+    domains = ("skills.sh", "smithery.ai")
+    allow = all(d in _EGRESS_ALLOW for d in domains)
+    guard = all(egress_denied_reason(f"https://{h}/x") == "" for h in hosts)
+    ok = (meta.name == "skill-market" and meta.layer == 2 and
+          meta.requires_config is False and allow and guard)
+    return ok, ("hosts=%s 入白名单=%s 守卫放行=%s requires_config=%s"
+                % (list(hosts), allow, guard, meta.requires_config))
+
+
+def _d041_fixture_parse():
+    """离线：fixtures（2026-10-20 实测响应）解析出真数，补丁先抓原函数再打、
+    finally 里复原 —— 不把补丁留给后续判据。"""
+    import engines.marketplaces as mkt_mod
+    fix = SCRIPTS / "tests" / "fixtures"
+    fake = {
+        "skills_sh": json.loads(
+            (fix / "market_skills_sh.json").read_text(encoding="utf-8")),
+        "smithery": json.loads(
+            (fix / "market_smithery.json").read_text(encoding="utf-8")),
+    }
+
+    def fget(url, **kw):
+        return fake["skills_sh"] if "skills.sh" in url else fake["smithery"]
+
+    orig = mkt_mod._http_get_json
+    mkt_mod._http_get_json = fget
+    try:
+        e = mkt_mod.SkillMarketEngine()
+        a = e._skills_sh("deep research", 5)
+        b = e._smithery("research", 5)
+        ok = (bool(a) and a[0].raw["installs"] == 35224 and
+              bool(b) and b[0].raw["useCount"] == 95 and
+              b[0].raw.get("constructed_url") is False and
+              b[0].url == b[0].raw["homepage"])
+        detail = ("skills.sh installs=%s（实测 35224）；smithery 首条"
+                  " url=homepage=%r useCount=%s（实测 95）"
+                  % (a[0].raw["installs"] if a else "无",
+                     b[0].url if b else "无",
+                     b[0].raw["useCount"] if b else "无"))
+    finally:
+        mkt_mod._http_get_json = orig
+    return ok, detail
+
+
+def _d041_oss_registry():
+    import engines.marketplaces as mkt_mod
+    from engines.fallback import _EGRESS_ALLOW, egress_denied_reason
+    hosts = (mkt_mod.HOST_NPM, mkt_mod.HOST_CRATES, mkt_mod.HOST_GITLAB)
+    meta = mkt_mod.OssRegistryEngine().metadata
+    # 白名单登记的是**注册域**（npmjs.org），引擎子源主机是
+    # registry.npmjs.org —— 按注册域查清单，按整主机查守卫（守卫是真契约）
+    domains = ("npmjs.org", "crates.io", "gitlab.com")
+    allow = all(d in _EGRESS_ALLOW for d in domains)
+    guard = all(egress_denied_reason(f"https://{h}/x") == "" for h in hosts)
+    desc = meta.description
+    ok = (meta.name == "oss-registry" and meta.layer == 2 and
+          meta.requires_config is False and allow and guard and
+          all(t in desc for t in ("npm", "crates", "GitLab")))
+    return ok, ("注册域=%s 入白名单=%s；子源主机守卫放行=%s requires_config=%s"
+                % (list(domains), allow, guard, meta.requires_config))
+
+
+def _d041_interleave():
+    import engines.marketplaces as mkt_mod
+
+    def r(tag):
+        return mkt_mod.SearchResult(
+            title=tag, url=f"u://{tag}", content="", source="x",
+            score=0.0, engine="e", raw={"marketplace": tag})
+
+    out = mkt_mod._interleave([[r("A") for _ in range(5)],
+                               [r("B")]])[:5]
+    tags = sorted({x.raw["marketplace"] for x in out})
+    return tags == ["A", "B"], ("限额 5 内出现的市场=%s（A=skills.sh "
+                                "B=smithery 的模型）" % tags)
+
+
 CHECKS = {
     "dr-024": [
         ("TTL 过期条目被自动清理（evicted_ttl+1）", _d024_ttl),
@@ -788,6 +885,18 @@ CHECKS = {
         ("第二次取同一键记为命中（hits+1 且 misses 不涨）", _d009_hit_counted),
         ("命中时返回结果与首次写入完全一致", _d009_same_result),
         ("缓存目录体积不超过 max_size_mb（默认 100MB）", _d009_size_under_limit),
+    ],
+    "dr-041": [
+        ("「找现成 skill」类查询路由到 opensource 且引擎链含 skill-market",
+         _d041_router),
+        ("skill/MCP 市场覆盖 skills.sh 与 smithery 两家，免 key"
+         "（requires_config=False、出口白名单放行）", _d041_market_coverage),
+        ("市场条目带真实安装量/使用量，链接出自平台自证 homepage 字段",
+         _d041_fixture_parse),
+        ("OSS 生态注册表覆盖 npm/crates/GitLab（GitHub 之外），免 key",
+         _d041_oss_registry),
+        ("多子源轮转合并：两个市场、三家注册表在限额内都露面，"
+         "不被先到者独占截断", _d041_interleave),
     ],
 }
 

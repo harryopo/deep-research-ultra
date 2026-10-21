@@ -47,7 +47,8 @@ VALID_QUERY_TYPES = {
 ENGINE_CHAIN_MAP: Dict[str, List[str]] = {
     'academic':    ['arxiv', 'paper-search', 'openalex', 'semantic-scholar', 'crossref',
                     'pubmed', 'europepmc', 'baidu-xueshu'],
-    'opensource':  ['oss-finder', 'github-deep-search', 'gitee', 'modelscope',
+    'opensource':  ['oss-finder', 'github-deep-search', 'skill-market', 'oss-registry',
+                    'gitee', 'modelscope',
                     'arxiv', 'openalex', 'tavily', 'open-websearch'],
     'community':   ['agent-reach', 'last30days', 'tavily', 'sogou-zhihu'],
     'docs':        ['context7', 'defuddle', 'firecrawl'],
@@ -73,7 +74,10 @@ LOW_AUTHORITY_KEYWORDS = ['体验', '评价', '怎么看', 'reddit', '知乎', '
 STRONG_KEYWORDS: Dict[str, List[str]] = {
     'academic':   ['arxiv', '论文', 'paper', 'pubmed', 'scholar', 'doi', 'semantic scholar'],
     'opensource': ['github', '开源', 'open source', 'npm', 'pypi', 'gitlab', 'gitee',
-                   '魔搭', 'modelscope', 'model scope', 'huggingface'],
+                   '魔搭', 'modelscope', 'model scope', 'huggingface',
+                   # v6.101：用户实测「找现成 skill 只去官方渠道」——skill 市场
+                   # 类查询要能命中 opensource 链（链里 v6.101 起有 skill-market）
+                   'skill', 'agent skills', 'claude skills'],
     'community':  ['reddit', '知乎', '口碑', 'hacker news', 'v2ex'],
     'docs':       ['docs', '文档', '官方文档', 'api reference', 'documentation'],
     'news':       ['今天', '刚刚', '突发', 'breaking', 'latest news', '新闻'],
@@ -87,7 +91,12 @@ WEAK_KEYWORDS: Dict[str, List[str]] = {
     'academic':   ['研究', 'research', '学术', 'citation', '引用', 'journal', '期刊',
                    'proceedings', '论文集', 'experiment', '实验'],
     'opensource': ['repo', '仓库', 'framework', '框架', 'library', '库', 'package',
-                   'crate', 'maven', 'dependency management', '依赖管理'],
+                   'crate', 'maven', 'dependency management', '依赖管理',
+                   # v6.101：市场/插件类弱关键词。'mcp' 放 WEAK 不放 STRONG：
+                   # 「MCP 协议含义」该走 definition，'mcp' 若是强词会把定义类
+                   # 查询拉进 opensource 链
+                   'mcp', 'mcp server', 'smithery', 'skills.sh', '插件', '扩展',
+                   'skill 市场', 'skills 市场', 'marketplace'],
     'community':  ['评价', '怎么看', '体验', '讨论', 'review', 'opinion', '反馈',
                    '论坛', '社区'],
     'docs':       ['api', 'tutorial', 'guide', 'reference', '手册', 'handbook'],
@@ -108,7 +117,9 @@ RULE_PRIORITY: List[str] = [
 REGEX_PATTERNS: Dict[str, List[re.Pattern]] = {
     'academic':   [re.compile(r'arxiv\.org/\S+', re.I), re.compile(r'\b10\.\d{4,}/\S+', re.I)],  # arxiv 链接 / DOI
     'opensource': [re.compile(r'github\.com/\S+', re.I), re.compile(r'npmjs\.com/package/\S+', re.I),
-                   re.compile(r'gitee\.com/\S+', re.I), re.compile(r'modelscope\.cn/\S+', re.I)],
+                   re.compile(r'gitee\.com/\S+', re.I), re.compile(r'modelscope\.cn/\S+', re.I),
+                   # v6.101：市场站链接与 smithery 注册端点
+                   re.compile(r'skills\.sh/\S+', re.I), re.compile(r'smithery\.ai/\S+', re.I)],
     'comparison': [re.compile(r'\b\w+\s+vs\.?\s+\w+', re.I)],
     'news':       [re.compile(r'\b(20\d{2})\s*年', re.I), re.compile(r'\b(20\d{2})-\d{1,2}-\d{1,2}\b')],
 }
