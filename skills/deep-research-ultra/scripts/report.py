@@ -867,12 +867,27 @@ class ReportGenerator:
         vc = getattr(verification, 'verified_claims', None) if verification else None
         rows, verified, single = [], 0, 0
         for c in (vc or []):
+            # ⚠️ **两种 claim 形状**（v6.106 实测出来的真缺陷）：
+            #   · 账本 claim：dict，字段是 `text` + `sources`
+            #   · verify.Claim：对象，字段是 `statement` + `evidence`
+            # 旧代码只认前一种 → research.py 传进来的 VerificationResult
+            # （verify.Claim）**每一条都被判成「单源待确认」、正文还空着**：
+            # 「已交叉验证 / 单源待确认」这个分档（v6.95 加的）等于没生效。
             srcs = getattr(c, 'sources', None)
             if srcs is None and isinstance(c, dict):
                 srcs = c.get('sources')
+            if srcs is None:
+                ev = getattr(c, 'evidence', None)
+                if ev is None and isinstance(c, dict):
+                    ev = c.get('evidence')
+                srcs = ev or []
             txt = getattr(c, 'text', None)
             if txt is None and isinstance(c, dict):
                 txt = c.get('text')
+            if txt is None:
+                txt = getattr(c, 'statement', None)
+                if txt is None and isinstance(c, dict):
+                    txt = c.get('statement')
             n = len(srcs or [])
             if n >= 2:
                 verified += 1

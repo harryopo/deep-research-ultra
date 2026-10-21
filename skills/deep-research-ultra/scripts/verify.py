@@ -30,7 +30,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Set
+from typing import Dict, List, Optional, Any, Set, Tuple
 from urllib.parse import urlparse
 
 
@@ -388,10 +388,39 @@ class CrossVerifier:
         # 聚合相似结论（基于关键词重叠）
         claim_groups = self._group_similar_claims(claims)
 
+        # v6.106：**组内先找对立**，并把对立的两条**拆开不合并**。
+        #
+        # 实测（2026-10-21）：6 对现实对立结论（"LangChain 生态好" vs
+        # "LangChain 抽象层笨重、性能差" 等）走 verify() 整条路径报出 **0** 条矛盾 ——
+        # 它们因共享 ≥2 个核心 token 被 group_by_similarity 判为「同一条结论」，
+        # 合并成一条之后对立词检测只剩一条陈述，看不到对立面。
+        # v6.4 已经为**数值**矛盾修过同款缺陷（加第二个检测器），
+        # 但对立词这一支一直没跟上。
+        #
+        # 不合并还有第二个理由：合并会把**相反的证据**挂到其中一条的陈述上，
+        # 于是报告里出现「引了一个说反了的来源」。
+        contradictions = []
+        seen_pairs = set()
+        split_groups = []
+        for group in claim_groups:
+            subgroups, pairs = self._split_contradictory(group)
+            split_groups.extend(subgroups)
+            for a, b, word_a, word_b in pairs:
+                contradictions.append(Contradiction(
+                    claim_a_id=a.id,
+                    claim_b_id=b.id,
+                    claim_a=a.statement,
+                    claim_b=b.statement,
+                    possible_reason=f'可能因"{word_a}"与"{word_b}"的立场差异',
+                    sources_a=list(a.get_sources()),
+                    sources_b=list(b.get_sources()),
+                ))
+                seen_pairs.add((a.id, b.id))
+        claim_groups = split_groups
+
         # 分类
         verified = []
         single_source = []
-        contradictions = []
 
         for group in claim_groups:
             if len(group) == 1:
@@ -417,8 +446,10 @@ class CrossVerifier:
                     merged.confidence = 0.4
                     single_source.append(merged)
 
-        # 检测矛盾点
-        contradictions = self._detect_contradictions(verified + single_source)
+        # 检测矛盾点（跨组的：组内的那批已经在上面抓到了，这里不重复报）
+        for con in self._detect_contradictions(verified + single_source,
+                                               skip_pairs=seen_pairs):
+            contradictions.append(con)
 
         # v6.4 数值矛盾补充：同组内出现差异显著的数值（如 10x vs 2x），
         # 旧启发式只有对立词表，数值矛盾被判为"相似"并入组而未被标注
@@ -507,7 +538,103 @@ class CrossVerifier:
                 merged.add_evidence(ev)
         return merged
 
-    def _detect_contradictions(self, claims: List[Claim]) -> List[Contradiction]:
+    # ------------------------------------------------------------
+    # 对立词表（v6.106：抽成模块级常量，两处判据共用一份）
+    #
+    # 为什么要动它：v6.4 已经修过一次**同款**缺陷（数值矛盾被合组吞掉），
+    # 办法是加第二个检测器 `_detect_numeric_contradictions`。
+    # 但**对立词**这一支仍然看不见组内的对立 —— 实测（2026-10-21）：
+    # 6 对现实对立结论（"LangChain 生态好" vs "LangChain 性能差" 等），
+    # 走 verify() 整条路径报出 **0** 条矛盾：它们因共享 ≥2 个核心 token
+    # 被 group_by_similarity 判为「同一条结论」→ 合并成一条 → 对立词检测
+    # 只剩一条陈述，看不到对立面。
+    OPPOSITE_PAIRS = [
+        ('好', '坏'), ('优', '劣'), ('推荐', '不推荐'), ('适合', '不适合'),
+        ('快', '慢'), ('安全', '不安全'), ('稳定', '不稳定'),
+        ('good', 'bad'), ('recommend', 'not recommend'),
+        ('fast', 'slow'), ('secure', 'insecure'),
+    ]
+
+    @staticmethod
+    def _stance_side(statement: str, word_a: str, word_b: str) -> Optional[str]:
+        """这条陈述站在哪一侧：返回 word_a / word_b / None。
+
+        为什么要按**长词优先**判侧：'不稳定' 里含 '稳定'、'不推荐' 里含 '推荐'。
+        如果只看「含不含 word_a」，一条说「不稳定」的结论会同时算成「稳定」那一侧
+        ——于是「两条都说系统不安全」被判成「一条安全一条不安全」的矛盾（假阳性），
+        而真正的「稳定 vs 不稳定」反倒被这个子串关系挡掉（漏报）。
+        按长词优先：先看更具体的那个（'不稳定'/'不推荐'），没有再看短的。
+        """
+        longer, shorter = (word_a, word_b) if len(word_a) >= len(word_b) else (word_b, word_a)
+        if longer in statement:
+            return longer
+        if shorter in statement:
+            return shorter
+        return None
+
+    @classmethod
+    def _opposite_sides(cls, a: str, b: str, word_a: str, word_b: str) -> bool:
+        """a 与 b 是否站在 word_a / word_b 的两侧（方向不限）。"""
+        sa = cls._stance_side(a, word_a, word_b)
+        sb = cls._stance_side(b, word_a, word_b)
+        if sa is None or sb is None or sa == sb:
+            return False
+        return {sa, sb} == {word_a, word_b}
+
+    @classmethod
+    def _split_contradictory(cls, claims: List[Claim]) -> Tuple[List[List[Claim]],
+                                                                 List[Tuple[Claim, Claim, str, str]]]:
+        """把一组相似结论按**立场**拆开，并找出对立的那几对。
+
+        「相似」回答的是**同主体**（「都在说 LangChain」），
+        「对立」回答的是**同主体但方向相反**（一个说好、一个说差）。
+        旧实现把这两个问题混在一个相似度门里：
+        组内（同主体）的对立结论被合并 → 矛盾检测看不见。
+
+        返回 (拆开后的子组, 对立对列表)。对立对里的两条**不合并** ——
+        合并会把相反的证据挂到其中一条的陈述上，于是报告里出现
+        「引了一个说反了的来源」。
+        """
+        if len(claims) < 2:
+            return [claims], []
+        pairs: List[Tuple[Claim, Claim, str, str]] = []
+        used = set()
+        for i, a in enumerate(claims):
+            if id(a) in used:
+                continue
+            for j in range(i + 1, len(claims)):
+                b = claims[j]
+                if id(b) in used:
+                    continue
+                hit = None
+                for word_a, word_b in cls.OPPOSITE_PAIRS:
+                    if cls._opposite_sides(a.statement, b.statement, word_a, word_b):
+                        hit = (word_a, word_b)
+                        break
+                if hit:
+                    pairs.append((a, b, hit[0], hit[1]))
+                    used.add(id(a))
+                    used.add(id(b))
+                    break
+        if not pairs:
+            return [claims], []
+        # 拆成「对立的两条各自一组」+「其余仍是一组」
+        groups: List[List[Claim]] = []
+        paired = set()
+        for a, b, _wa, _wb in pairs:
+            paired.add(id(a))
+            paired.add(id(b))
+        for a, b, _wa, _wb in pairs:
+            groups.append([a])
+            groups.append([b])
+        rest = [c for c in claims if id(c) not in paired]
+        if rest:
+            groups.append(rest)
+        return groups, pairs
+
+    def _detect_contradictions(self, claims: List[Claim],
+                               skip_pairs: Optional[Set[Tuple[str, str]]] = None
+                               ) -> List[Contradiction]:
         """
         检测矛盾点
 
@@ -515,24 +642,26 @@ class CrossVerifier:
         - 包含对立词汇（好/坏、优/劣、推荐/不推荐）
         - 数值差异大（如性能数据）
         - 实际矛盾检测由 Claude LLM 完成
+
+        v6.106：`skip_pairs` 是**组内**已经抓到的那几对（verify() 先拆组再判），
+        这里不重复报；`OPPOSITE_PAIRS` 提到类级，两处判据共用一份。
         """
         contradictions = []
+        skip = skip_pairs or set()
 
         # 对立词汇对
-        opposite_pairs = [
-            ('好', '坏'), ('优', '劣'), ('推荐', '不推荐'), ('适合', '不适合'),
-            ('快', '慢'), ('安全', '不安全'), ('稳定', '不稳定'),
-            ('good', 'bad'), ('recommend', 'not recommend'),
-            ('fast', 'slow'), ('secure', 'insecure'),
-        ]
+        opposite_pairs = self.OPPOSITE_PAIRS
 
         for i in range(len(claims)):
             for j in range(i + 1, len(claims)):
                 claim_a = claims[i]
                 claim_b = claims[j]
+                if (claim_a.id, claim_b.id) in skip:
+                    continue
                 # 检查是否包含对立词汇
                 for word_a, word_b in opposite_pairs:
-                    if word_a in claim_a.statement and word_b in claim_b.statement:
+                    if self._opposite_sides(claim_a.statement, claim_b.statement,
+                                           word_a, word_b):
                         # 进一步检查是否讨论相同主题
                         if self._are_claims_similar(claim_a, claim_b, threshold=0.3):
                             contradictions.append(Contradiction(

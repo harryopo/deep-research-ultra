@@ -50,6 +50,7 @@ v6.95 第一次跑就红：`dr-024` 期望「超过 max_entries 时 evicted_lru 
 from __future__ import annotations
 
 import json
+import re
 import sys
 import tempfile
 import traceback
@@ -1067,6 +1068,231 @@ def _d042_query_provenance():
     return ok, detail
 
 
+# ---------------------------------------------------------------- dr-026
+def _d026_static_availability():
+    """MCP 可用性检测是**静态**的：配置 / 命令 / 环境变量三样齐了才算可用。"""
+    import sys as _sys
+    from engines.mcp_client import McpClient
+
+    missing = McpClient('__eval_no_config__')
+    missing._config = None
+    a = missing.is_available() is False
+
+    bad_cmd = McpClient('__eval_bad_cmd__')
+    bad_cmd._config = {'command': 'definitely-not-a-real-binary-xyz',
+                        'args': [], 'env': {}}
+    b = bad_cmd.is_available() is False
+
+    ok_cfg = McpClient('__eval_ok__')
+    ok_cfg._config = {'command': _sys.executable, 'args': ['-c', 'pass'],
+                      'env': {}}
+    c = ok_cfg.is_available() is True
+
+    ok = a and b and c
+    return ok, ("未配置→False=%s；命令不存在→False=%s；配置齐全→True=%s"
+                % (a, b, c))
+
+
+def _d026_no_subprocess():
+    """「不实际启动 MCP 子进程（只做静态检查）」——这条必须真的验。"""
+    import subprocess
+    import sys as _sys
+    from engines.mcp_client import McpClient
+
+    def _boom(*a, **kw):
+        raise AssertionError("is_available() 起了子进程 —— 它应该是静态检查")
+
+    orig = subprocess.Popen
+    subprocess.Popen = _boom
+    try:
+        c = McpClient('__eval_static__')
+        c._config = {'command': _sys.executable, 'args': ['-c', 'pass'],
+                     'env': {}}
+        val = c.is_available()
+    finally:
+        subprocess.Popen = orig
+    return val is True, "is_available() 返回 %r 且没起子进程" % (val,)
+
+
+# ---------------------------------------------------------------- dr-027
+def _d027_eta_shape():
+    """get_eta() 返回 elapsed_seconds / remaining_seconds / progress_percent。"""
+    from progress import ProgressTracker
+    eta = ProgressTracker(depth='standard').get_eta()
+    keys = ('elapsed_seconds', 'remaining_seconds', 'progress_percent')
+    missing = [k for k in keys if k not in eta]
+    return not missing, ("get_eta() 键 %s%s" % (list(eta),
+                                                ("；缺 %s" % missing) if missing else ""))
+
+
+def _d027_duration_format():
+    """elapsed_formatted 的**实际**格式被钉住。
+
+    ⚠️ 规格（dr-027）写的是 'MM:SS' / 'HH:MM:SS'，**实现是 '2m5s' / '1h2m'**
+    （人写的短格式）。规格与实现不一致 —— 判断留给人（见 PARTIAL_NOTES），
+    这里钉的是**实现当前的行为**，这样哪天有人改了格式会当场变红。
+    """
+    from progress import ProgressTracker
+    fmt = ProgressTracker._format_duration
+    mmss = fmt(125) == '2m5s'
+    hhmm = fmt(3725) == '1h2m'
+    sub = fmt(59) == '59s'
+    ok = mmss and hhmm and sub
+    return ok, ("125s→%r；3725s→%r；59s→%r（规格写 MM:SS，实现是短格式 —— 见 PARTIAL_NOTES）"
+                % (fmt(125), fmt(3725), fmt(59)))
+
+
+def _d027_six_dimensions():
+    """QualityAssessor.assess() 返回六维评分。"""
+    from progress import QualityAssessor
+    out = QualityAssessor().assess(plan=None, results=[], verification=None,
+                                    reflections=None)
+    scores = out.get('scores') or {}
+    want = {'coverage', 'verification', 'contradiction_resolution',
+            'source_diversity', 'result_quality', 'depth_sufficiency'}
+    got = set(scores)
+    ok = want <= got
+    return ok, ("六维 %s%s" % (sorted(got),
+                              ("；缺 %s" % sorted(want - got)) if not ok else ""))
+
+
+# ---------------------------------------------------------------- dr-014
+def _mk_claim(cid, statement, sources):
+    """造一条 claim：sources = [(url, domain, title), ...]"""
+    from verify import Claim, Evidence
+    c = Claim(id=cid, statement=statement)
+    for url, domain, title in sources:
+        c.add_evidence(Evidence(source_url=url, source_domain=domain,
+                                source_title=title))
+    return c
+
+
+def _d014_two_independent_sources():
+    """同一结论 ≥2 独立来源 → verified；只有 1 个 → single_source。"""
+    from verify import CrossVerifier
+    v = CrossVerifier()
+    same = 'DeepResearch 框架的检索质量在公开评测里最高'
+    two = v.verify([], claims=[
+        _mk_claim('c1', same, [('https://a.example/p', 'a.example', '评测 A')]),
+        _mk_claim('c2', same, [('https://b.example/p', 'b.example', '评测 B')]),
+    ])
+    one = v.verify([], claims=[
+        _mk_claim('c3', same, [('https://a.example/p', 'a.example', '评测 A')]),
+    ])
+    ok = (len(two.verified_claims) == 1 and
+          len(one.verified_claims) == 0 and
+          len(one.single_source_claims) == 1)
+    return ok, ("2 源→verified %d 条；1 源→verified %d 条、single_source %d 条"
+                % (len(two.verified_claims), len(one.verified_claims),
+                   len(one.single_source_claims)))
+
+
+def _d014_single_source_marked():
+    """单源结论在报告里标成「单源待确认」（不是当结论用）。
+
+    ⚠️ 这里用**真实的 verify.Claim**（字段是 statement + evidence），
+    因为 research.py 传进报告的就是它 —— v6.106 实测：报告的结论章原先
+    只认账本 claim 的 `text` + `sources`，于是 verify.Claim 的正文读成空、
+    来源数读成 0 → 每条都被判成「单源待确认」。
+    """
+    import report as rp
+    from verify import Claim, Evidence, VerificationResult
+    plan, res = _fixture()
+    c = Claim(id='c1', statement='只有单一来源支持的说法')
+    c.add_evidence(Evidence(source_url='https://a.example/p',
+                            source_domain='a.example'))
+    v = VerificationResult(query='q', verified_claims=[c],
+                           single_source_claims=[], contradictions=[],
+                           total_results=1, total_claims=1,
+                           verification_rate=0.0)
+    html = rp.generate_report(plan, res, verification=v, format='html')
+    ok = ('单源待确认' in html and '只有单一来源支持的说法' in html)
+    return ok, ("报告里出现「单源待确认」=%s；结论正文带出来=%s"
+                % ('单源待确认' in html, '只有单一来源支持的说法' in html))
+
+
+def _d014_verified_claim_marked():
+    """≥2 个独立来源的结论 → 报告里标「已交叉验证」（不是单源待确认）。"""
+    import report as rp
+    from verify import Claim, Evidence, VerificationResult
+    plan, res = _fixture()
+    c = Claim(id='c2', statement='有两条独立来源支持的说法')
+    c.add_evidence(Evidence(source_url='https://a.example/p',
+                            source_domain='a.example'))
+    c.add_evidence(Evidence(source_url='https://b.example/p',
+                            source_domain='b.example'))
+    v = VerificationResult(query='q', verified_claims=[c],
+                           single_source_claims=[], contradictions=[],
+                           total_results=2, total_claims=1,
+                           verification_rate=1.0)
+    html = rp.generate_report(plan, res, verification=v, format='html')
+    ok = ('已交叉验证' in html and '有两条独立来源支持的说法' in html)
+    return ok, ("报告里出现「已交叉验证」=%s；结论正文带出来=%s"
+                % ('已交叉验证' in html, '有两条独立来源支持的说法' in html))
+
+
+def _d014_three_categories():
+    """输出分 verified_claims / single_source_claims / contradictions 三类。"""
+    from verify import CrossVerifier
+    r = CrossVerifier().verify([], claims=[
+        _mk_claim('c1', '框架 A 性能好', [('https://a.example/p', 'a.example', 'A')]),
+    ])
+    have = all(hasattr(r, k) for k in
+               ('verified_claims', 'single_source_claims', 'contradictions'))
+    s = r.summary()
+    keys = all(k in s for k in ('verified', 'single_source', 'contradictions'))
+    ok = have and keys
+    return ok, ("三类属性齐全=%s；summary 键 %s" % (have, list(s)))
+
+
+# ---------------------------------------------------------------- dr-029
+def _d029_opposite_pair():
+    """对立词（好/坏）且同主题 → 判为矛盾。"""
+    from verify import CrossVerifier
+    a = _mk_claim('ca', 'DeepResearch 框架性能好，检索质量高',
+                  [('https://a.example/p', 'a.example', 'A')])
+    b = _mk_claim('cb', 'DeepResearch 框架性能坏，检索质量差',
+                  [('https://b.example/p', 'b.example', 'B')])
+    cons = CrossVerifier()._detect_contradictions([a, b])
+    ok = len(cons) == 1
+    return ok, ("对立词对被判矛盾 %d 条" % len(cons))
+
+
+def _d029_contradiction_in_list():
+    """矛盾对进入 contradictions 列表（不是只记在别处）。"""
+    from verify import CrossVerifier
+    r = CrossVerifier().verify([], claims=[
+        _mk_claim('ca', 'DeepResearch 框架性能好，检索质量高',
+                  [('https://a.example/p', 'a.example', 'A')]),
+        _mk_claim('cb', 'DeepResearch 框架性能坏，检索质量差',
+                  [('https://b.example/p', 'b.example', 'B')]),
+    ])
+    ok = len(r.contradictions) == 1
+    return ok, ("verify() 的 contradictions %d 条" % len(r.contradictions))
+
+
+def _d029_contradiction_reason():
+    """矛盾原因要写明是哪一对词造成的。"""
+    from verify import CrossVerifier
+    a = _mk_claim('ca', 'DeepResearch 框架性能好，检索质量高',
+                  [('https://a.example/p', 'a.example', 'A')])
+    b = _mk_claim('cb', 'DeepResearch 框架性能坏，检索质量差',
+                  [('https://b.example/p', 'b.example', 'B')])
+    cons = CrossVerifier()._detect_contradictions([a, b])
+    reason = cons[0].possible_reason if cons else ''
+    ok = bool(cons) and ('好' in reason and '坏' in reason)
+    return ok, "possible_reason=%r" % reason
+
+
+def _d029_report_section():
+    """报告里有显式的矛盾点章节。"""
+    import re as _re
+    h = _html_once()
+    titles = _re.findall(r"<h[12][^>]*>([^<]{1,44})</h[12]>", h)
+    ok = any('矛盾' in t for t in titles)
+    return ok, ("章节标题 %s" % [t for t in titles if '矛盾' in t] or '无矛盾章节')
+
+
 CHECKS = {
     "dr-024": [
         ("TTL 过期条目被自动清理（evicted_ttl+1）", _d024_ttl),
@@ -1166,6 +1392,33 @@ CHECKS = {
         ("全灭时停止调研并引导修环境（退出码非 0）",
          _d040_all_failed_stops),
     ],
+    "dr-026": [
+        ("未配置环境变量时返回 False；命令不存在时返回 False；配置完整时返回 True",
+         _d026_static_availability),
+        ("只做静态检查，不实际启动 MCP 子进程", _d026_no_subprocess),
+    ],
+    "dr-027": [
+        ("get_eta() 返回 elapsed_seconds/remaining_seconds/progress_percent",
+         _d027_eta_shape),
+        ("elapsed_formatted 格式为 'MM:SS' 或 'HH:MM:SS'",
+         _d027_duration_format),
+        ("QualityAssessor.assess() 返回六维评分", _d027_six_dimensions),
+    ],
+    "dr-014": [
+        ("同一结论需 ≥2 独立来源支持（单源不进 verified）",
+         _d014_two_independent_sources),
+        ("单源结论标注为「单源待确认」", _d014_single_source_marked),
+        ("≥2 独立来源的结论标注为「已交叉验证」（不是单源待确认）",
+         _d014_verified_claim_marked),
+        ("输出 verified_claims / single_source_claims / contradictions 三类",
+         _d014_three_categories),
+    ],
+    "dr-029": [
+        ("_detect_contradictions 识别 opposite_pairs", _d029_opposite_pair),
+        ("矛盾对加入 contradictions 列表", _d029_contradiction_in_list),
+        ("矛盾原因标注（写明是哪一对词）", _d029_contradiction_reason),
+        ("报告中显式标注矛盾章节", _d029_report_section),
+    ],
 }
 
 
@@ -1180,6 +1433,17 @@ PARTIAL_NOTES = {
         ("第二次搜索「响应时间显著缩短」",
          "耗时是环境相关的连续量，「显著」没有可机械判定的阈值 —— "
          "判它要么给一个武断的毫秒数，要么在噪声里赌输赢"),
+    ],
+    "dr-027": [
+        ("进度百分比 = 已完成子问题 / 总子问题",
+         "**规格与实现不一致**：progress.py 的 progress_percent 是按**耗时**算的"
+         "（elapsed / estimated_duration），不是按子问题完成数。"
+         "两个口径哪个该当契约，是人的判断 —— 工具里两个数都有"
+         "（summary() 的 completed_steps/total_steps 与 eta.progress_percent）"),
+        ("elapsed_formatted 格式为 'MM:SS' 或 'HH:MM:SS'",
+         "**规格与实现不一致**：实现是 '2m5s' / '1h2m'（人写的短格式），"
+         "不是 'MM:SS' / 'HH:MM:SS'。实现的实际格式已被判据钉住，"
+         "但「规格要不要改成实现」或「实现要不要改成规格」得人定"),
     ],
     "dr-036": [
         ("quick 级「跳过专家团、单 Agent 串行」",
