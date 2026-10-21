@@ -1,0 +1,25 @@
+# 行尾统一：仓库内一律 LF（检出也是 LF）。
+#
+# 为什么要有它（2026-10-21 实测）：本仓库的 core.autocrlf=true，
+# 259 个跟踪文件里工作区**混着两种行尾**（89 个 CRLF / 170 个 LF），
+# 每次提交都刷 `LF will be replaced by CRLF` 警告，
+# 而哪天在 CRLF 文件上改一行，整行的行尾差异会混进 diff —— 改内容还是改行尾，
+# 读的人分不出来。**内容与行尾混在一个 diff 里，review 就失效了。**
+#
+# `text=auto eol=lf`：入库前统一成 LF（git 已在做），检出时也写 LF，
+# 不再让 Windows 的 autocrlf 把工作区改成 CRLF。
+# 代价：下一次 checkout 会把那 89 个 CRLF 文件在工作区重写成 LF ——
+# **内容不变，git status 不会脏**（clean filter 把 CRLF 归一成 LF 再比对）。
+* text=auto eol=lf
+
+# 二进制：一律不参与行尾/文本转换（仓库当前没有跟踪的二进制文件，
+# 写上是为了以后加图片或包时不至于被 git 改坏）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
