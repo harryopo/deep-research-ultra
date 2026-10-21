@@ -823,6 +823,177 @@ def _d041_interleave():
                                 "B=smithery 的模型）" % tags)
 
 
+# ---------------------------------------------------------------- dr-040
+# 「拒绝假可用」是本项目的核心承诺，一直只有散文期望（未纳入机械判定）。
+# 这一版把它变成**可离线复算**的判据：全部用假引擎驱动真实的
+# research.cmd_probe / probe.probe_engine —— 不发网络、不依赖当天上游状态。
+def _d040_fake_engine(name, behaviour, caps=('search',), requires_config=False,
+                      config_keys=()):
+    """假引擎：行为决定探针判定（ok/empty/none/raise），全程不发网络。"""
+    from engines.base import EngineMetadata, SearchEngine, SearchResult
+
+    class _E(SearchEngine):
+        @property
+        def metadata(self):
+            return EngineMetadata(name=name, layer=2, description='假引擎',
+                                  requires_config=requires_config,
+                                  config_keys=list(config_keys),
+                                  capabilities=list(caps))
+
+        def is_available(self):
+            return True
+
+        def search(self, query, max_results=10, **kw):
+            if behaviour == 'ok':
+                return [SearchResult(title='T1', url='https://example.com/1',
+                                     content='c', source=name, engine=name)]
+            if behaviour == 'empty':
+                return []
+            if behaviour == 'none':
+                return None
+            if behaviour == 'raise':
+                raise RuntimeError('模拟上游 HTTP 406 Not Acceptable')
+            return []
+
+    return _E()
+
+
+class _d040_registry:
+    """只提供 cmd_probe 用到的那一个方法。"""
+
+    def __init__(self, engines):
+        self._engines = list(engines)
+
+    def get_all(self):
+        return list(self._engines)
+
+
+def _d040_run_probe(engines):
+    """跑一次真实的 research.cmd_probe（假引擎），返回 (stdout, stderr, SystemExit)。"""
+    import io
+    from contextlib import redirect_stderr, redirect_stdout
+    from types import SimpleNamespace
+    import research
+    args = SimpleNamespace(sources=','.join(e.get_name() for e in engines),
+                            theme_query=None, probe_query='探针测试词',
+                            limit=3, probe_gap=0, allow_degraded=True)
+    out, err = io.StringIO(), io.StringIO()
+    exc = None
+    with redirect_stdout(out), redirect_stderr(err):
+        try:
+            research.cmd_probe(_d040_registry(engines), args)
+        except SystemExit as e:
+            exc = e
+    return out.getvalue(), err.getvalue(), exc
+
+
+def _d040_four_levels():
+    """四级判定：✅ 功能正常 / ⚠️ 0 结果 / ❌ 不可用 / ⏭ 跳过。"""
+    engines = [
+        _d040_fake_engine('fake-ok', 'ok'),
+        _d040_fake_engine('fake-empty', 'empty'),
+        _d040_fake_engine('fake-fail', 'raise'),
+        _d040_fake_engine('fake-lookup', 'none', caps=('lookup',)),
+    ]
+    out, _err, _exc = _d040_run_probe(engines)
+    marks = ('✅ fake-ok' in out and '⚠️ fake-empty' in out and
+             '❌ fake-fail' in out and '⏭  fake-lookup' in out)
+    summary = ('功能正常 1' in out and '0 结果 1' in out and
+               '不可用 1' in out and '跳过 1' in out)
+    ok = marks and summary
+    lines = [ln for ln in out.splitlines() if 'fake-' in ln]
+    return ok, ("四行判定=%s 汇总行=%s；实际输出：%s"
+                % (marks, summary, ' | '.join(lines)))
+
+
+def _d040_list_is_config_only():
+    """--list 的 ✅ 只代表「配置就绪」，功能可用性只由 --probe 判。"""
+    import io
+    from contextlib import redirect_stdout
+    import research
+    from engines.base import EngineRegistry
+    reg = research.build_registry()
+    orig = EngineRegistry.get_available
+    EngineRegistry.get_available = lambda self: []      # 不发网络
+    try:
+        out = io.StringIO()
+        with redirect_stdout(out):
+            research.cmd_list(reg)
+        text = out.getvalue()
+    finally:
+        EngineRegistry.get_available = orig
+    ok = ('配置就绪' in text and '--probe' in text and
+          '功能正常' not in text and '不可用' not in text)
+    return ok, ("--list 说了「配置就绪」=%s 指向 --probe=%s；"
+                "混进了 probe 的判定词（功能正常/不可用）=%s"
+                % ('配置就绪' in text, '--probe' in text,
+                   '功能正常' in text or '不可用' in text))
+
+
+def _d040_config_gated_sources():
+    """Gitee 没配 token 就不进配置就绪集合；ModelScope 只按精确 model id 取卡。"""
+    import os
+    import research
+    from engines.base import missing_required_config
+    reg = research.build_registry()
+    saved = os.environ.pop('GITEE_TOKEN', None)
+    try:
+        configured = {e.get_name() for e in reg.get_configured()}
+        gitee = reg.get('gitee')
+        ms = reg.get('modelscope')
+        missing = missing_required_config(gitee.metadata)
+        ok = ('gitee' not in configured and 'GITEE_TOKEN' in missing and
+              'search' not in ms.get_capabilities() and
+              'lookup' in ms.get_capabilities())
+    finally:
+        if saved is not None:
+            os.environ['GITEE_TOKEN'] = saved
+    return ok, ("无 token 时 gitee 在配置就绪集合里=%s（缺项 %s）；"
+                "modelscope 能力=%s（无 search ⇒ 只能按精确 model id 取卡）"
+                % ('gitee' in configured, missing, ms.get_capabilities()))
+
+
+def _d040_empty_vs_no_data():
+    """「无结果」（[]）与「无数据」（None）是两种状态，不能混写。"""
+    import probe
+    c_none = probe.classify_probe(None)
+    c_empty = probe.classify_probe([])
+    engines = [_d040_fake_engine('fake-empty', 'empty'),
+               _d040_fake_engine('fake-none', 'none')]
+    out, _err, _exc = _d040_run_probe(engines)
+    ok = (c_none == probe.STATUS_FAILED and c_empty == probe.STATUS_EMPTY and
+          '可调通但 0 结果' in out and '引擎返回 None' in out)
+    return ok, ("classify_probe(None)=%s classify_probe([])=%s；"
+                "回执里「0 结果」与「返回 None」分别出现=%s"
+                % (c_none, c_empty,
+                   ('可调通但 0 结果' in out) and ('引擎返回 None' in out)))
+
+
+def _d040_failure_reports_reason():
+    """不可用时要报具体原因，并给出改用哪条替代通道。"""
+    import probe
+    eng = _d040_fake_engine('fake-406', 'raise')
+    out, _err, _exc = _d040_run_probe([eng])
+    rep = probe.probe_engine(eng, query='探针测试词', max_results=3)
+    gate = probe.source_gate([rep])
+    advice = '；'.join(gate['guidance'])
+    ok = ('406' in out and rep['status'] == probe.STATUS_FAILED and
+          'fake-406' not in gate['available'] and '替代源' in advice)
+    return ok, ("note=%r；不可用源在闸门 available 里=%s；建议含「替代源」=%s"
+                % (rep.get('note'), 'fake-406' in gate['available'],
+                   '替代源' in advice))
+
+
+def _d040_all_failed_stops():
+    """全灭时停下来引导修环境（退出码非 0），而不是照跑。"""
+    engines = [_d040_fake_engine('fake-f1', 'raise'),
+               _d040_fake_engine('fake-f2', 'none')]
+    _out, err, exc = _d040_run_probe(engines)
+    ok = (exc is not None and exc.code == 1 and '不要开始调研' in err)
+    return ok, ("退出码=%s；stderr 说了「不要开始调研」=%s"
+                % (exc.code if exc else None, '不要开始调研' in err))
+
+
 # ---------------------------------------------------------------- dr-042
 def _d042_ascii_norm():
     """中文词元剔除、ASCII 词元保留（纯函数，可离线复算）。"""
@@ -980,6 +1151,20 @@ CHECKS = {
          _d042_subquery_shape),
         ("结果记录实际发出的查询词与语言标记，正文写明查询词被规范化",
          _d042_query_provenance),
+    ],
+    "dr-040": [
+        ("按 ✅/⚠️/❌/⏭ 四级判定引擎真实可用性（功能自检）",
+         _d040_four_levels),
+        ("不把 --list / --route 的 ✅ 当作功能可用（那只代表配置就绪）",
+         _d040_list_is_config_only),
+        ("Gitee 未配 token 不进配置就绪集合；ModelScope 无 search 能力"
+         "（只能按精确 model id 取卡）", _d040_config_gated_sources),
+        ("「无结果」（[]）与「无数据」（None）在判定与回执里分开",
+         _d040_empty_vs_no_data),
+        ("引擎不可用时报告具体原因并给出替代通道建议",
+         _d040_failure_reports_reason),
+        ("全灭时停止调研并引导修环境（退出码非 0）",
+         _d040_all_failed_stops),
     ],
 }
 
