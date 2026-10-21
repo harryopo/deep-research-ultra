@@ -232,6 +232,10 @@ PROVENANCE = {
     # 数字（13/13 条评测、57/57 项期望）由同一个评测器复算 —— 秒级、全离线，
     # 所以进 PROVENANCE（与 v6.95/v6.96 同一模式）。
     "v6.103.0": [SCRIPTS / "evals" / "run_evals.py"],
+    # v6.104 的数字是跨语言判定的实测（unrated 100% / AUC 0.500 / 四种候选修法
+    # 在三套量法上的 precision/recall），复算入口是 analysis/crosslang.py ——
+    # 秒级、全离线、结果确定，所以进 PROVENANCE。
+    "v6.104.0": [SCRIPTS / "analysis" / "crosslang.py"],
 }
 
 # 豁免：同样是实测数字，但**不需要**分析脚本 —— 必须在代码里写清理由，

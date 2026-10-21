@@ -109,7 +109,18 @@ def test_release_notes_agrees_with_the_shipped_versions():
     real = [z for z in zips if '.bak.' not in z.name]
     if not real:
         return
-    zp = real[-1]
+    # **按打包时间选「最新的包」，不按文件名排序。**
+    #
+    # 第一版用 `real[-1]`（`sorted()` 的字母序最后一个）——于是「最新的包」
+    # 实际上是**文件名字母序最大**的那个：'v7.4.0' > 'v7.12.1'（'4' > '1'）！
+    # 平时没露馅，只因为 dist/ 里恰好还躺着 v7.5.0+ 的 candidate，
+    # 它们按字母序排在 v7.4.0 后面，于是"碰巧"选中了最新的那个。
+    # 2026-10-21 清理 dist/ 里的旧 candidate 之后，它改指 v7.4.0
+    # （内核 6.85.0），而 release-notes 写的是 6.88.0 → **假红**。
+    #
+    # 这条测试的语义是「release-notes 描述的是**已经打好的那个包**」，
+    # 所以判据是**打包时间**（mtime），不是文件名字母序。
+    zp = max(real, key=lambda z: z.stat().st_mtime)
 
     txt = rn.read_text(encoding='utf-8')
     m = re.search(r'内核 ([\d.]+) / 插件壳 ([\d.]+)', txt)
