@@ -57,6 +57,7 @@ dr-031（Skill 调用模板：五字段、instruction 含平台与查询词、�
 - 新增 `scripts/analysis/mece.py`：10 个关键数字可复算（`--check` 进过程门）；
 - 新增 `tests/test_v6107_mece_scores_and_plan_load.py` 6 项；
 - 全量 1501 过 / 0 挂 / 2 跳（收集 1503）。
+提交 `4707824`。
 
 **这一轮最值得记的教训**：这三个缺陷的共同点是**「测试只断言了一半」** ——
 `loaded.topic` 断言了，`loaded` 能不能遍历没断言；
