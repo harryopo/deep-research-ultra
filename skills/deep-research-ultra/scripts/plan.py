@@ -227,10 +227,28 @@ class ResearchPlan:
         return cls.from_dict(data)
 
     @classmethod
+    def _subquestion_from_dict(cls, q: Any) -> Any:
+        """递归还原子问题（**children 也要还原**）。
+
+        v6.107 实测的缺陷：旧的 `from_dict` 只还原**顶层**，
+        于是读回来的计划里 `children` 仍然是 **dict** ——
+        任何遍历（`get_all_questions` / `get_leaf_questions` /
+        `validate_mece` / `to_mermaid`）都会 `AttributeError:
+        'dict' object has no attribute 'children'`。
+        旧测试只断言 `loaded.topic`，没碰树，所以一直没露头。
+        """
+        if not isinstance(q, dict):
+            return q
+        data = dict(q)
+        data['children'] = [cls._subquestion_from_dict(c)
+                            for c in (data.get('children') or [])]
+        return SubQuestion(**data)
+
+    @classmethod
     def from_dict(cls, data: Dict) -> 'ResearchPlan':
         """从字典构建"""
         tree_data = data.get('issue_tree', [])
-        issue_tree = [SubQuestion(**q) if isinstance(q, dict) else q for q in tree_data]
+        issue_tree = [cls._subquestion_from_dict(q) for q in tree_data]
         return cls(
             topic=data.get('topic', ''),
             goal=data.get('goal', ''),
@@ -372,8 +390,38 @@ class IssueTree:
             issues.append(f"{len(no_sources)} 个叶子子问题未匹配数据源")
 
         # 计算 MECE 分数
+        # v6.107：**两个分数之前都是「写死的/名不副实」的** ——
+        #   ① overlap_score 恒为 0.0，也就是它**永远**说「无重叠」，
+        #      而同一个输出里的 issues 却在报真实重叠
+        #      （实测：issues 写着「'性能对比' 和 '性能基准' 关键词重叠: {'性能','吞吐'}」，
+        #      overlap_score 同时是 0.00）—— **同一份输出自相矛盾**；
+        #   ② coverage_score 说是「覆盖度」，算的却是「叶子有没有假设」，
+        #      而 suggestions 说的又是另一件事（子问题数量 3-7）。
+        #      规格（dr-023）写的是「覆盖不全时 coverage_score < 1.0 并给出 suggestions」
+        #      —— 现在这两者**互不相干**。
+        # 现在两个分数各归各的：overlap 按**实际关键词重叠**算（同父节点下
+        # 任意两子问题的 Jaccard，取全树最大的一对）；coverage 按
+        # **suggestions 说的那件事**算（子问题数量落在 3-7 的父节点占比）。
         overlap_score = 0.0
-        coverage_score = 1.0 if all_questions and all(q.hypothesis for q in all_questions if q.is_leaf()) else 0.7
+        for q in all_questions:
+            if not q.children:
+                continue
+            kws = [set(c.keywords) for c in q.children if c.keywords]
+            for i in range(len(kws)):
+                for j in range(i + 1, len(kws)):
+                    union = kws[i] | kws[j]
+                    if not union:
+                        continue
+                    jac = len(kws[i] & kws[j]) / len(union)
+                    if jac > overlap_score:
+                        overlap_score = jac
+
+        parents = [q for q in all_questions if q.children]
+        if parents:
+            in_band = sum(1 for q in parents if 3 <= len(q.children) <= 7)
+            coverage_score = in_band / len(parents)
+        else:
+            coverage_score = 1.0
 
         is_mece = len(issues) == 0
 

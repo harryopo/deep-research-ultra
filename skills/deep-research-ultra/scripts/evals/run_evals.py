@@ -1293,6 +1293,165 @@ def _d029_report_section():
     return ok, ("章节标题 %s" % [t for t in titles if '矛盾' in t] or '无矛盾章节')
 
 
+# ---------------------------------------------------------------- dr-012
+def _d012_tree_structure():
+    """问题树支持 ≥2 层，且深度/父子关系被记对。"""
+    from plan import IssueTree
+    t = IssueTree()
+    root = t.add_root('向量数据库选型', hypothesis='H0', data_sources=['arxiv'])
+    mid = t.add_child(root, '性能维度', hypothesis='H1', data_sources=['arxiv'])
+    leaf = t.add_child(mid, '吞吐与延迟', hypothesis='H2', data_sources=['github'])
+    v = t.validate_mece()
+    ok = (leaf.depth == 2 and mid.parent_id == root.id
+          and leaf.parent_id == mid.id and v['max_depth'] == 2)
+    return ok, ("root=%d mid=%d leaf=%d；validate_mece.max_depth=%s"
+                % (root.depth, mid.depth, leaf.depth, v['max_depth']))
+
+
+def _d012_hypothesis_and_sources():
+    """每个子问题可带可验证假设与数据源；缺的会被 issues 点名。"""
+    from plan import IssueTree
+    t = IssueTree()
+    root = t.add_root('根', hypothesis='H0', data_sources=['arxiv'])
+    t.add_child(root, '有假设有源', hypothesis='H1', data_sources=['github'])
+    t.add_child(root, '没假设没源')
+    v = t.validate_mece()
+    joined = ' '.join(v['issues'])
+    ok = '缺少可验证假设' in joined and '未匹配数据源' in joined
+    return ok, ("issues=%s" % v['issues'])
+
+
+def _d012_data_source_matching():
+    """数据源匹配：按问题里的词匹配到对应引擎。"""
+    from plan import DataSourceMatcher
+    got = DataSourceMatcher.match('对比向量数据库的开源实现', ['向量数据库'])
+    ok = bool(got) and 'oss-finder' in got
+    return ok, "match(向量数据库) → %s" % got
+
+
+def _d012_plan_json_roundtrip():
+    """计划能存成 JSON 再读回来（research_plan.json 那个契约）。"""
+    import tempfile
+    from plan import IssueTree, ResearchPlan
+    t = IssueTree()
+    root = t.add_root('主题', hypothesis='H0', data_sources=['arxiv'])
+    t.add_child(root, '子问题', hypothesis='H1', data_sources=['github'])
+    p = ResearchPlan(topic='主题', issue_tree=[root])
+    with tempfile.TemporaryDirectory() as d:
+        path = str(Path(d) / 'research_plan.json')
+        p.save(path)
+        back = ResearchPlan.load(path)
+    ok = (back.topic == '主题' and
+          len(back.get_all_questions()) == len(p.get_all_questions()))
+    return ok, ("存回读：topic=%r，节点 %d → %d"
+                % (back.topic, len(p.get_all_questions()),
+                   len(back.get_all_questions())))
+
+
+# ---------------------------------------------------------------- dr-023
+def _d023_three_fields():
+    """MECE 校验返回 is_mece / overlap_score / coverage_score 三个核心字段。"""
+    from plan import IssueTree
+    v = IssueTree().validate_mece()
+    keys = ('is_mece', 'overlap_score', 'coverage_score')
+    missing = [k for k in keys if k not in v]
+    return not missing, ("键 %s%s" % (list(v), ("；缺 %s" % missing) if missing else ""))
+
+
+def _d023_overlap_detected():
+    """关键词重叠 → overlap_score > 0 且 issues 点名（v6.107 之前 overlap 恒为 0）。"""
+    from plan import IssueTree
+    t = IssueTree()
+    root = t.add_root('根', hypothesis='H0', data_sources=['arxiv'])
+    t.add_child(root, '性能对比', hypothesis='H1', data_sources=['arxiv'],
+                keywords=['性能', '吞吐', '延迟'])
+    t.add_child(root, '性能基准', hypothesis='H2', data_sources=['arxiv'],
+                keywords=['性能', '吞吐', 'qps'])
+    v = t.validate_mece()
+    ok = (v['overlap_score'] > 0 and v['overlap_score'] < 1.0
+          and any('关键词重叠' in i for i in v['issues']))
+    return ok, ("overlap_score=%.3f；issues=%s" % (v['overlap_score'], v['issues']))
+
+
+def _d023_coverage_and_suggestions():
+    """覆盖不全 → coverage_score < 1.0 **且**给出 suggestions（两者必须是同一件事）。"""
+    from plan import IssueTree
+    t = IssueTree()
+    root = t.add_root('根', hypothesis='H0', data_sources=['arxiv'])
+    t.add_child(root, '甲', hypothesis='H1', data_sources=['arxiv'],
+                keywords=['a', 'b', 'c'])
+    t.add_child(root, '乙', hypothesis='H2', data_sources=['arxiv'],
+                keywords=['d', 'e', 'f'])
+    v = t.validate_mece()
+    ok = v['coverage_score'] < 1.0 and bool(v['suggestions'])
+    return ok, ("coverage_score=%.3f；suggestions=%s"
+                % (v['coverage_score'], v['suggestions']))
+
+
+def _d023_clean_tree_scores():
+    """干净的树 → overlap 0、coverage 1、is_mece True（三者互不矛盾）。"""
+    from plan import IssueTree
+    t = IssueTree()
+    root = t.add_root('根', hypothesis='H0', data_sources=['arxiv'])
+    for i, kw in enumerate([['a', 'b', 'c'], ['d', 'e', 'f'], ['g', 'h', 'i']]):
+        t.add_child(root, '子%d' % i, hypothesis='H%d' % i,
+                    data_sources=['github'], keywords=kw)
+    v = t.validate_mece()
+    ok = (v['overlap_score'] == 0.0 and v['coverage_score'] == 1.0
+          and v['is_mece'] is True and not v['issues'] and not v['suggestions'])
+    return ok, ("overlap=%.2f coverage=%.2f is_mece=%s issues=%d suggestions=%d"
+                % (v['overlap_score'], v['coverage_score'], v['is_mece'],
+                   len(v['issues']), len(v['suggestions'])))
+
+
+def _d023_missing_hypothesis_is_issue():
+    """没有假设的叶子子问题被标进 issues。"""
+    from plan import IssueTree
+    t = IssueTree()
+    root = t.add_root('根', hypothesis='H0', data_sources=['arxiv'])
+    t.add_child(root, '有假设', hypothesis='H1', data_sources=['github'])
+    t.add_child(root, '没假设')
+    v = t.validate_mece()
+    ok = any('缺少可验证假设' in i for i in v['issues'])
+    return ok, ("issues=%s" % v['issues'])
+
+
+# ---------------------------------------------------------------- dr-031
+def _d031_template_fields():
+    """调用模板返回五字段。"""
+    from engines.skill_engines import AgentReachEngine
+    tpl = AgentReachEngine().get_invocation_template(query='深度调研', platform='reddit')
+    keys = ('skill_name', 'trigger_keywords', 'instruction', 'expected_output',
+            'post_process')
+    missing = [k for k in keys if k not in tpl]
+    return not missing, ("字段 %s%s" % (list(tpl), ("；缺 %s" % missing) if missing else ""))
+
+
+def _d031_instruction_content():
+    """instruction 里有平台与查询词。"""
+    from engines.skill_engines import AgentReachEngine
+    tpl = AgentReachEngine().get_invocation_template(query='深度调研', platform='reddit')
+    ins = tpl['instruction']
+    ok = 'reddit' in ins and '深度调研' in ins
+    return ok, ("instruction 含平台与查询词=%s" % ok)
+
+
+def _d031_trigger_keywords():
+    """trigger_keywords 含 'research'/'搜索' 这类触发词。"""
+    from engines.skill_engines import AgentReachEngine
+    kws = AgentReachEngine().get_invocation_template()['trigger_keywords']
+    ok = 'research' in kws and '搜索' in kws
+    return ok, "trigger_keywords=%s" % kws
+
+
+def _d031_post_process():
+    """post_process 指示把结果转成 SearchResult。"""
+    from engines.skill_engines import AgentReachEngine
+    pp = AgentReachEngine().get_invocation_template()['post_process']
+    ok = 'SearchResult' in pp
+    return ok, "post_process=%r" % pp
+
+
 CHECKS = {
     "dr-024": [
         ("TTL 过期条目被自动清理（evicted_ttl+1）", _d024_ttl),
@@ -1418,6 +1577,30 @@ CHECKS = {
         ("矛盾对加入 contradictions 列表", _d029_contradiction_in_list),
         ("矛盾原因标注（写明是哪一对词）", _d029_contradiction_reason),
         ("报告中显式标注矛盾章节", _d029_report_section),
+    ],
+    "dr-012": [
+        ("问题树支持 ≥2 层，深度与父子关系被记对", _d012_tree_structure),
+        ("每个子问题附可验证假设与数据源（缺的在 issues 里点名）",
+         _d012_hypothesis_and_sources),
+        ("为每个子问题匹配数据源", _d012_data_source_matching),
+        ("计划能存成 research_plan.json 并读回", _d012_plan_json_roundtrip),
+    ],
+    "dr-023": [
+        ("返回 is_mece/overlap_score/coverage_score 三个核心字段",
+         _d023_three_fields),
+        ("子问题关键词重叠时 overlap_score < 1.0 并给出 issues 提示",
+         _d023_overlap_detected),
+        ("子问题覆盖不全时 coverage_score < 1.0 并给出 suggestions",
+         _d023_coverage_and_suggestions),
+        ("无假设的子问题被标记为 issues", _d023_missing_hypothesis_is_issue),
+    ],
+    "dr-031": [
+        ("返回 skill_name/trigger_keywords/instruction/expected_output/"
+         "post_process 五字段", _d031_template_fields),
+        ("instruction 包含平台和查询关键词", _d031_instruction_content),
+        ("trigger_keywords 包含 'research'/'搜索' 等触发词",
+         _d031_trigger_keywords),
+        ("post_process 指示将结果转为 SearchResult", _d031_post_process),
     ],
 }
 

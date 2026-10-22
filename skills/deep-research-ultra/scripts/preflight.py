@@ -243,6 +243,10 @@ PROVENANCE = {
     # 同立场与子串陷阱 0 条、报告结论章的分档与正文），复算入口是
     # analysis/contradictions.py —— 秒级、全离线。
     "v6.106.0": [SCRIPTS / "analysis" / "contradictions.py"],
+    # v6.107 的数字是 MECE 校验的两个分数与计划读回的实测（overlap 旧 0.00 → 新 0.50、
+    # coverage 旧 1.00 → 新 0.00、读回后能遍历 3 个节点），复算入口是
+    # analysis/mece.py —— 秒级、全离线。
+    "v6.107.0": [SCRIPTS / "analysis" / "mece.py"],
 }
 
 # 豁免：同样是实测数字，但**不需要**分析脚本 —— 必须在代码里写清理由，
