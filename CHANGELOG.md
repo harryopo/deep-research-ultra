@@ -5,6 +5,51 @@
 
 ---
 
+## v6.109.0（2026-10-24）— setup-mcp.sh 在 Git Bash 下必挂的修复；一次被过程门拦下的误判（版本纪律确认）
+
+**触发这次改动的事实**（plan-b/continued-optimization 分支首笔，基于 v6.107.0）：
+
+`setup-mcp.sh` 在有 bash 的 Windows 上必挂：`command -v python3` 会选中
+Microsoft Store 存根（WindowsApps/python3.exe）——存根能被 command -v 找到，
+一跑就弹 "Python was not found" 并以非零退出。本机 Git Bash 环境实测
+`test_v6223` 两条端到端必挂（无 bash 的环境走 skipif 才"绿"）。
+
+### 修复
+
+- **setup-mcp.sh 解释器探真身**：`find_python()` 逐候选（python3→python→py）用
+  `-c 'import sys'` 真跑一次，跑得动的才算数；前置检查同步换成探真身判据
+  （Store 存根不再骗过 check_command）。本机 Git Bash 实测 test_v6223 十条全过
+  （修复前 2 挂）。
+
+### 一次被过程门拦下的误判（如实记录）
+
+本版初稿曾把「SKILL.md 6.88.0 vs CHANGELOG v6.107」判为**版本号漂移 19 版**，
+做了三件事：版本追平到 6.109.0、加「CHANGELOG 头 == SKILL.md 版本」防漂钉、
+CHANGELOG 写"追平"。**全量测试当场拦下**：preflight 的实测登记门报
+「v6.109.0 未登记 PROVENANCE」，顺藤读回 `preflight.check_metadata` 判据 1
+与 v6.97/v6.100 的版本记录，确认——**间隔不是漂移，是纪律**：内核版本
+（SKILL.md frontmatter）只在打包发布时抬，CHANGELOG 走工作版本，preflight
+只要求 SKILL.md 版本在 CHANGELOG 里有对应段。已全部撤回（版本回 6.88.0、
+防漂钉删除并在测试文件留 why-not 注释、本条目改写）。
+
+教训与 v6.100 的「声明落后 ≠ 声明说谎」同一条谱系：**先读既有纪律再判漂移**。
+若当初先跑 preflight/读 v6.97 版本记录，初稿就不会写错方向——过程门又一次
+在它该拦的地方拦住了自己人。
+
+### 边界
+
+- `py` launcher 不一定装了 Miniconda 的机器都有——三候选全灭时保留旧回退值
+  `python`，让前置检查报出"缺 python"而不是静默选错。
+- 版本号 v6.109.0（CHANGELOG 工作版本）跳过 6.108——该号留给 stash 里
+  OpenCode 会话的在途工作，避免合并撞号；SKILL.md 内核显示版本维持 6.88.0。
+
+### 新增测试
+
+无（本版撤回了初稿的 1 项防漂钉）。全量维持 **1503 项**（内核 1453＋壳 50）；
+有 Git Bash 的环境此前 2 挂的 setup 端到端现真跑真过（计入既有 10 项之内）。
+
+---
+
 ## v6.107.0（2026-10-22）— 又三个「看起来有、实际空着/坏的」：MECE 的两个分数、计划读回
 
 继续给未纳入的评测写判据（dr-012 / dr-023 / dr-031），**量出三个真缺陷** ——

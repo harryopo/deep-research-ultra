@@ -94,6 +94,14 @@ def test_page_does_not_print_a_live_availability_count(html):
 # ------------------------------------------------------------
 # 版本与测试数：必须与代码一致，且不留旧值
 # ------------------------------------------------------------
+# 注意：本仓库的版本纪律是「内核版本（SKILL.md frontmatter）打包时才抬，
+# CHANGELOG 走细」（见 CHANGELOG v6.97/v6.100 与 preflight.check_metadata
+# 判据 1——只要求 SKILL.md 版本在 CHANGELOG 里有对应段，不要求等于 HEAD）。
+# 所以这里**故意不设**「CHANGELOG 头 == SKILL.md 版本」的钉子：
+# 那会把每次工作提交都逼成立刻抬版本，与纪律相反。
+# 2026-10-24 曾误判 6.88≠6.107 为漂移并加了这枚钉，读回 v6.97/v6.100
+# 后确认是纪律，已撤回（详见 CHANGELOG v6.109.0 的更正段）。
+
 
 def test_public_copy_versions_and_paths_match_the_repo(html):
     """对外文案（宣传页 + README）里的版本号和相对路径都得对得上仓库现状。"""

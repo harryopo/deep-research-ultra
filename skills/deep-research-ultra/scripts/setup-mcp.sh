@@ -44,7 +44,26 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_LOG="$PROJECT_DIR/.mcp-setup.log"
 MCP_JSON="${MCP_JSON:-$PWD/.mcp.json}"     # 默认写当前工作目录；--out 可改
 USE_CLAUDE=0                                # 1＝改走 claude mcp add（宿主 CLI 路线）
-PY_BIN="$(command -v python3 || command -v python || echo python)"
+# v6.109：解释器必须「探真身」再认——Windows 的 Microsoft Store 存根
+# （WindowsApps/python3.exe）能被 command -v 找到，一跑却弹 "Python was not found"
+# 并以非零退出（实测 Git Bash 下旧写法恒选中存根，本脚本在有 bash 的 Windows 上必挂）。
+# 逐个候选用 -c 真跑一次，跑得动的才算数。
+find_python() {
+    local cand
+    for cand in python3 python py; do
+        command -v "$cand" >/dev/null 2>&1 || continue
+        if "$cand" -c 'import sys' >/dev/null 2>&1; then
+            echo "$cand"
+            return 0
+        fi
+    done
+    return 1
+}
+PY_BIN="$(find_python || true)"
+if [ -z "$PY_BIN" ]; then
+    # 三个候选全是存根/缺失：保留旧回退值，让前置检查报出「缺 python」而不是静默错
+    PY_BIN="python"
+fi
 WRITER="$SCRIPT_DIR/mcp_config_writer.py"
 
 # ---------- 工具函数 ----------
@@ -70,8 +89,8 @@ check_prerequisites() {
         log_error "加了 --via-claude 但宿主没有 claude 命令。去掉该参数即可（配置直接写 $MCP_JSON）"
         exit 1
     fi
-    if [ "$USE_CLAUDE" != "1" ] && ! check_command "$PY_BIN"; then
-        missing+=("python（写 .mcp.json 要用它）")
+    if [ "$USE_CLAUDE" != "1" ] && ! "$PY_BIN" -c 'import sys' >/dev/null 2>&1; then
+        missing+=("python（写 .mcp.json 要用它；PATH 里的候选跑不动——Store 存根不算真的）")
     fi
     if ! check_command "npx"; then
         missing+=("npx (Node.js)")

@@ -437,8 +437,9 @@ cd skills/deep-research-ultra/scripts && python -m pytest tests/ -v
 python -m pytest tests/ -v
 ```
 
-当前 **1503 项**（内核 1453 + 壳 50）。Windows 上有 2 项因缺 `bash` 跳过
-（跑 `setup-mcp.sh` 的那两条，是环境依赖不是回归）。
+当前 **1503 项**（内核 1453 + 壳 50）。完全没有 `bash` 的 Windows 上有 2 项
+按 skipif 跳过（跑 `setup-mcp.sh` 的那两条，是环境依赖不是回归）；有 Git Bash
+的机器上因 v6.109 的解释器探真身修复（Store 存根不再被误认）这 2 项真跑真过。
 
 ## 与竞品对比
 
